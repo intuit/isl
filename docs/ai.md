@@ -279,11 +279,11 @@ endwhile
 
 Reusable blocks of code. Declared with `fun` and called with `@.`.
 
-{$ raw %}
+{% raw %}
 ```isl
-fun calculateTotal($price, $tax) {{
+fun calculateTotal($price, $tax) {
     return {{ $price * (1 + $tax) }};
-}}
+}
 
 $total: @.This.calculateTotal(100, 0.1);
 ```
