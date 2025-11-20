@@ -87,9 +87,9 @@ tasks.generateGrammarSource {
     // }
 
     println(">>>>> LOGS")
-    println(">>> Directories {}", grammarDir.absolutePath)
-    println("Source Sets {}", grammarDir)
-    println(">>> Output {}", outputDirectory)
+    println(">>> Directories {}" + grammarDir.absolutePath)
+    println("Source Sets {}" + grammarDir)
+    println(">>> Output {}" + outputDirectory)
     
     setSource(grammarDir.absolutePath)
     include("**/*.g4")
