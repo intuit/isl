@@ -49,7 +49,7 @@ jobs:
         pwd
     
     - name: Build with Gradle
-      run: ./gradlew build --no-daemon --stacktrace --debug
+      run: ./gradlew build --no-daemon --stacktrace
       
     - name: Run tests
       run: ./gradlew test --no-daemon --stacktrace
