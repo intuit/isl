@@ -86,9 +86,10 @@ tasks.generateGrammarSource {
     //     srcDirs("src/main/ant4")
     // }
 
-    logger.warn(">>> Directories {}", grammarDir.absolutePath)
-    logger.warn("Source Sets {}", grammarDir)
-    logger.warn(">>> Output {}", outputDirectory)
+    println(">>>>> LOGS")
+    println(">>> Directories {}", grammarDir.absolutePath)
+    println("Source Sets {}", grammarDir)
+    println(">>> Output {}", outputDirectory)
     
     setSource(grammarDir.absolutePath)
     include("**/*.g4")
