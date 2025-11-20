@@ -72,17 +72,17 @@ ISL supports standard JSON data types.
 
 #### Special Types
 
-{% raw %}
-
 **Dates and Times**
 ISL has robust support for date and time manipulation, assuming UTC.
 
+{% raw %}
 - Get current time: `@.Date.Now()`
 - Parsing: `| date.parse(format, {{ locale: 'en_US' }})`, `| date.fromEpochSeconds`
 - Formatting: `| to.string(format)`
 - Manipulation: `| date.add(value, unit)` (e.g., `DAYS`, `HOURS`, ...)
 - Parts: `| date.part( value )` (e.g. `MONTH`, `YEAR`, `DAY`, `DAYOFYEAR` ...)
 - Conversion to Epoch: `| to.number` (seconds), `| to.epochmillis` (milliseconds)
+{% endraw %}
 
 ```isl
 $now: @.Date.Now();
@@ -100,6 +100,8 @@ ISL can parse and render XML.
 
 XML attributes are represented with an `@` prefix, and text content with `#text`.
 
+{% raw %}
+
 ```isl
 // XML to JSON
 $xml: '<user name="John"><id>123</id></user>';
@@ -109,6 +111,7 @@ $json: $xml | xml.parse; // {{ "@name": "John", "id": "123" }}
 $user: {{ '@name': 'Jane', 'id': 456 }};
 $userXml: $user | to.xml('user'); // <user name="Jane"><id>456</id></user>
 ```
+{% endraw %}
 
 **CSV**
 ISL can parse multi-line CSV data into an array of objects.
@@ -117,11 +120,13 @@ ISL can parse multi-line CSV data into an array of objects.
 
 Options allow specifying headers, separators, and lines to skip.
 
+{% raw %}
 ```isl
 $csvData: "name,age\nJohn,30\nJane,25";
 $parsedCsv: $csvData | csv.parsemultiline;
 // [ {{ "name": "John", "age": "30" }}, {{ "name": "Jane", "age": "25" }} ]
 ```
+{% endraw %}
 
 #### 3. Objects
 
@@ -149,6 +154,7 @@ $object: {
 **Spread Operator**
 The `...` operator copies properties from one object or array into another.
 
+{% raw %}
 ```isl
 $base: {{ a: 1, b: 2 }};
 $extended: {{
@@ -157,6 +163,7 @@ $extended: {{
 }};
 // {{ "a": 1, "b": 2, "c": 3 }}
 ```
+{% endraw %}
 
 ### Control Flow
 
@@ -223,6 +230,7 @@ endswitch
 **foreach**
 Iterates over an array. The loop itself is an expression that returns an array of the results from each iteration.
 
+{% raw %}
 ```isl
 $numbers: [1, 2, 3];
 $doubled: foreach $n in $numbers
@@ -233,6 +241,8 @@ $doubled: foreach $n in $numbers
 endfor
 // [ { "original": 1, "doubled": 2 }, ... ]
 ```
+{% endraw %}
+
 The index is available as `$<iterator>Index` (e.g., `$nIndex`).
 
 A modifier is allowed on the array, but do not add parenthesis around the array and modifier:
@@ -254,12 +264,14 @@ endfor
 **while**
 Executes a block of code as long as a condition is true. A `maxLoops` option prevents infinite loops (default 50).
 
+{% raw %}
 ```isl
 $i: 0;
 while ($i < 5)
     $i: {{ $i + 1 }};
 endwhile
 ```
+{% endraw %}
 
 ### Functions and Modifiers
 
@@ -267,6 +279,7 @@ endwhile
 
 Reusable blocks of code. Declared with `fun` and called with `@.`.
 
+{$ raw %}
 ```isl
 fun calculateTotal($price, $tax) {{
     return {{ $price * (1 + $tax) }};
@@ -274,6 +287,7 @@ fun calculateTotal($price, $tax) {{
 
 $total: @.This.calculateTotal(100, 0.1);
 ```
+{% endraw %}
 `@.This` refers to a function in the current file.
 
 #### Return Statement
@@ -330,9 +344,11 @@ ISL has a rich library of built-in modifiers. You can find a [complete list here
     $even: [1, 2, 3, 4] | filter($fit % 2 == 0); // [2, 4]
     ```
 - **`reduce(expression)`**: Accumulate a single value.
+{% raw %}
     ```isl
     $sum: [1, 2, 3, 4] | reduce({{ $acc + $it }}); // 10
     ```
+{% endraw %}
 
 **Conversions**: `to.string`, `to.number`, `to.boolean`, `to.array`, `encode.base64`, `decode.base64`.
 
@@ -352,18 +368,22 @@ Imports must end with a semicolon. It is conventional to use `PascalCase` for th
 
 #### 1. Math Expressions
 
+{% raw %}
 Math operations must be wrapped in `{{ }}`. (double curly brackets)
 
 - Supported: `+`, `-`, `*`, `/`, `( )`.
 - Example: `$total: {{ ($price - $discount) * 1.1 }};`
+{% endraw %}
 
 #### 2. String Interpolation
 
 Create strings with embedded expressions using a pair of backticks `` `...` ``.
 
-- Simple variable: `` `Name is $name` `` (Important: **DO NOT** add `{{` and `}}` around the simple variable)
+- Simple variable: `` `Name is $name` `` (Important: **DO NOT** add `{` and `}` around the simple variable)
 - Deep property selection of a variable: `` `City is ${ $address.city }` ``
+{% raw %}
 - Math expressions: `` `Total is {{ $price * 1.1 }}` ``
+{% endraw %}
 
 ### Advanced Topics
 
