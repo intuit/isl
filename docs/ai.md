@@ -5,14 +5,18 @@ nav_order: 5
 
 This is a condensed guide to help AI tools learn ISL.
 
-To teach your AI tool (Cursor, Windsurt, ... ) about ISL give it a prompt of
-`Go to this url https://intuit.github.io/isl/ai/ and learn about the ISL languange.`
+To teach your AI tool (Cursor, Windsurt, ... ) about ISL give it this prompt:
+```
+Go to this url https://intuit.github.io/isl/ai/ and learn about the ISL languange.
+```
 
-Once you do that you can simply ask your editor to generate a transform:;
-`
+
+Once you do that you can simply ask your editor to generate a transform:
+
+```
 Generate an ISL transformation between [file1.json] and [file2.json]
-`
-.
+```
+
 
 ## SECTION 1: GENERAL RULES
 You are an elite ISL (Intuitive Scripting Language) Code Generator. Your sole purpose is to generate complete, production-ready ISL code for a json to json transformations based on the provided language reference and rules.
@@ -86,7 +90,7 @@ ISL has robust support for date and time manipulation, assuming UTC.
 
 {% raw %}
 - Get current time: `@.Date.Now()`
-- Parsing: `| date.parse(format, {{ locale: 'en_US' }})`, `| date.fromEpochSeconds`
+- Parsing: `| date.parse(format, { locale: 'en_US' })`, `| date.fromEpochSeconds`
 - Formatting: `| to.string(format)`
 - Manipulation: `| date.add(value, unit)` (e.g., `DAYS`, `HOURS`, ...)
 - Parts: `| date.part( value )` (e.g. `MONTH`, `YEAR`, `DAY`, `DAYOFYEAR` ...)
@@ -114,10 +118,10 @@ XML attributes are represented with an `@` prefix, and text content with `#text`
 ```isl
 // XML to JSON
 $xml: '<user name="John"><id>123</id></user>';
-$json: $xml | xml.parse; // {{ "@name": "John", "id": "123" }}
+$json: $xml | xml.parse; // { "@name": "John", "id": "123" }
 
 // JSON to XML
-$user: {{ '@name': 'Jane', 'id': 456 }};
+$user: { '@name': 'Jane', 'id': 456 };
 $userXml: $user | to.xml('user'); // <user name="Jane"><id>456</id></user>
 ```
 {% endraw %}
@@ -133,7 +137,7 @@ Options allow specifying headers, separators, and lines to skip.
 ```isl
 $csvData: "name,age\nJohn,30\nJane,25";
 $parsedCsv: $csvData | csv.parsemultiline;
-// [ {{ "name": "John", "age": "30" }}, {{ "name": "Jane", "age": "25" }} ]
+// [ { "name": "John", "age": "30" }, { "name": "Jane", "age": "25" } ]
 ```
 {% endraw %}
 
@@ -165,12 +169,12 @@ The `...` operator copies properties from one object or array into another.
 
 {% raw %}
 ```isl
-$base: {{ a: 1, b: 2 }};
-$extended: {{
+$base: { a: 1, b: 2 };
+$extended: {
     ...$base,
     c: 3
-}};
-// {{ "a": 1, "b": 2, "c": 3 }}
+};
+// { "a": 1, "b": 2, "c": 3 }
 ```
 {% endraw %}
 
@@ -361,16 +365,16 @@ ISL has a rich library of built-in modifiers. You can find a [complete list here
 - `sort`, `reverse`, `push(item)`, `pop`.
 - **`map(expression)`**: Transform each element.
     ```isl
-    $ids: [ {id:1}, {id:2} ] | map($.id); // [1, 2]
+    $ids: [ {id:1}, {id:2} ] | map( $.id ); // [1, 2]
     ```
 - **`filter(condition)`**: Select elements that match a condition.
     ```isl
-    $even: [1, 2, 3, 4] | filter($fit % 2 == 0); // [2, 4]
+    $even: [1, 2, 3, 4] | filter( $ % 2 == 0 ); // [2, 4]
     ```
 - **`reduce(expression)`**: Accumulate a single value.
 {% raw %}
     ```isl
-    $sum: [1, 2, 3, 4] | reduce({{ $acc + $it }}); // 10
+    $sum: [1, 2, 3, 4] | reduce( {{ $acc + $it }} ); // 10
     ```
 {% endraw %}
 
