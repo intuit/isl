@@ -299,21 +299,6 @@ You can call the above function using this syntax `$total: @.This.calculateTotal
 
 `@.This` refers to a function in the current file.
 
-#### run function
-Generally try to include a main run function with the $input as the parameter that contains the primary function to be executed. All transformation code has to be either in a function or in a modifier.
-
-```isl
-// main entry
-fun run( $input ){
-    ... main transformation code goes here
-}
-
-// helper functions
-...
-
-// helper modifiers
-```
-
 #### Return Statement
 Functions must always return a value. If you need to exit a function without returning a specific value, you must return an empty object: `return {};`. A plain `return;` is not valid.
 
@@ -322,7 +307,7 @@ Functions must always return a value. If you need to exit a function without ret
 Special functions that are "piped" to a value using `|`. They are used for data transformation chains. The value on the left of the `|` is the first argument to the modifier.
 
 ```isl
-modifier toUpperCase($text) {
+modifier toUpperCase( $text ) {
     // a real implementation would use a built-in
     // this is just for demonstration
     return ... ;
@@ -335,6 +320,21 @@ Note: When using a modifier in an `if` condition, do not wrap with `(...)`:
 ```isl
     if (($someStr | length) > 6) ... endif // this causes a compiler error
     if ($someStr | length > 6) ... endif   // correct syntax
+```
+
+You can use modifiers instead of functions generally for simpler 1-2 parameter functions that return a simple value, especially when that value is calculated relatively easily
+for example from an if/switch case or math expression.
+This:
+```isl
+fun getShippingStatus($status) {
+    ...
+}
+```
+can be replaced with
+```isl
+modifer shippingStatus( $status ) {
+    ...
+}
 ```
 
 #### 3. Built-in Modifiers
@@ -401,13 +401,47 @@ Math operations must be wrapped in `{{ }}`. (double curly brackets)
 
 #### 2. String Interpolation
 
-Create strings with embedded expressions using a pair of backticks `` `...` ``.
+Create complex strings when mixing textual strings, variables as string interpolation with embedded expressions using a pair of backticks `` `...` ``.
 
-- Simple variable: `` `Name is $name` `` (Important: **DO NOT** add `{` and `}` around the simple variable)
-- Deep property selection of a variable: `` `City is ${ $address.city }` ``
+E.g.
+- `{ message: ```Welcome ${ $customer.Name }. Today is ${ @.Date.Now() }` ``}` - use string interpolation
+- `{ firstName: $customer.name }` - no need for string interpolation
+
+**Interpolation rules:**
+- Simple variable that is ONLY one level deep and has no `.` in it:
+    - `$input` is a simple variable that needs no wrapper around e.g. `` `Name is $input` ``
+    - `$input.name` is a deep varible that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.name }` ``
+    - `$input.invoice.name` is also a deep varible that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.invoice.name }` ``
 {% raw %}
 - Math expressions: `` `Total is {{ $price * 1.1 }}` ``
 {% endraw %}
+- If you need to enter a literaly `$` dollar sign in an interpolated string for example to represent the dollar currency you need to escape that with `\` example: `\$${ $item.price }`
+- If you just want the value of a property without combining it with extra text or other properties you don't need to interpolate it. e.g. `{ employeeId: $emp.id }`
+- There's no need to write comments in the generated code explaining your decision to interpolate or not.
+
+### ISL STRUCTURE
+With all these learnings you now need to make sure the structure of the ISL file is compliant. 
+
+You have to include a `fun run( $input ){ ... }` function with the `$input` as the parameter that contains the primary function to be executed. All transformation code has to be either in a helper function or in a modifier.
+
+Correct Structure of ISL files is. 
+```isl
+// main entry
+fun run( $input ){
+    ... main transformation code goes here
+}
+
+// helper functions
+...
+
+// helper modifiers
+```
+Please respect this and genearte code using this structure.
+
+Few more rules to generate clean ISL:
+- It's generally nice to leave spaces inside the brackets `(  )` when calling functions or modifiers, especially if inside it there are brackets like this `| map( {{ $it.quantity * $it.unitPrice }} )`
+- If you think the user is learning or a beginner in ISL you can write helpful comments and add links to the docs to explain how syntax works but don't exagerate and don't duplicate
+
 
 ### Advanced Topics
 
@@ -422,3 +456,4 @@ ISL provides modifiers for common cryptographic operations.
 ```isl
 $hash: "my data" | crypto.sha256 | to.hex;
 ```
+
