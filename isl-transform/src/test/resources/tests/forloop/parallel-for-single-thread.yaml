@@ -1,0 +1,168 @@
+name: |
+    These tests are forcing the execution to be single threaded for hosts that don't support parallel processing
+    In code there is an enforcement for maxParallelWorkers: 5
+tests:
+- name: Parallel For with outside var read
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  )
+            $rr = {
+              r: $i,
+              o: $outside.value
+            }
+            $rr
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+- name: Parallel For with object declaration as output
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  )
+            
+            {
+              r: $i,
+              o: $outside.value
+            }
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+
+- name: Parallel For with outside array add
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $result = []
+    
+      parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  )
+    
+            // push in an array outside of this parallel
+            $result = $result | push( {
+              r: $i
+            } )
+      endfor
+    
+      return $result
+    }
+  expected: # The modify from outside works here because we're in a single threaded stack not in a parallel one
+    [{"r":1},{"r":2},{"r":3},{"r":4},{"r":5},{"r":6},{"r":7},{"r":8},{"r":9},{"r":10},{"r":1},{"r":2},{"r":3},{"r":4},{"r":5},{"r":6},{"r":7},{"r":8},{"r":9},{"r":10},{"r":1},{"r":2},{"r":3},{"r":4},{"r":5},{"r":6},{"r":7},{"r":8},{"r":9},{"r":10},{"r":1},{"r":2},{"r":3},{"r":4},{"r":5},{"r":6},{"r":7},{"r":8},{"r":9},{"r":10},{"r":1},{"r":2},{"r":3},{"r":4},{"r":5},{"r":6},{"r":7},{"r":8},{"r":9},{"r":10}]
+
+- name: Validate Thread Ids (6 by default)
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  );
+    
+            {
+              tid: @.Thread.Id()
+            }
+      endfor
+    
+      // We can't really test if the numbers for tids 1..6 or a bigger range as Koltin will execute them all over the place
+      // all we care is that they are more than 1
+      @.Log.Info(`Result=$result`)
+      $result = $result | unique( $.tid ) | length;
+      return if( $result > 1 )
+        true
+      else
+        false
+    }
+  expected: # you can't modify vars outside the scope!
+    false
+
+
+- name: Validate Single Thread
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  );
+    
+            {
+              tid: @.Thread.Id()
+            }
+      endfor
+    
+      // We can't really test if the numbers for tids 1..6 or a bigger range as Koltin will execute them all over the place
+      // all we care is that they are more than 1
+      @.Log.Info(`Result=$result`)
+      $result = $result | unique( $.tid ) | length;
+      
+      return {
+        unique: $result,
+        max: $isl.maxParallelWorkers
+      }
+    }
+  expected: # you can't modify vars outside the scope!
+    {  unique: 1, max: 1 }
+
+- name: Validate Single Thread even with options override
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+
+      // setting workers here won't work as we enforce it to 1 in code
+      $result = parallel { workers: 5 } foreach $i in $input
+            $r = @.Math.RandInt(1, 50)
+            @.Run.Sleep( {{ $r }}  );
+    
+            {
+              tid: @.Thread.Id()
+            }
+      endfor
+    
+      // We can't really test if the numbers for tids 1..6 or a bigger range as Koltin will execute them all over the place
+      // all we care is that they are more than 1
+      
+      @.Log.Info(`Result=$result`)
+      $result = $result | unique( $.tid ) | length;
+    
+      return {
+        unique: $result,
+        max: $isl.maxParallelWorkers
+      }
+    }
+  expected: # you can't modify vars outside the scope!
+    {  unique: 1, max: 1 }

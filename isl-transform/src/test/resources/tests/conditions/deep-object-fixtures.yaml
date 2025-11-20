@@ -1,0 +1,34 @@
+name: ""
+tests:
+  - name: ""
+    script: |-
+      $val: @.Call.Api();
+      $result: if ( $val.body.product.value ) {
+        id: $val.body.product.id
+      }
+      product: $result
+    expected: { "product": null }
+  - name: ""
+    script: |-
+      $val: @.Call.Api();
+      $result: if ( !$val.body.product.value ) {
+        id: $val.body.product.id
+      }
+      product: $result
+    expected: { "product": { "id": 1 } }
+  - name: ""
+    script: |-
+      $val: @.Call.Api();
+      $result: if ( $val.body.product.value2 ) {
+        id: $val.body.product.id
+      }
+      product: $result
+    expected: { "product": null }
+  - name: ""
+    script: |-
+      $val: @.Call.Api();
+      $result: if ( !$val.body.product.value2 ) {
+        id: $val.body.product.id
+      }
+      product: $result
+    expected: { "product": { "id": 1 } }

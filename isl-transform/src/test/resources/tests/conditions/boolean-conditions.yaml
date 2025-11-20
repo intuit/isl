@@ -1,0 +1,17 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      $t: true;result: if( $t ) 1 else 2;
+    expected:
+      { "result": 1 }
+  - name: ""
+    script: |
+      $t: true;result: if( !$t ) 1 else 2;
+    expected: { "result": 2 }
+  - name: ""
+    script: "$t: false;result: if( $t ) 1 else 2;"
+    expected: { "result": 2 }
+  - name: ""
+    script: "$t: false;result: if( !$t ) 1 else 2;"
+    expected: { "result": 1 }

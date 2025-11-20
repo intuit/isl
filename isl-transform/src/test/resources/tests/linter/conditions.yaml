@@ -1,0 +1,9 @@
+name: ""
+tests:
+  - name: "simplify condition"
+    script: |
+      result: if( $transaction and $transaction.value ) true else false;
+    expected:
+      issues: [{"loc":"1:12/1:47","recommendation":"if( $transaction.value )"}]
+
+

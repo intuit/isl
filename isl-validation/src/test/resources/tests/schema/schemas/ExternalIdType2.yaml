@@ -1,0 +1,19 @@
+openapi: 3.0.0
+info:
+  title: idx3
+  version: '1.0'
+servers:
+  - url: 'http://localhost:3000'
+paths: { }
+components:
+  schemas:
+    ExternalIdType:
+      title: ExternalIdType
+      type: string
+      enum:
+        - received
+        - created
+        - searchmatch
+        - resolutionmatch
+        - usermatch
+        - deleted

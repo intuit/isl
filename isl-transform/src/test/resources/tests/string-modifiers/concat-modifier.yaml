@@ -1,0 +1,53 @@
+name: ""
+tests:
+- name: ""
+  script: |
+    result: "" | concat()
+  expected: { "result": "" }
+
+- name: ""
+  script: |
+    result: null | concat()
+  expected: { "result": "" }
+
+- name: ""
+  script: |
+    result: $missing | concat()
+  expected: { "result": "" }
+
+- name: ""
+  script: |
+    result: "123" | concat()
+  expected: { "result": "123" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | concat( "abc" )
+  expected: { "result": "123abc" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | concat( "abc", null )
+  expected: { "result": "123abc" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | concat( "abc", $missing )
+  expected: { "result": "123abc" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | concat( $missing1, $missing2 )
+  expected: { "result": "123" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $missing | concat( $missing1, $missing2 )
+  expected: { "result": "" }
+
+scripts: null

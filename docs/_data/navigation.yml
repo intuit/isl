@@ -1,0 +1,96 @@
+# Main navigation
+main:
+  - title: "Home"
+    url: /
+  - title: "Quick Start"
+    url: /quickstart
+  - title: "Overview"
+    url: /overview
+  - title: "GitHub"
+    url: https://github.com/intuit/isl
+
+# Documentation sidebar navigation
+docs:
+  - title: Getting Started
+    children:
+      - title: "Home"
+        url: /
+      - title: "Quick Start"
+        url: /quickstart
+      - title: "Overview"
+        url: /overview
+      - title: "Java/Kotlin Integration"
+        url: /java.start
+
+  - title: Language Reference
+    children:
+      - title: "Variables"
+        url: /language/variables
+      - title: "Objects"
+        url: /language/objects
+      - title: "Conditions"
+        url: /language/conditions
+      - title: "Loops"
+        url: /language/loops
+      - title: "Functions & Modifiers"
+        url: /language/functions
+      - title: "Built-in Modifiers"
+        url: /language/modifiers
+      - title: "Math Expressions"
+        url: /language/math
+      - title: "Named Types"
+        url: /language/namedtypes
+
+  - title: Data Types
+    children:
+      - title: "Type System"
+        url: /language/types
+      - title: "Strings"
+        url: /types/strings
+      - title: "Dates & Times"
+        url: /types/dates
+      - title: "CSV"
+        url: /types/csv
+      - title: "XML"
+        url: /types/xml
+
+  - title: Examples
+    children:
+      - title: "Date Examples"
+        url: /examples/dates
+      - title: "Object Examples"
+        url: /examples/objects
+      - title: "Signature Examples"
+        url: /examples/signatures
+
+  - title: Advanced Topics
+    children:
+      - title: "Pagination"
+        url: /advanced/pagination
+      - title: "Cryptography"
+        url: /advanced/crypto
+
+  - title: Developer Guide
+    children:
+      - title: "Best Practices"
+        url: /dev/best-practices
+      - title: "Hosting & Embedding"
+        url: /dev/hosting
+      - title: "Performance Benchmarks"
+        url: /dev/jolt-vs-isl-benchmark-report
+      - title: "Release Process"
+        url: /dev/release
+      - title: "Contributing"
+        url: /dev/contributing
+
+  - title: More
+    children:
+      - title: "JSON DSL (Kotlin)"
+        url: /dsl
+      - title: "Changelog"
+        url: /changelog
+      - title: "Roadmap"
+        url: /roadmap
+      - title: "Support"
+        url: /support
+

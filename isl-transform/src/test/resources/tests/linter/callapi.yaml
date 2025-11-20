@@ -1,0 +1,10 @@
+name: ""
+tests:
+  - name: "avoid callapi paths with query"
+    script: |
+      somecall: @.Call.Api( { path: '/dostuff?value=123' } )
+    expected:
+      issues:
+        [
+          { "loc":"1:10/1:54","recommendation":"call.api ( {\\n    path: \"/dostuff\",\\n    query: {\\n        queryParam: value\\n    }})" }
+        ]

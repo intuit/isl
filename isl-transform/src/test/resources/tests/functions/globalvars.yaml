@@ -1,0 +1,40 @@
+name: ""
+tests:
+  - name: "simple pass of global"
+    script: |
+      fun run(){
+        return {
+          result: @.This.child( ) 
+        }
+      }
+      fun child(  ){
+        return {  
+          // we can't use `version` in tests as it keeps changing, however jacksonVersion changes less often
+          version: $isl.jacksonVersion
+        }
+      }
+
+    # $isl global variable was passed from function to function
+    expected: {"result":{"version":"2.18.3"}}
+
+  - name: "simple pass of global2"
+    script: |
+      fun run(){
+        return {
+          result: @.This.child( ) 
+        }
+      }
+      fun child(  ){
+        return {
+          child: 123 | test
+        }
+      }
+      modifier test(){
+        return {  
+            // we can't use `version` in tests as it keeps changing, however jacksonVersion changes less often
+            version: $isl.jacksonVersion
+          }
+      }
+
+    # $isl global variable was passed from function to function
+    expected: {"result":{"child":{"version":"2.18.3"}}}

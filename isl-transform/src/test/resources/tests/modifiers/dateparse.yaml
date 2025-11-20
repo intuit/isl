@@ -1,0 +1,21 @@
+name: ""
+tests:
+
+  # notz = '2025-01-29T21:20:56' | date.parse("yyyy-MM-dd'T'HH:mm:ssx");
+- name: "X specifiers"
+  script: |
+    simplez = '2025-01-29T01:20:56-08' | date.parse("yyyy-MM-dd'T'HH:mm:ssx");
+    longz = '2025-01-29T01:20:56-0830' | date.parse("yyyy-MM-dd'T'HH:mm:ssx");
+    splitz1 = '2025-01-29T01:20:56-0830' | date.parse("yyyy-MM-dd'T'HH:mm:ssX");
+    splitz2 = '2025-01-29T01:20:56-08:30' | date.parse("yyyy-MM-dd'T'HH:mm:ssXXX");     // 3X
+    verylongz = '2025-01-29T01:20:56-083015' | date.parse("yyyy-MM-dd'T'HH:mm:ssXXXX"); //4X
+    verylongsplit = '2025-01-29T01:20:56-08:30:15' | date.parse("yyyy-MM-dd'T'HH:mm:ssXXXXX");  // 5x
+  expected: {
+    "simplez": "2025-01-29T09:20:56.000Z",
+    "longz": "2025-01-29T09:50:56.000Z",
+    "splitz1": "2025-01-29T09:50:56.000Z",
+    "splitz2": "2025-01-29T09:50:56.000Z",
+    "verylongz": "2025-01-29T09:51:11.000Z",
+    "verylongsplit": "2025-01-29T09:51:11.000Z"
+  }
+

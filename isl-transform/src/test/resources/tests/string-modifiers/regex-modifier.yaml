@@ -1,0 +1,135 @@
+name: ""
+tests:
+- name: ""
+  script: |
+    result: "a b c a b c" | regex.find( "(\s.?\s)" )
+  expected: { "result": [" b " , " a "] }
+- name: ""
+  script: |
+    result: "abcabc" | regex.find( "(\s.?\s)" )
+  expected: { "result":[] }
+- name: ""
+  script: |-
+    result: "123 is simple
+    1424 is not so simple" | regex.find( "^([0-9]+).*", { multiLine: true} )
+  expected: { "result": ["123" , "1424"] }
+- name: ""
+  script: |-
+    result: "123 is simple
+    1424 is not so simple" | regex.find( "^([0-9]+).*", { multiLine: false} )
+  expected: { "result": ["123"] }
+- name: ""
+  script: |
+    result: "CaseInsensitive test" | regex.find( "caseinsensitive", { ignoreCase: true } )
+  expected: { "result": ["CaseInsensitive"] }
+- name: ""
+  script: |
+    result: "CaseInsensitive test" | regex.find( "caseinsensitive", { ignoreCase: false} )
+  expected: { "result": [] }
+- name: ""
+  script: |
+    result: "regex with comment test" | regex.find( "comment #followed by", { comments: true} )
+  expected: { "result": ["comment"] }
+- name: ""
+  script: |
+    result: "regex with comment test" | regex.find( "comment #followed by", { comments: false} )
+  expected: { "result": [] }
+- name: ""
+  script: |-
+    result: "this is simple
+    This is not so simple" | regex.find( "^this", { multiLine: true, ignoreCase: true} )
+  expected: { "result": ["this" , "This"] }
+- name: ""
+  script: |-
+    result: "this is simple
+    This is not so simple" | regex.find( "^(This) #and the rest", { multiLine: true, comments: true} )
+  expected: { "result": ["This"] }
+- name: ""
+  script: |
+    result: "this is a TestCase" | regex.find( "testcase #with commments", { ignoreCase: true, comments: true} )
+  expected: { "result": ["TestCase"] }
+- name: ""
+  script: |
+    result: "the quick brown fox and the quick brown fox" | regex.find( "(the) quick (brown) fox" )
+  expected: { "result": ["the", "brown", "the", "brown"] }
+- name: ""
+  script: |
+    result: "a b c d " | regex.find( "(?<first>\sb\s)" )
+  expected: { "result": [{ "first":" b "}] }
+- name: ""
+  script: |
+    result: "a b  c d b e b c" | regex.find( "(?<first>\sb\s)(?<second>\sc\s)*" )
+  expected: { "result": [{ "first":" b ", "second":" c "}, { "first":" b "}, {"first":" b "}] }
+- name: ""
+  script: |
+    result: "a b c a b c" | regex.matches( "(\s.?\s)" )
+  expected: { "result": true }
+- name: ""
+  script: |
+    result: "abcabc" | regex.matches( "(\s.?\s)" )
+  expected: { "result": false }
+- name: ""
+  script: |
+    result: "The quick Brown fox" | regex.matches( "brown", { ignoreCase: true} )
+  expected: { "result": true }
+- name: ""
+  script: |
+    result: "a b c d b e b c" | regex.replace( "(\sb\s)", " " )
+  expected: { "result":"a c d e c" }
+- name: ""
+  script: |
+    result: "this is the word to replace and replace again" | regex.replace( "replace", "stay" )
+  expected: { "result":"this is the word to stay and stay again" }
+- name: ""
+  script: |
+    result: "this is the word to replace and RepLace again" | regex.replace( "replace", "stay", {ignoreCase: true} )
+  expected: { "result":"this is the word to stay and stay again" }
+- name: ""
+  script: |
+    result: "this is the word to replace and RepLace again" | regex.replace( "replace", "stay", {ignoreCase: false} )
+  expected: { "result":"this is the word to stay and RepLace again" }
+- name: ""
+  script: |-
+    result: "123 is simple
+    1424 is not so simple" | regex.replace( "^([0-9]+)", "This", { multiLine: true} )
+  expected:
+    {
+      "result": "This is simple\nThis is not so simple"
+    }
+- name: ""
+  script: |-
+    result: "some text,,,,,,,,
+    ,,,,,,,,
+    other text
+    "| regex.replace( "^,*$", "", { multiLine: true} )
+  expected:
+    {
+      "result": "some text,,,,,,,,\n\nother text\n"
+    }
+- name: ""
+  script: |-
+    result: "some text,,,,,,,,
+    ,,,,,,,,
+    other text
+    "| regex.replace( "^,*
+    ", "", { multiLine: true} )
+  expected:
+    {
+      "result": "some text,,,,,,,,\nother text\n"
+    }
+- name: ""
+  script: |-
+    result: "some text,,,,,,,,
+    ,,,,,,,,
+    other text
+    "| regex.replaceFirst( ",+", "", { multiLine: true} )
+  expected:
+    {
+      "result": "some text\n,,,,,,,,\nother text\n"
+    }
+- name: ""
+  script: |
+    result: "bbbaaa
+    aaa
+    aaabbbaaa" | regex.replaceFirst( "[a\n]+", "c", { multiLine: true } )
+  expected: { "result": "bbbcbbbaaa" }

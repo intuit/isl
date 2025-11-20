@@ -1,0 +1,89 @@
+name: "xml output modifier"
+tests:
+- name: ""
+  script: |
+    result: { a: 1, b: true, c: { d: 'test' } } | to.xml
+  expected:
+    {
+      "result": "<root><a>1</a><b>true</b><c><d>test</d></c></root>"
+    }
+- name: ""
+  script: |
+    result: { '@a': 1, '@b': true, c: { d: 'test' } } | to.xml
+  expected:
+    {
+        "result": "<root a=\"1\" b=\"true\"><c><d>test</d></c></root>"
+    }
+- name: ""
+  script: |
+    result: { a: 1, b: true, c: { d: 'test' } } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a>1</a><b>true</b><c><d>test</d></c></start>"
+    }
+- name: ""
+  script: |
+    result: { '@a': 1, '@b': true, c: { d: 'test' } } | to.xml('start')
+  expected:
+    {
+      "result": "<start a=\"1\" b=\"true\"><c><d>test</d></c></start>"
+    }
+- name: ""
+  script: |
+    result: { a: { '@b': true, value: 123, '@other': 'hi there' } } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a b=\"true\" other=\"hi there\"><value>123</value></a></start>"
+    }
+- name: ""
+  script: |
+    result: { a: { '@b': true, '@other': 'hi there', '#text': 'my text' } } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a b=\"true\" other=\"hi there\">my text</a></start>"
+    }
+- name: ""
+  script: |
+    result: { a: { '@b': true, '@other': 'hi there', '#text': 'my text' } } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a b=\"true\" other=\"hi there\">my text</a></start>"
+    }
+- name: ""
+  script: |
+    result: { a: [1, 2, { c: true } ] } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a>1</a><a>2</a><a><c>true</c></a></start>"
+    }
+- name: ""
+  script: |
+    result: { a: [ {b:1}, {b:2}, { b: 3 } ] } | to.xml('start')
+  expected:
+    {
+      "result": "<start><a><b>1</b></a><a><b>2</b></a><a><b>3</b></a></start>"
+    }
+- name: ""
+  script: |
+    result: { items: { item: [ 1, 2, 3 ] } } | to.xml('start')
+  expected:
+    {
+      "result": "<start><items><item>1</item><item>2</item><item>3</item></items></start>"
+    }
+- name: ""
+  script: |
+    result: {
+      ke: {
+        '@name': 'my name',
+        items: {
+          item: [ 1, 2 ]
+        }
+      },
+      other: {
+        '#text': 'my text'
+      }
+    } | to.xml('myRoot')
+  expected:
+    {
+      "result": "<myRoot><ke name=\"my name\"><items><item>1</item><item>2</item></items></ke><other>my text</other></myRoot>"
+    }

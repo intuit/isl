@@ -1,0 +1,68 @@
+name: ""
+tests:
+  - name: ""
+    script: | 
+      if( 1 == 1 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      if( 1 != 2 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1 >= 1 ) result: true else result:false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1 <= 1 ) result: true else result:false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1 > 1 ) result: true else result:false endif
+    expected: { "result": false }
+  - name: ""
+    script: | 
+      if( 1 < 1 ) result: true else result:false endif
+    expected: { "result": false }
+  - name: ""
+    script: | 
+      if( 1.2 == 1.2 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1.2 >= 1.2 ) result: true else result:false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1.2 <= 1.2 ) result: true else result:false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1.2 > 1.2 ) result: true else result:false endif
+    expected: { "result": false }
+  - name: ""
+    script: | 
+      if( 1.2 < 1.2 ) result: true else result:false endif
+    expected: { "result": false }
+  - name: ""
+    script: | 
+      if( 1.20 == 1.2 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: | 
+      if( 1.000 == 1 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $v = 1.23; if( $v == 1.23 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $v = 1.23; if( $v == 1.230000 )  result: true else result: false endif
+    expected: { "result": true }
+  - name: ""
+    script: |-
+      $v1 = 1645008449;
+      $v2 = 1645000735;
+      if( $v1 < $v2 ) result: true else result: false endif
+    expected: { "result": false }

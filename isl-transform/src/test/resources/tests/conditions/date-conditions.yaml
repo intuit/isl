@@ -1,0 +1,74 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      if( "201203" | date.parse("yyMMdd") == "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      if( "201203" | date.parse("yyMMdd") >= "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result:false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      if( "201203" | date.parse("yyMMdd") <= "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result:false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      if( "201203" | date.parse("yyMMdd") > "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result:false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( "201203" | date.parse("yyMMdd") < "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result:false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( "201204" | date.parse("yyMMdd") == "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( "201201" | date.parse("yyMMdd") == "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result:false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( "201204" | date.parse("yyMMdd") < "201203" | date.parse("yyMMdd"))  
+        result: true 
+      else 
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( "201204" | date.parse("yyMMdd") > "201203" | date.parse("yyMMdd"))
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": true }

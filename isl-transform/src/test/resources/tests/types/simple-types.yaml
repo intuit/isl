@@ -1,0 +1,142 @@
+name: ""
+tests:
+  - name: "Simple"
+    script: |
+      $value: 123;
+      $var2: {
+        num: 1234.5
+      }
+
+      $result: { 
+        s1: "123", // string
+        s2: `abc${$value}def`, // interpolated string
+        
+        n1: 123,
+        n2: $value,
+        n3: 12.345, 
+        n4: $var2.num,
+        
+        b1: true
+      }
+
+      return {
+        result: $result,
+        resultt: $result | typeof,
+        
+        s1t: $result.s1 | typeof,
+        s2t: $result.s2 | typeof,
+
+        n1t: $result.n1 | typeof,
+        n2t: $result.n2 | typeof,
+        n3t: $result.n3 | typeof,
+        n4t: $result.n4 | typeof,
+
+        b1t: $result.b1 | typeof,
+      }
+
+    expected: {
+      "result": {
+        "s1": "123",
+        "s2": "abc123def",
+        "n1": 123,
+        "n2": 123,
+        "n3": 12.345,
+        "n4": 1234.5,
+        "b1": true
+      },
+      "resultt": "object",
+      "s1t": "string",
+      "s2t": "string",
+      "n1t": "number",
+      "n2t": "number",
+      "n3t": "number",
+      "n4t": "number",
+      "b1t": "boolean"
+    }
+
+# Today all Arrays are just arrays, we don't keep types
+  - name: "Arrays"
+    script: |
+      $a1: [];
+      $a2: [ 123 ];
+      $ta1: string [] = ["abc"];
+      $ta2: string[] = ["abc"];
+      $ta3: MyType [] = [];
+      $ta4: org.name.mytype[] = [];
+
+      $v = {
+        a: string[] = [ "value" ]
+      }
+      
+      return {
+        a1: $a1 | typeof,
+        a2: $a2 | typeof,
+        ta1: $ta1 | typeof,
+        ta2: $ta2 | typeof,
+        ta3: $ta3 | typeof,
+        ta4: $ta4 | typeof,
+        v: $v.a | typeof
+      }
+
+    expected: {
+      "a1": "array",
+      "a2": "array",
+      "ta1": "array",
+      "ta2": "array",
+      "ta3": "array",
+      "ta4": "array",
+      "v": "array"
+    }
+
+  - name: "Nulls"
+    script: |
+      $empty: null;
+      $declaredNull: MyCustomType = null;
+      $string: "";
+      
+      return {
+        emptyT: $empty | typeof,
+        declaredNull: $declaredNull | typeof,
+        stringt: $string | typeof,
+        nothing: $noVar | typeof,
+      }
+    expected: {"emptyT":"null","declaredNull":"null","stringt":"string","nothing":"null"}
+
+  - name: "Empty Objects"
+    script: |
+      $result: MyType = { }
+      return {
+        result: $result,
+        type: $result | typeof
+      }
+    expected: {"result":{},"type":"MyType"}
+
+  - name: "Arrays"
+    script: |
+      $empty: []
+      $items: [ 1, 2, 3 ]
+      return {
+        emptyT: $empty | typeof,
+        itemst: $items | typeof,
+        missingItemT: $items | at( 5 ) | typeof
+      }
+    expected: {"emptyT":"array","itemst":"array","missingItemT":"null"}
+
+  - name: "Type Changes"
+    script: |
+      $result: {
+        abc: true
+      }
+      // this is a byref so we're changing the type of the $result as well!!
+      $changed: MyType = $result;
+      
+      $copy: {  // type is not copied
+        ... $changed
+      };
+
+      return {
+        type: $result | typeof,
+        changed: $changed | typeof,
+        copy: $copy | typeof
+      }
+    expected: {"type":"MyType","changed":"MyType","copy":"object"}

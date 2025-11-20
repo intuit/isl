@@ -1,0 +1,206 @@
+name: ""
+tests:
+- name: ""
+  script: |
+    result: $t | csv.parsemultiline
+  expected:
+    {
+      "result": []
+    }
+- name: ""
+  script: |-
+    $t: "";
+    result: $t | csv.parsemultiline
+  expected: { "result": [] }
+- name: ""
+  script: |-
+    $t: "a,b,c";
+    result: $t | csv.parsemultiline
+  expected: { "result": [  ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3";
+    result: $t | csv.parsemultiline
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2";
+    result: $t | csv.parsemultiline
+  expected: { "result": [ {"a":"1", "b":"2"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2
+    ";
+    result: $t | csv.parsemultiline
+  expected: { "result": [ {"a":"1", "b":"2"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3,4";
+    result: $t | csv.parsemultiline
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3", "Col4":"4"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3
+    4,5,6,7";
+    result: $t | csv.parsemultiline
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3"}, {"a":"4", "b":"5", "c":"6", "Col4":"7"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3
+    4,5,6,7";
+    result: $t | csv.parsemultiline( { separator: "," } )
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3"}, {"a":"4", "b":"5", "c":"6", "Col4":"7"} ] }
+- name: ""
+  script: |-
+    $t: "a|b|c
+    1|2|3
+    4|5|6|7";
+    result: $t | csv.parsemultiline( { separator: "|" } )
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3"}, {"a":"4", "b":"5", "c":"6", "Col4":"7"} ] }
+- name: ""
+  script: |-
+    $t: "random text
+    more text
+    a,b,c
+    1,2,3";
+    result: $t | csv.parsemultiline( { skipLines: 2 } )
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3";
+    result: $t | csv.parsemultiline( { headers: [ "c1", "c2", "c3" ]} )
+  expected: { "result": [ { "c1":"a", "c2":"b", "c3":"c" }, {"c1":"1", "c2":"2", "c3":"3"} ] }
+- name: "No escape character"
+  script: |-
+    $t: "a,b,c
+    1\,2,3,4";
+    result: $t | csv.parsemultiline( { escapeChar: "$" } )
+  expected: { "result": [ {"a":"1\\", "b":"2", "c":"3", "Col4":"4"} ] }
+- name: "Escaped character provided"
+  script: |-
+    $t: "a,b,c
+    1\,2,3,4";
+    result: $t | csv.parsemultiline( { escapeChar: "\" } )
+  expected: { "result": [ {"a":"1,2", "b":"3", "c":"4"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.parsemultiline( { quoteChar: '|' } )
+  expected:
+    {
+      "result": [
+        {
+          "a":"1",
+          "b":"2",
+          "c":"3",
+          "d":"te,st"
+        }
+      ]
+    }
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.parsemultiline(  )
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3", "d":"|te", "Col5":"st|"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.parsemultiline( { quoteChar: '' } )
+  expected: { "result": [ {"a":"1", "b":"2", "c":"3", "d":"|te", "Col5":"st|"} ] }
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st";
+    result: $t | csv.parsemultiline( { quoteChar: '|' } )
+  expected: |-
+    Could not Execute '@.csv.parsemultiline'. Error='CsvMalformedLineException: Unterminated quoted field at end of CSV line. Beginning of lost text: [te,st
+    ]' at Position(file=test, line=3, column=11, endLine=3, endColumn=53).
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"] } )
+  expected: { "result": 0 }
+- name: ""
+  script: |-
+    $t: "Some disclaimer at the top of the file
+    And another line just in case
+    a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"] } )
+  expected: { "result": 2 }
+- name: ""
+  script: |-
+    $t: "Some disclaimer at the top of the file
+    And another line just in case
+    a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.findRow( { quoteChar: '', seek=["c", "d"] } )
+  expected: { "result": 2 }
+- name: ""
+  script: |-
+    $t: "Some disclaimer at the top of the file
+    And another line just in case
+    abc,def,ghi,jkl
+    1,2,3,|te,st|";
+    result: $t | csv.findRow( { quoteChar: '', seek=["ab", "de"] } )
+  expected: { "result": null }
+- name: ""
+  script: |-
+    $t: "Some disclaimer at the top of the file
+    And another line just in case";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"] } )
+  expected: { "result": null }
+- name: ""
+  script: |-
+    $t: "Some disclaimer 1
+    And another line 2
+    And another line 3
+    And another line 4
+    a,b,c,d";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"], maxRows=5 } )
+  expected: { "result": 4 }
+- name: ""
+  script: |-
+    $t: "Some disclaimer 1
+    And another line 2
+    And another line 3
+    And another line 4
+    a,b,c,d";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"], maxRows=4 } )
+  expected: { "result": null }
+- name: ""
+  script: |-
+    $t: "a,b,c,d
+    1,2,3,|te,st|";
+    result: $t | csv.findRow( { quoteChar: '', seek=["a", "b", "c", "d"] } )
+  expected: { "result": 0 }
+- name: ""
+  script: |-
+    $t: "a,b,c
+    1,2,3
+    4,5,6
+    te,st,me";
+    result: $t | csv.findRow( { quoteChar: '', seek=["st", "te"] } )
+  expected: { "result": 3 }
+- name: ""
+  script: |-
+    $t: "This information is not intended to be and should not be construed as tax advice. Consult your tax advisor.,,,,,,,
+    Transaction fees are displayed separately for informational purposes only and are already incorporated into the Asset Out (Quantity) or Asset In (Quantity) as appropriate.,,,,,,,
+    ,,,,,,,
+    Transaction Type,Asset In (Quantity),Asset In (Currency),Asset Out (Quantity),Asset Out (Currency),Transaction Fee (Quantity),Transaction Fee (Currency),Market Value (USD)
+    DUMMY,1.2,ABC,0.16994179,DEF,47.92,DEF,3146.75
+    DUMMY,2.4,DEF,1000,USD,0,ABC,1000
+    REDACTED,0.1,GHI,1000,USD,0,ABC,1000";
+    result: $t | csv.findRow( { seek=["Transaction Type", "Asset In (Quantity)" ] } )
+  expected: { "result": 3 }

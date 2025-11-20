@@ -1,0 +1,457 @@
+{
+  "id": 4479203598557,
+  "admin_graphql_api_id": "gid://shopify/Order/4479203598557",
+  "app_id": null,
+  "browser_ip": "216.191.105.146",
+  "buyer_accepts_marketing": false,
+  "cancel_reason": null,
+  "cancelled_at": null,
+  "cart_token": "c1-4479203598557",
+  "checkout_id": 28688818430173,
+  "checkout_token": "bd5a8aa1d3721e7c2f51e5bc3a9f2e0a",
+  "client_details": {
+    "accept_language": "en-US,en;q=0.9",
+    "browser_height": 1080,
+    "browser_ip": "216.191.105.146",
+    "browser_width": 1920,
+    "session_hash": null,
+    "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+  },
+  "closed_at": null,
+  "confirmed": true,
+  "contact_email": "john.smith@example.com",
+  "created_at": "2023-10-15T14:32:45-04:00",
+  "currency": "USD",
+  "current_subtotal_price": "398.00",
+  "current_subtotal_price_set": {
+    "shop_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    }
+  },
+  "current_total_discounts": "0.00",
+  "current_total_price": "409.94",
+  "current_total_tax": "0.00",
+  "customer": {
+    "id": 5783580803293,
+    "email": "john.smith@example.com",
+    "accepts_marketing": false,
+    "created_at": "2023-10-15T14:30:12-04:00",
+    "updated_at": "2023-10-15T14:32:45-04:00",
+    "first_name": "John",
+    "last_name": "Smith",
+    "orders_count": 1,
+    "state": "enabled",
+    "total_spent": "409.94",
+    "last_order_id": 4479203598557,
+    "note": "VIP Customer - Priority Shipping",
+    "verified_email": true,
+    "multipass_identifier": null,
+    "tax_exempt": false,
+    "tags": "VIP, Newsletter",
+    "last_order_name": "#1001",
+    "currency": "USD",
+    "phone": "+16175551234",
+    "addresses": [
+      {
+        "id": 7042629165277,
+        "customer_id": 5783580803293,
+        "first_name": "John",
+        "last_name": "Smith",
+        "company": "Acme Corp",
+        "address1": "123 Main Street",
+        "address2": "Suite 456",
+        "city": "Boston",
+        "province": "Massachusetts",
+        "country": "United States",
+        "zip": "02101",
+        "phone": "+16175551234",
+        "name": "John Smith",
+        "province_code": "MA",
+        "country_code": "US",
+        "country_name": "United States",
+        "default": true
+      }
+    ],
+    "default_address": {
+      "id": 7042629165277,
+      "customer_id": 5783580803293,
+      "first_name": "John",
+      "last_name": "Smith",
+      "company": "Acme Corp",
+      "address1": "123 Main Street",
+      "address2": "Suite 456",
+      "city": "Boston",
+      "province": "Massachusetts",
+      "country": "United States",
+      "zip": "02101",
+      "phone": "+16175551234",
+      "name": "John Smith",
+      "province_code": "MA",
+      "country_code": "US",
+      "country_name": "United States",
+      "default": true
+    }
+  },
+  "discount_codes": [],
+  "email": "john.smith@example.com",
+  "financial_status": "paid",
+  "fulfillment_status": "fulfilled",
+  "gateway": "stripe",
+  "landing_site": "/collections/electronics",
+  "line_items": [
+    {
+      "id": 11073205592285,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11073205592285",
+      "fulfillable_quantity": 0,
+      "fulfillment_service": "manual",
+      "fulfillment_status": "fulfilled",
+      "gift_card": false,
+      "grams": 500,
+      "name": "Wireless Headphones - Black",
+      "price": "199.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "199.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "199.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 7042629132509,
+      "properties": [],
+      "quantity": 1,
+      "requires_shipping": true,
+      "sku": "WH-BLK-001",
+      "taxable": true,
+      "title": "Wireless Headphones",
+      "total_discount": "0.00",
+      "variant_id": 41083890098397,
+      "variant_inventory_management": "shopify",
+      "variant_title": "Black",
+      "vendor": "TechGear",
+      "tax_lines": [],
+      "duties": [],
+      "discount_allocations": []
+    },
+    {
+      "id": 11073205625053,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11073205625053",
+      "fulfillable_quantity": 0,
+      "fulfillment_service": "manual",
+      "fulfillment_status": "fulfilled",
+      "gift_card": false,
+      "grams": 300,
+      "name": "USB-C Cable - 2m - White",
+      "price": "19.99",
+      "price_set": {
+        "shop_money": {
+          "amount": "19.99",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "19.99",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 7042629165309,
+      "properties": [
+        {
+          "name": "Gift Message",
+          "value": "Happy Birthday!"
+        }
+      ],
+      "quantity": 2,
+      "requires_shipping": true,
+      "sku": "USBC-2M-WHT",
+      "taxable": true,
+      "title": "USB-C Cable",
+      "total_discount": "0.00",
+      "variant_id": 41083890131165,
+      "variant_inventory_management": "shopify",
+      "variant_title": "2m / White",
+      "vendor": "TechGear",
+      "tax_lines": [],
+      "duties": [],
+      "discount_allocations": []
+    },
+    {
+      "id": 11073205657821,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11073205657821",
+      "fulfillable_quantity": 0,
+      "fulfillment_service": "manual",
+      "fulfillment_status": "fulfilled",
+      "gift_card": false,
+      "grams": 150,
+      "name": "Phone Case - Premium Leather - Brown",
+      "price": "79.01",
+      "price_set": {
+        "shop_money": {
+          "amount": "79.01",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "79.01",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 7042629198077,
+      "properties": [],
+      "quantity": 2,
+      "requires_shipping": true,
+      "sku": "PC-LEATH-BRN",
+      "taxable": true,
+      "title": "Phone Case",
+      "total_discount": "0.00",
+      "variant_id": 41083890163933,
+      "variant_inventory_management": "shopify",
+      "variant_title": "Premium Leather / Brown",
+      "vendor": "Accessories Plus",
+      "tax_lines": [],
+      "duties": [],
+      "discount_allocations": []
+    }
+  ],
+  "location_id": null,
+  "name": "#1001",
+  "note": "Please handle with care - fragile items",
+  "note_attributes": [
+    {
+      "name": "gift_wrap",
+      "value": "true"
+    },
+    {
+      "name": "delivery_instructions",
+      "value": "Leave at front door"
+    }
+  ],
+  "number": 1,
+  "order_number": 1001,
+  "order_status_url": "https://example-store.myshopify.com/12345678/orders/bd5a8aa1d3721e7c2f51e5bc3a9f2e0a/authenticate?key=abc123",
+  "original_total_duties_set": null,
+  "payment_gateway_names": ["stripe"],
+  "phone": "+16175551234",
+  "presentment_currency": "USD",
+  "processed_at": "2023-10-15T14:32:45-04:00",
+  "processing_method": "direct",
+  "reference": "ORDER-2023-1001",
+  "referring_site": "https://www.google.com/",
+  "shipping_address": {
+    "first_name": "John",
+    "address1": "123 Main Street",
+    "phone": "+16175551234",
+    "city": "Boston",
+    "zip": "02101",
+    "province": "Massachusetts",
+    "country": "United States",
+    "last_name": "Smith",
+    "address2": "Suite 456",
+    "company": "Acme Corp",
+    "latitude": 42.3601,
+    "longitude": -71.0589,
+    "name": "John Smith",
+    "country_code": "US",
+    "province_code": "MA"
+  },
+  "shipping_lines": [
+    {
+      "id": 3890018140381,
+      "carrier_identifier": null,
+      "code": "Standard",
+      "delivery_category": null,
+      "discounted_price": "11.94",
+      "discounted_price_set": {
+        "shop_money": {
+          "amount": "11.94",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "11.94",
+          "currency_code": "USD"
+        }
+      },
+      "phone": null,
+      "price": "11.94",
+      "price_set": {
+        "shop_money": {
+          "amount": "11.94",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "11.94",
+          "currency_code": "USD"
+        }
+      },
+      "requested_fulfillment_service_id": null,
+      "source": "shopify",
+      "title": "Standard Shipping",
+      "tax_lines": [],
+      "discount_allocations": []
+    }
+  ],
+  "source_identifier": "bd5a8aa1d3721e7c2f51e5bc3a9f2e0a",
+  "source_name": "web",
+  "source_url": null,
+  "subtotal_price": "398.00",
+  "subtotal_price_set": {
+    "shop_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    }
+  },
+  "tags": "VIP, Express, Gift",
+  "tax_lines": [],
+  "taxes_included": false,
+  "test": false,
+  "token": "bd5a8aa1d3721e7c2f51e5bc3a9f2e0a",
+  "total_discounts": "0.00",
+  "total_line_items_price": "398.00",
+  "total_line_items_price_set": {
+    "shop_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "398.00",
+      "currency_code": "USD"
+    }
+  },
+  "total_outstanding": "0.00",
+  "total_price": "409.94",
+  "total_price_set": {
+    "shop_money": {
+      "amount": "409.94",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "409.94",
+      "currency_code": "USD"
+    }
+  },
+  "total_shipping_price_set": {
+    "shop_money": {
+      "amount": "11.94",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "11.94",
+      "currency_code": "USD"
+    }
+  },
+  "total_tax": "0.00",
+  "total_tax_set": {
+    "shop_money": {
+      "amount": "0.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "0.00",
+      "currency_code": "USD"
+    }
+  },
+  "total_tip_received": "0.00",
+  "total_weight": 1250,
+  "updated_at": "2023-10-15T15:45:22-04:00",
+  "user_id": null,
+  "billing_address": {
+    "first_name": "John",
+    "address1": "123 Main Street",
+    "phone": "+16175551234",
+    "city": "Boston",
+    "zip": "02101",
+    "province": "Massachusetts",
+    "country": "United States",
+    "last_name": "Smith",
+    "address2": "Suite 456",
+    "company": "Acme Corp",
+    "latitude": 42.3601,
+    "longitude": -71.0589,
+    "name": "John Smith",
+    "country_code": "US",
+    "province_code": "MA"
+  },
+  "customer_locale": "en",
+  "fulfillments": [
+    {
+      "id": 3890018140381,
+      "admin_graphql_api_id": "gid://shopify/Fulfillment/3890018140381",
+      "created_at": "2023-10-15T15:45:22-04:00",
+      "location_id": 61893206237,
+      "name": "#1001.1",
+      "order_id": 4479203598557,
+      "service": "manual",
+      "shipment_status": "delivered",
+      "status": "success",
+      "tracking_company": "UPS",
+      "tracking_number": "1Z999AA10123456784",
+      "tracking_numbers": ["1Z999AA10123456784"],
+      "tracking_url": "https://www.ups.com/track?tracknum=1Z999AA10123456784",
+      "tracking_urls": ["https://www.ups.com/track?tracknum=1Z999AA10123456784"],
+      "updated_at": "2023-10-16T10:30:15-04:00",
+      "line_items": [
+        {
+          "id": 11073205592285,
+          "variant_id": 41083890098397,
+          "title": "Wireless Headphones",
+          "quantity": 1,
+          "sku": "WH-BLK-001",
+          "variant_title": "Black",
+          "vendor": "TechGear",
+          "fulfillment_service": "manual",
+          "product_id": 7042629132509,
+          "requires_shipping": true,
+          "taxable": true,
+          "gift_card": false,
+          "name": "Wireless Headphones - Black",
+          "variant_inventory_management": "shopify",
+          "properties": [],
+          "product_exists": true,
+          "fulfillable_quantity": 0,
+          "grams": 500,
+          "price": "199.00",
+          "total_discount": "0.00",
+          "fulfillment_status": "fulfilled"
+        }
+      ]
+    }
+  ],
+  "refunds": [],
+  "transactions": [
+    {
+      "id": 5474829623517,
+      "admin_graphql_api_id": "gid://shopify/OrderTransaction/5474829623517",
+      "amount": "409.94",
+      "authorization": "ch_3NzQ7LKZvSdqFp2H0a1b2c3d",
+      "created_at": "2023-10-15T14:32:45-04:00",
+      "currency": "USD",
+      "device_id": null,
+      "error_code": null,
+      "gateway": "stripe",
+      "kind": "sale",
+      "location_id": null,
+      "message": "Transaction approved",
+      "order_id": 4479203598557,
+      "parent_id": null,
+      "processed_at": "2023-10-15T14:32:45-04:00",
+      "receipt": {},
+      "source_name": "web",
+      "status": "success",
+      "test": false,
+      "user_id": null
+    }
+  ]
+}
+

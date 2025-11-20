@@ -1,0 +1,72 @@
+name: ""
+tests:
+  - name: ""
+    script: |-
+      if( 2 > 1 )
+        second: 2
+      endif
+    expected: { "second": 2 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 and 3 > 1 )
+        second: 2
+      endif
+    expected: { "first": 1, "second": 2 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 and 3 < 1 )
+        second: 2
+      endif
+    expected: { "first": 1 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 < 1 and 3 < 1 )
+        second: 2
+      endif
+    expected: { "first": 1 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 < 1 and 3 > 1 )
+        second: 2
+      endif
+    expected: { "first": 1 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 and 3 > 1 and 4 > 1 )
+        second: 2
+      endif
+    expected: { "first": 1, "second": 2 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 and 3 > 1 and 4 < 1 )
+        second: 2
+      endif
+    expected: { "first": 1 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 or 1 > 2 )
+        second: 2
+      endif
+    expected: { "first": 1, "second": 2 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 1 > 2 or 2 > 1 )
+        second: 2
+      endif
+    expected: { "first": 1, "second": 2 }
+  - name: ""
+    script: |-
+      first: 1;
+      if( 2 > 1 and 3 > 1 )
+        $val = 123;
+        return { a: 123 }
+      endif
+    expected: { "a": 123 }

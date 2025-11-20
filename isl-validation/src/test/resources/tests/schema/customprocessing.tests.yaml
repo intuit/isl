@@ -1,0 +1,10 @@
+name: ""
+tests:
+  - name: "Tokenize Field"
+    schema: customProcessingSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd"
+      }
+    expected: {"success":true}

@@ -1,0 +1,71 @@
+name: ""
+tests:
+  - name: "Function call"
+    script: |
+      fun run(){
+        $result : idx.banking.account.v3 = @.this.doStuff();
+        return {
+          result: $result,
+          type: $result | typeof
+        }
+      }
+      fun doStuff() {
+        return {
+          abc: 123
+        }
+      }
+
+    # type of applied from the declaration
+    expected: {"result":{"abc":123},"type":"idx.banking.account.v3"}
+
+  - name: "Function return"
+    script: |
+      fun run(){
+        $result = @.this.doStuff();
+        return {
+          result: $result,
+          type: $result | typeof
+        }
+      }
+      fun doStuff() : idx.banking.account.v3 {
+        return {
+          abc: 123
+        }
+      }
+
+    expected: {"result":{"abc":123},"type":"idx.banking.account.v3"}
+
+
+  - name: "Function call"
+    script: |
+      fun run(){
+        // untyped result
+        $untyped = @.Api.Call();
+        // typed result
+        $result: idx.banking.account.v3 = @.Api.Call();
+        return {
+          untyped: $untyped,
+          untypedType: $untyped | typeof,
+          result: $result,
+          type: $result | typeof
+        }
+      }
+
+    expected: {"untyped": { "success": true }, "untypedType":"object","result": { "success": true } ,"type":"idx.banking.account.v3"}
+
+  - name: "Function call property"
+    script: |
+      fun run(){
+        // typed result
+        $result: {
+          child: idx.banking.account.v3 = @.Api.Call()
+        }
+        return {
+          result: $result,
+          type: $result.child | typeof
+        }
+      }
+
+    expected: {"result":{"child":{"success":true}},"type":"idx.banking.account.v3"}
+
+

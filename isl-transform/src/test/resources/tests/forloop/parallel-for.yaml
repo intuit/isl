@@ -1,0 +1,196 @@
+name: Tests for Generic Conditional Modifiers
+tests:
+- name: Parallel For with outside var read
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  )
+            $rr = {
+              r: $i,
+              o: $outside.value
+            }
+            $rr
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+- name: Parallel For with object declaration as output
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  )
+            
+            {
+              r: $i,
+              o: $outside.value
+            }
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+
+- name: Parallel For with param and object declaration as output
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $result = parallel { workers: 3 } foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  )
+    
+            {
+              r: $i,
+              o: $outside.value
+            }
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+- name: Parallel For with param and object declaration as output
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $outside = { value: "abc" }
+    
+      $po = { workers: 3 }
+      $result = parallel $po foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  )
+    
+            {
+              r: $i,
+              o: $outside.value
+            }
+      endfor
+    
+      return $result
+    }
+  expected: # this will be out of order
+    [{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"},{"r":1,"o":"abc"},{"r":2,"o":"abc"},{"r":3,"o":"abc"},{"r":4,"o":"abc"},{"r":5,"o":"abc"},{"r":6,"o":"abc"},{"r":7,"o":"abc"},{"r":8,"o":"abc"},{"r":9,"o":"abc"},{"r":10,"o":"abc"}]
+
+
+- name: Parallel For with outside array add
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+      $result = []
+    
+      parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  )
+    
+            // push in an array outside of this parallel
+            $result = $result | push( {
+              r: $i,
+              o: $outside.value
+            } )
+      endfor
+    
+      return $result
+    }
+  expected: # you can't modify vars outside the scope!
+    Could not set readonly outside scope variable=$result. at Position(file=test, line=11, column=8, endLine=14, endColumn=11)
+
+- name: Validate Thread Ids (6 by default)
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  );
+    
+            {
+              tid: @.Thread.Id()
+            }
+      endfor
+    
+      // We can't really test if the numbers for tids 1..6 or a bigger range as Koltin will execute them all over the place
+      // all we care is that they are more than 1
+      @.Log.Info(`Result: $result`)
+    
+      $result = $result | unique( $.tid ) | length;
+      return if( $result > 1 )
+        true
+      else
+        false
+    }
+  expected: # you can't modify vars outside the scope!
+    true
+
+
+
+# unfortunately in Kotlin we really don't control the distribution in the underlying
+# pool for any value bigger than one we don't know how it will execute
+# so all we're testing is that it accepts the value
+- name: Validate Thread with options
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      $raw = [1,2,3,4,5,6,7,8,9,10]
+      $input = [...$raw, ...$raw, ...$raw, ...$raw, ...$raw];
+
+      $result = parallel foreach $i in $input
+            $r = @.Math.RandInt(1, 1000)
+            @.Run.Sleep( {{ $r }}  );
+    
+            {
+              tid: @.Thread.Id()
+            }
+      endfor
+    
+      // some irrelevant foreach just to make sure the parser works
+      foreach $i in $input
+            $r = @.Math.RandInt(1, 10)
+            @.Run.Sleep( {{ $r }}  );
+      endfor
+    
+      @.Log.Info(`Result: $result`)
+    
+      // We can't really test if the numbers for tids 1..6 or a bigger range as Koltin will execute them all over the place
+      // all we care is that they are more than 1
+      $result = $result | unique( $.tid ) | length;
+      return if( $result > 1 )
+        true
+      else
+        false
+    }
+  expected: # you can't modify vars outside the scope!
+    true

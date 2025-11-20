@@ -1,0 +1,26 @@
+$id: "https://basicschema/schemas/basicschema.yaml"
+required:
+  - id
+  - externalId
+properties:
+  id:
+    type: string
+  externalId:
+    type: string
+    validate: |   # field level validation - you'll receive $field and $entity
+      if( $field contains "xyz" )
+        @.Validation.Error("error", "The external Id can't contain 'xyz'")
+      endif
+  type:
+    $ref: './ExternalIdType.yaml#/components/schemas/ExternalIdType'
+  version:
+    type: number
+    description: 'Version number as per connectionSource'
+    minimum: 0
+    multipleOf: 5
+
+# object level validation
+validate: |
+  if( $entity.version > 55 )
+    @.Validation.Error("mycode", "$.version needs to be smaller than 55" )
+  endif

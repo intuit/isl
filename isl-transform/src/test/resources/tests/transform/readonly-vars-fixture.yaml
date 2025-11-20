@@ -1,0 +1,25 @@
+name: ""
+tests:
+  - name: "modify readonly objects"
+    script: |-
+      // $isl is an existing variable 
+      $isl.newValue = "1234"
+      result: {
+        newValue: $isl.newValue
+      }
+    expected: Could not set property=newValue in readonly variable=$isl. at Position(file=test, line=2, column=0, endLine=2, endColumn=22)
+
+  - name: "modify readonly objects2"
+    script: |-
+      // $isl is an existing variable 
+      $isl.version = "new version"
+    expected: Could not set property=version in readonly variable=$isl. at Position(file=test, line=2, column=0, endLine=2, endColumn=28)
+
+  - name: "modify readonly objects3"
+    script: |-
+      // $isl is an existing variable 
+      $isl = { newVersion: 123 }
+      result: {
+        isl: $isl
+      }
+    expected: Could not set readonly variable=$isl. at Position(file=test, line=2, column=0, endLine=2, endColumn=26)

@@ -1,0 +1,74 @@
+name: ""
+tests:
+  - name: "Convert multiple concat to append"
+    script: |
+      return {
+        r1: "123" | concat( 456 ) | concat ("789")
+      }
+    expected:
+      result: { r1: "123456789" }
+      # manually apply the recommendations - test will run this and compare with result above
+      updatedScript: |
+        return {
+          r1: `123` | append( 456, 789 )
+        }
+      issues:
+        [{"loc":"2:12/2:44","recommendation":"append( 456, \"789\" )"}]
+
+  - name: "Convert multiple concat to append"
+    script: |
+      return {
+        r1: "123" | concat( "45678910" )
+          | concat ("xyz")
+      }
+    expected:
+      result: { r1: "12345678910xyz" }
+      # manually apply the recommendations - test will run this and compare with result above
+      updatedScript: |
+        return {
+          r1: `123` | append( "45678910", "xyz" )
+        }
+      issues:
+        [{"loc":"2:12/3:20","recommendation":"append( \"45678910\", \"xyz\" )"}]
+
+
+# this is tricky as this will try to remove a previous append recommendation that was detected earlier
+# for the same range
+  - name: "Convert multiple concat to append"
+    script: |
+      return {
+        r1: "123" | concat( "45678910" )
+          | concat ("xyz")
+          | concat ("tuv")
+      }
+    expected:
+      result: { r1: "12345678910xyztuv" }
+      # manually apply the recommendations - test will run this and compare with result above
+      updatedScript: |
+        return {
+          r1: `123` | append( "45678910", "xyz", "tuv" )
+        }
+      issues:
+        [ { "loc": "2:12/4:20","recommendation": "append( \"45678910\", \"xyz\", \"tuv\" )" } ]
+
+  # this is tricky as this will try to remove a previous append recommendation that was detected earlier
+  # for the same range
+  - name: "Convert multiple concat to append"
+    script: |
+      return {
+        r1: "123" | concat( "45678910" )
+          | concat ("xyz")
+          | concat ("tuv")
+          
+          | concat ("abc")
+      }
+    expected:
+      result: { r1: "12345678910xyztuvabc" }
+      # manually apply the recommendations - test will run this and compare with result above
+      updatedScript: |
+        return {
+          r1: `123` | append( "45678910", "xyz", "tuv", "abc" )
+        }
+      issues:
+        [ { "loc": "2:12/6:20","recommendation": "append( \"45678910\", \"xyz\", \"tuv\", \"abc\" )" } ]
+

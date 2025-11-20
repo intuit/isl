@@ -1,0 +1,91 @@
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "id": "orderId",
+      "order_number": "orderNumber",
+      "name": "orderName",
+      "customer": {
+        "id": "customerId",
+        "first_name": "customerFirstName",
+        "last_name": "customerLastName",
+        "email": "customerEmail",
+        "phone": "customerPhone",
+        "orders_count": "customerOrders",
+        "total_spent": "customerLifetimeValue",
+        "default_address": {
+          "address1": "customerStreet",
+          "city": "customerCity",
+          "province_code": "customerState",
+          "zip": "customerZip",
+          "country_code": "customerCountry"
+        }
+      },
+      "shipping_address": {
+        "address1": "shippingStreet",
+        "city": "shippingCity",
+        "province_code": "shippingState",
+        "zip": "shippingZip",
+        "country_code": "shippingCountry"
+      },
+      "line_items": {
+        "*": {
+          "id": "items[&1].itemId",
+          "sku": "items[&1].sku",
+          "name": "items[&1].name",
+          "vendor": "items[&1].vendor",
+          "quantity": "items[&1].quantity",
+          "price": "items[&1].unitPrice",
+          "grams": "items[&1].weight",
+          "product_id": "items[&1].productId",
+          "variant_title": "items[&1].variantTitle"
+        }
+      },
+      "subtotal_price": "subtotal",
+      "total_shipping_price_set": {
+        "shop_money": {
+          "amount": "shippingCost"
+        }
+      },
+      "total_tax": "tax",
+      "total_discounts": "discounts",
+      "total_price": "total",
+      "currency": "currency",
+      "financial_status": "paymentStatus",
+      "fulfillment_status": "fulfillmentStatus",
+      "payment_gateway_names": {
+        "0": "paymentMethod"
+      },
+      "source_name": "source",
+      "browser_ip": "browserIp",
+      "tags": "tagsRaw",
+      "note": "notes",
+      "note_attributes": {
+        "*": {
+          "name": "noteAttributes[&1].name",
+          "value": "noteAttributes[&1].value"
+        }
+      },
+      "processed_at": "processedAt",
+      "confirmed": "isConfirmed",
+      "test": "isTest"
+    }
+  },
+  {
+    "operation": "default",
+    "spec": {
+      "itemCount": 0,
+      "totalQuantity": 0,
+      "totalWeight": 0,
+      "totalWeightKg": 0,
+      "premiumItemCount": 0,
+      "vendorCount": 0,
+      "finalTotal": 0,
+      "shippingStatus": "PENDING",
+      "shippingSpeed": "STANDARD",
+      "isPaid": false,
+      "isFulfilled": false
+    }
+  }
+]
+

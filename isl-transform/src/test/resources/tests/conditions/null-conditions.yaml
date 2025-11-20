@@ -1,0 +1,21 @@
+name: ""
+tests:
+  - name: "null == null"
+    script: | 
+      if( null == null )  result: true else result: false endif
+    expected: { "result": true }
+
+  - name: "null == 1"
+    script: |
+      if( null == 1 )  result: true else result: false endif
+    expected: { "result": false }
+
+  - name: "1 == null"
+    script: |
+      if( 1 == null )  result: true else result: false endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      if( "" == null )  result: true else result: false endif
+    expected: { "result": false }

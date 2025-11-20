@@ -1,0 +1,55 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      result: $t | yaml.parse
+    expected: { "result": null }
+
+  - name: ""
+    script: |
+      result: null | yaml.parse
+    expected: { "result": null }
+
+  - name: ""
+    script: |-
+      $t: "";
+      result: $t | yaml.parse
+    expected: { "result": null }
+
+  - name: ""
+    script: |
+      result: $t | yaml.parse
+    expected:
+      {
+        "result":
+          {
+            "openapi": "3.0.2",
+            "info":
+              {
+                "version": "1.0.2",
+                "title": "Verum",
+                "description": "The goal of this service is to predict how likely is for ...",
+              },
+          },
+      }
+    inputs:
+      t: |-
+        openapi: 3.0.2
+        info:
+          # TODO: please check the version number! This file should agree with the version of the model
+          version: 1.0.2
+          title: Verum
+          description: >
+            The goal of this service is to predict how likely is for ...
+
+  - name: ""
+    script: |-
+      $t: "a: b:";
+      result: $t | yaml.parse
+    expected: { "result": null }
+
+  - name: ""
+    script: |-
+      $t: "";
+      result: $t | yaml.random
+    expected: { "result": "Unknown modifier: yaml.random" }

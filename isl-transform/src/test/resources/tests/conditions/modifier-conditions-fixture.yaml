@@ -1,0 +1,78 @@
+name: ""
+tests:
+  - name: ""
+    script: |-
+      $val: " a b c ";
+      description: $val | if ( $val contains "a" ) trim
+    expected: { "description": "a b c" }
+  - name: ""
+    script: |
+      description: " a b c " | if ( $mval contains "a" ) trim
+    expected: { "description": "a b c" }
+  - name: ""
+    script: |
+      description: " a b c " | if ( $ contains "a" ) trim
+    expected: { "description": "a b c" }
+  - name: ""
+    script: |
+      description: " a b c " | if ( $mval contains "a" ) trim
+    expected: { "description": "a b c" }
+  - name: ""
+    script: |
+      description: " a b c " | if ( $ contains "a" ) trim
+    expected: { "description": "a b c" }
+  - name: ""
+    script: |-
+      $val: " a b c ";
+      description: $val | if ( $mval contains "d" ) trim
+    expected: { "description": " a b c " }
+  - name: ""
+    script: |-
+      $val: " a b c ";
+      description: $val | if ( $ contains "d" ) trim
+    expected: { "description": " a b c " }
+  - name: ""
+    script: |-
+      $val: " a b c ";
+      description: $val | if ( $val contains "a" ) trim| if ( $val contains "c" ) upperCase;
+    expected: { "description": "A B C" }
+  - name: ""
+    script: |-
+      $val: " a b c ";
+      description: $val | if ( $val contains "d" ) trim| if ( $val contains "c" ) upperCase;
+    expected: { "description": " A B C " }
+  - name: ""
+    script: |-
+      $val: 4;
+      items: [ 1, 2, 3 ] | if ( 1 == 1 ) push( $val )
+    expected: { "items": [ 1, 2, 3, 4 ] }
+  - name: ""
+    script: |-
+      $val: 4;
+      items: [ 1, 2, 3 ] | if ( $val ) push( $val )
+    expected: { "items": [ 1, 2, 3, 4 ] }
+  - name: ""
+    script: |
+      items: [ 1, 2, 3 ] | if ( $mval !contains 3 ) push( 3 )
+    expected: { "items": [ 1, 2, 3 ] }
+  - name: ""
+    script: |
+      items: [ "1 2", "2 3", "3 4" ] | if ( $mval contains `2","2` ) push( 4 )
+    expected: { "items": [ "1 2", "2 3", "3 4" ] }
+  - name: ""
+    script: |
+      items: [ "1 2", "2 3", "3 4" ] | if ( $mval contains `2 ` ) push( 4 )
+    expected: { "items": [ "1 2", "2 3", "3 4" ] }
+  - name: ""
+    script: |
+      items: [ "1 2", "2 3", "3 4" ] | if ( $mval contains `2 3` ) push( 4 )
+    expected: { "items": [ "1 2", "2 3", "3 4", 4 ] }
+  - name: ""
+    script: |
+      items: [ 1, 2, 3 ] | if ( $mval !contains 4 ) push( 4 ) | if ( $mval !contains 4 ) push( 4 )
+    expected: { "items": [ 1, 2, 3, 4 ] }
+  - name: ""
+    script: |-
+      $val: 4; $someNull: null;
+      items: [ 1, 2, 3 ] | if ( $val ) push( $val )| if ( $unknown ) push( 5 )| if ( $someNull ) push( 6 )| if ( !$someNull ) push( 7 )| if ( $val < 5  ) push( 8 )| if ( $val > 5  ) push( 9 )| if ( $val == 4 ) push( 10 );
+    expected: { "items": [ 1, 2, 3, 4, 7, 8, 10 ] }

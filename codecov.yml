@@ -1,0 +1,18 @@
+coverage:
+  status:
+    patch:
+      default:
+        target: 50%
+comment:
+  layout: "diff, flags, files:10, footer"
+codecov:
+  branch: master
+ignore:
+  - "**/*Test*"
+  - "com/**/generated**/*"
+  - "com/**/groovy**/*"
+  - "com/**/model**/*"
+  - "com/intuit/isl/grammar/**/*"
+  - "com/intuit/isl/debug/**/*"
+  - "com/intuit/isl/commands/NoopCommand"
+  - "com/intuit/isl/commands/NoopToken"

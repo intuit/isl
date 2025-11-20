@@ -1,0 +1,47 @@
+name: ""
+tests:
+  - name: "Explicit Validation request"
+    script: |
+      fun run() {
+        $account: idx.banking.account = {
+          "id": "123",
+          "externalId": "abcd"
+        } // this is very tricky as we can't | validate.schema at this level because the type is applied only during the assignment
+        // TBD :/ 
+        return $account | validate.schema
+      }
+    expected: {"id":"123","externalId":"abcd"}
+
+  - name: "Fail on basic validation"
+    script: |
+      fun run() {
+        $account: idx.banking.account = {
+          "externalId": "abc"
+        }
+        return $account | validate.schema
+      }
+    expected: {"message":"$: required property 'id' not found","issues":[{"type":"Required","location":"$.id","expected":"id","message":"$: required property 'id' not found"}]}
+
+
+  - name: "Fail on advanced validation"
+    script: |
+      fun run() {
+        $account: idx.banking.account = {
+          "id": "123",
+          "externalId": "abcdxyz"
+        } 
+        return $account | validate.schema
+      }
+    expected: {"message":"The external Id can't contain 'xyz'","issues":[{"type":"Advanced","location":"$.externalId","expected":"","message":"The external Id can't contain 'xyz'"}]}
+
+
+  - name: "Unknown Type Name request"
+    script: |
+      fun run() {
+        $account: idx.unknown.type = {
+          "id": "123",
+          "externalId": "abcd"
+        }
+        return $account | validate.schema
+      }
+    expected: {"message":"Could not find Schema for Object","issues":[]}

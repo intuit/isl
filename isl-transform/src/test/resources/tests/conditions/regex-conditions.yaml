@@ -1,0 +1,53 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      $abc: "myabcd12";
+      if( $abc matches /abcd/ )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": true }
+
+  - name: ""
+    script: |
+      $abc: "123456";
+      if( $abc matches /abc/ )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": false }
+
+
+  - name: "123456 !matches 123"
+    script: |
+      $abc: "123456";
+      if( $abc !matches /123/ )
+        result: false
+      else
+       result: true
+      endif
+    expected: { "result": true }
+
+  - name: "123456 !matches abc"
+    script: |
+      $abc: "123456";
+      if( $abc !matches /abc/ )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": true }
+
+
+  - name: "abdc matches abc"
+    script: |
+      $matches: "abcd";
+      if( $matches matches /abc/ )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": true }

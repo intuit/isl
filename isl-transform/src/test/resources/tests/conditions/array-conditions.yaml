@@ -1,0 +1,23 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      result: if( [ 1, 2, 3 ] contains 3 ) true else false;
+    expected:
+      {
+        "result": true
+      }
+  - name: ""
+    script: |
+      result: if( [ "a", "b", "c" ] contains "c" ) true else false;
+    expected:
+      {
+        "result": true
+      }
+  - name: ""
+    script: |
+      result: if( [ "a", "b", "c" ] contains "d" ) true else false;
+    expected:
+      {
+        "result": false
+      }

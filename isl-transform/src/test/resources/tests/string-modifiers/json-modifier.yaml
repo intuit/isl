@@ -1,0 +1,40 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      result: $t | json.parse
+    expected: { "result": null }
+  - name: ""
+    script: |
+      result: null | json.parse
+    expected: { "result": null }
+  - name: ""
+    script: |-
+      $t: "";
+      result: $t | json.parse
+    expected: { "result": null }
+  - name: ""
+    script: |-
+      $t: {};
+      result: $t | json.parse
+    expected: { "result": {} }
+  - name: ""
+    script: |-
+      $t: "[]";
+      result: $t | json.parse
+    expected: { "result": [] }
+  - name: ""
+    script: |-
+      $t: {"x":"1","y":"2"};
+      result: $t | json.parse
+    expected: {"result":{"x":"1","y":"2"}}
+  - name: ""
+    script: |-
+      $t: "{ value: test@test.com }";
+      result: $t | json.parse
+    expected: { "result": null }
+  - name: ""
+    script: |-
+      $t: "";
+      result: $t | json.random
+    expected: { "result": "Unknown modifier: json.random" }

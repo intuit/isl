@@ -1,0 +1,129 @@
+name: ""
+tests:
+#  - name: "Empty Schema Validation"
+#    schema: emptySchema.yaml
+#    value: |
+#      { }
+#    expected: {"success":true,"warning":"Could not find schema default/null."}
+
+  - name: "Is Valid"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd"
+      }
+    expected: {"success":true}
+
+  - name: "Missing Id Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "externalId": "abcd"
+      }
+    expected: {"success":false,"issues":[{"type":"Required","location":"$.id","expected":"id","message":"$: required property 'id' not found"}]}
+
+  - name: "Missing externalId Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "abcd"
+      }
+    expected: {"success":false,"issues":[{"type":"Required","location":"$.externalId","expected":"externalId","message":"$: required property 'externalId' not found"}]}
+
+  - name: "Missing both Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+      }
+    expected: {"success":false,"issues":[{"type":"Required","location":"$.id","expected":"id","message":"$: required property 'id' not found"},{"type":"Required","location":"$.externalId","expected":"externalId","message":"$: required property 'externalId' not found"}]}
+
+  - name: "Null in value Type Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": null,
+        "externalId": "abcd"
+      }
+    expected: {"success":false,"issues":[{"type":"Type","location":"$.id","expected":"string","message":"$.id: null found, string expected"}]}
+
+  - name: "Incorrect Type - number Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": 123,
+        "externalId": "abcd"
+      }
+    expected: {"success":false,"issues":[{"type":"Type","location":"$.id","expected":"string","message":"$.id: integer found, string expected"}]}
+
+  - name: "Incorrect Type - object Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": { "other": "value" },
+        "externalId": "abcd"
+      }
+    expected: {"success":false,"issues":[{"type":"Type","location":"$.id","expected":"string","message":"$.id: object found, string expected"}]}
+
+  - name: "Incorrect Rules - Validation 1"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd",
+        "version": 3
+      }
+    expected: {"success":false,"issues":[{"type":"Rules","location":"$.version","expected":"multipleOf","message":"$.version: must be multiple of 5"}]}
+
+  - name: "Incorrect Rules - Validation"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd",
+        "version": -1
+      }
+    expected: {"success":false,"issues":[{"type":"Rules","location":"$.version","expected":"minimum","message":"$.version: must have a minimum value of 0"},{"type":"Rules","location":"$.version","expected":"multipleOf","message":"$.version: must be multiple of 5"}]}
+
+  - name: "Validation - load dependent schema"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd",
+        "type": "received"
+      }
+    expected: {"success":true}
+
+  - name: "Enum via dependent schema"
+    schema: basicSchema.yaml
+    value: |
+      {
+        "id": "123",
+        "externalId": "abcd",
+        "type": "incorrect"
+      }
+    expected: {"success":false,"issues":[{"type":"Rules","location":"$.type","expected":"enum","message":"$.type: does not have a value in the enumeration [\"received\", \"created\", \"searchmatch\", \"resolutionmatch\", \"usermatch\", \"deleted\"]"}]}
+
+
+  - name: "Advanced Schema Validation via ISL "
+    schema: basicSchema.yaml
+    value: |    # externalId contains xyz triggers the custom isl validation of externalId
+      {
+        "id": "123",
+        "externalId": "abcdxyz"
+      }
+    expected: {"success":false,"issues":[{"type":"Advanced","location":"$.externalId","expected":"","message":"The external Id can't contain 'xyz'"}]}
+
+
+  - name: "Advanced Schema Validation for the entity"
+    schema: basicSchema.yaml
+    value: |    # externalId contains xyz triggers the custom isl validation of externalId
+      {
+        "id": "123",
+        "externalId": "abcd",
+        "version": 60
+      }
+    expected: {"success":false,"issues":[{"type":"Advanced","location":"$","expected":"","message":"$.version needs to be smaller than 55"}]}
+
+

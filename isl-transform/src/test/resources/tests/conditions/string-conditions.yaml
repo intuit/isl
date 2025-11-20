@@ -1,0 +1,217 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      $abc: "";
+      if( $abc )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      $abc: "";
+      if( ! $abc )
+        result: true
+      else
+       result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc == "my input text" )
+        result: true
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( "my input text" == $abc )
+        result: true
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc != "my input text" )
+        result:true
+      else
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( "my input text" != $abc )
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( "my input text" contains $abc )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( "before my input text after" contains$abc )
+        result: true  
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc contains "input" )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc !contains "myinput" )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": true }
+
+
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc startsWith "my" )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc startsWith null )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( null startsWith "abc" )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc !startsWith "my1" )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc endsWith "text" )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc endsWith "xyz" )
+        result: true 
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc !endsWith "xyz" )
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": true }
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc !endsWith "text" )
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      $abc: "my input text";
+      if( $abc !endsWith null )
+        result: true
+      else
+        result: false
+      endif
+    expected: { "result": false }
+  - name: ""
+    script: |
+      if( null !endsWith "a" )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      if( "a" > "b" )
+        result: true  
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      if( "a" >= "a" )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": true }
+
+  - name: ""
+    script: |
+      if( "b" < "a" )
+        result: true  
+      else
+        result: false
+      endif
+    expected: { "result": false }
+
+  - name: ""
+    script: |
+      if( "b" <= "b" )
+        result:true  
+      else
+        result: false
+      endif
+    expected: { "result": true }

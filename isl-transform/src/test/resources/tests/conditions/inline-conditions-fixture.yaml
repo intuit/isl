@@ -1,0 +1,125 @@
+name: ""
+tests:
+  - name: ""
+    script: | 
+      description: if ( true ) 123 else 456 endif;
+    expected: { "description": 123 }
+  - name: ""
+    script: | 
+      description: if ( false ) 123 else 456 endif;
+    expected: { "description": 456 }
+  - name: ""
+    script: | 
+      description: if ( 1 < 2 ) 123 else 456 endif;
+    expected: { "description": 123 }
+  - name: ""
+    script: | 
+      description: if ( 1 > 2 ) 123 else 456 endif;
+    expected: { "description": 456 }
+  - name: ""
+    script: | 
+      description: if ( 1 in [0, 1, 2, 3] ) 1 else 0 endif;
+    expected: { "description": 1 }
+  - name: ""
+    script: | 
+      description: if ( 1 !in [0, 1, 2, 3] ) 1 else 0 endif;
+    expected: { "description": 0 }
+  - name: ""
+    script: | 
+      description: if ( 7 !in [0, 1, 2, 3] ) 1 else 0 endif;
+    expected: { "description": 1 }
+  - name: ""
+    script: | 
+      description: if ( 8 in [0, 1, 2, 3] ) 1 else 0 endif;
+    expected: { "description": 0 }
+  - name: ""
+    script: | 
+      description: if ( 1 < 2 and 3 > 4 ) 123 else 456 endif;
+    expected: { "description": 456 }
+  - name: ""
+    script: | 
+      description: if ( 1 < 2 and 3 < 4 ) 123 else 456 endif;
+    expected: { "description": 123 }
+  - name: ""
+    script: | 
+      forceDeleteFlag: if ( $someFlag ) true else false;
+    expected: { "forceDeleteFlag": false }
+  - name: ""
+    script: | 
+      description: if ( 1 < 2 ) { p : 1 } else { p : 2 };
+    expected: { "description": { "p" : 1 } }
+  - name: ""
+    script: | 
+      description: if ( 1 > 2 ) { p : 1 } else { p : 2 };
+    expected: { "description": { "p" : 2 } }
+  - name: ""
+    script: |
+      description: if ( true ) 123;
+      other: true
+    expected: { "description": 123, "other": true }
+  - name: ""
+    script: |
+      description: if ( false ) 123;
+      other: true
+    expected: { "other": true }
+  - name: ""
+    script: |-
+      $start_date = "2020-01-01T00:00:00Z";
+      $end_date = "2020-01-01T00:00:00Z";
+      $filter = {
+         "date_time_filter": {
+             "closed_at": {
+                 "start_at": $start_date,
+                 "end_date": if ( $end_date ) $end_date;
+              }
+         },
+         "state_filter": {
+             "states": $statuses
+         }
+      };
+      result: $filter;
+    expected:
+      {
+        "result": {
+            "date_time_filter": {
+                "closed_at": {
+                  "start_at":"2020-01-01T00:00:00Z",
+                  "end_date":"2020-01-01T00:00:00Z"
+                }
+            },
+            "state_filter": {
+              "states":null
+            }
+        }
+      }
+  - name: ""
+    script: |-
+      $start_date = "2020-01-01T00:00:00Z";
+      $end_date = "";
+      $filter = {
+         "date_time_filter": {
+             "closed_at": {
+                 "start_at": $start_date,
+                 "end_date": if ( $end_date ) $end_date,
+                 "other_end_date": if ( !$end_date ) {}
+              }
+         },
+         "state_filter": {
+             "states": $statuses
+         }
+      };
+      result: $filter;
+    expected:
+      {
+        "result": {
+          "date_time_filter": {
+            "closed_at": {
+              "start_at":"2020-01-01T00:00:00Z",
+              "other_end_date":{}
+            }
+          },
+          "state_filter": {
+            "states":null
+          }
+        }
+      }

@@ -1,0 +1,173 @@
+name: xml-modifier
+tests:
+- name: ""
+  script: |
+    result: $t | xml.parse
+  expected: { "result": null }
+- name: ""
+  script: |-
+    $t: "";
+    result: $t | xml.parse
+  expected: { "result": null }
+- name: ""
+  script: |-
+    $t: "<Simple>
+      <x>1</x>
+      <y>2</y>
+    </Simple>
+    ";
+    result: $t | xml.parse
+  expected:
+    {
+      "result": {
+        "x":"1",
+        "y":"2"
+      }
+    }
+- name: ""
+  script: |-
+    $t: `<Simple>
+      <x a="1" b="abc">text1</x>
+      <y>text2</y>
+    </Simple>
+    `;
+    $r: $t | xml.parse;
+    result: $r;
+    firstText: $r.x.["#text"];
+  expected:
+    {
+      "result": {
+        "x": {
+          "a":"1",
+          "b":"abc",
+          "#text":"text1"
+        },
+      "y":"text2"
+      },
+      "firstText":"text1"
+    }
+- name: ""
+  script: |
+    $t: `<Simple>
+      <x>a</x>
+      <x>b</x>
+    </Simple>
+    `;
+    $r: $t | xml.parse;
+    result: $r;
+  expected:
+    {
+      "result": {
+        "x": ["a","b"]
+      }
+    }
+- name: ""
+  script: |
+    $t: `<Simple>
+      <A>text</A>
+      <B attr1="a1">text2</B>
+    </Simple>
+    `;
+    $r: $t | xml.parse;
+    result: $r;
+  expected:
+    {
+      "result": {
+        "A":"text",
+        "B": {
+          "attr1":"a1",
+          "#text":"text2"
+        }
+      }
+    }
+- name: ""
+  script: |-
+    $t: `<Simple>
+      <x a="1">text1</x>
+      <x a="1">text1</x>
+      <x a="1">text1</x>
+      <x a="1">text1</x>
+      <x a="1">text1</x>
+    </Simple>
+    `;
+    $r: $t | xml.parse;
+    result: $r;
+    firstText: $r.x.["#text"];
+  expected:
+    {
+      "result": {
+        "x": [
+          {
+            "a": "1",
+            "#text": "text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          }
+        ]
+      },
+      "firstText":null
+    }
+- name: ""
+  script: |
+    $t: `<Simple>
+      <x a="1">text1</x>
+      <y a="1">text1</y>
+      <z a="1">text1</z>
+      <x a="1">text1</x>
+      <y a="1">text1</y>
+    </Simple>
+    `;
+    $r: $t | xml.parse;
+    result: $r;
+  expected:
+    {
+      "result": {
+        "x":[
+          {
+            "a":"1",
+            "#text":"text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          }
+        ],
+        "y":[
+          {
+            "a":"1",
+            "#text":"text1"
+          },
+          {
+            "a":"1",
+            "#text":"text1"
+          }
+        ],
+        "z": {
+          "a":"1",
+          "#text":"text1"
+        }
+      }
+    }
+- name: ""
+  script: |
+    $t: "abc"
+    $r: $t | xml.parse;
+    result: $r;
+  expected:
+    {
+      "result": null
+    }

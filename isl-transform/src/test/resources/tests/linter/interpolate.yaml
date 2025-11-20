@@ -1,0 +1,107 @@
+name: ""
+tests:
+  - name: "Convert literal + literal concat to interpolation"
+    script: |
+      return {
+        r1: "123" | concat( "456" )
+      }
+    expected:
+      result: { r1: "123456" }
+      # manually apply the recommendations - test will run this and compare with result above
+      updatedScript: |
+        return {
+          r1: `123456`
+        }
+      issues:
+        - "loc": "2:6/2:29"
+          "recommendation": "`123456`"
+
+  - name: "Convert literal + literal + delim concat to interpolation"
+    script: |
+      $delim = " - "
+      return {
+        r1: "123" | concat( "456", " - " ),
+        r2: "123" | concat( "456", $delim )
+      }
+    expected:
+      result: { "r1":"123 - 456", "r2":"123 - 456"}
+      updatedScript: |
+        $delim = " - "
+        return {
+          r1: `123 - 456`,
+          r2: `123${ $delim }456`
+        }
+      issues:
+        [
+          {"loc":"3:6/3:36","recommendation":"`123 - 456`"},
+          {"loc":"4:6/4:37","recommendation":"`123${ $delim }456`"}
+        ]
+
+
+  - name: "Convert literal + concat variable to interpolation"
+    script: |
+      $input = { first: "first", last: "last" }
+      $currency = "USD";
+      return {
+        r1: "123" | concat( $currency ),
+        r2: "123" | concat( $input.first )
+      }
+    expected:
+      result: {"r1":"123USD","r2":"123first"}
+      updatedScript: |
+        $input = { first: "first", last: "last" }
+        $currency = "USD";
+        return {
+          r1: `123$currency`,
+          r2: `123${ $input.first }`
+        }
+      issues:
+        [
+          { "loc": "4:6/4:33","recommendation": "`123$currency`" },
+          { "loc": "5:6/5:36","recommendation": "`123${ $input.first }`" }
+        ]
+
+  - name: "Convert literal + concat variable + delim to interpolation"
+    script: |
+      $input = { first: "first", last: "last" }
+      $currency = "USD";
+      return {
+        r1: "123" | concat( $currency, $input.first ),
+        r2: "123" | concat( $input.first, $input.last ),
+        r3: "123" | concat( $input.first, $currency )
+      }
+    expected:
+      result: {"r1":"123firstUSD","r2":"123lastfirst","r3":"123USDfirst"}
+      updatedScript: |
+        $input = { first: "first", last: "last" }
+        $currency = "USD";
+        return {
+          r1: `123${ $input.first }$currency`,
+          r2: `123${ $input.last }${ $input.first }`,
+          r3: `123${ $currency }${ $input.first }`
+        }
+      issues:
+        [
+          {"loc":"4:6/4:47","recommendation":"`123${ $input.first }$currency`"},
+          {"loc":"5:6/5:49","recommendation":"`123${ $input.last }${ $input.first }`"},
+          {"loc":"6:6/6:47","recommendation":"`123${ $currency }${ $input.first }`"}
+        ]
+
+  - name: "Convert variable + variable variable to interpolation"
+    script: |
+      $input = { first: "first", last: "last" }
+      $currency = "USD"
+      $value = "start"
+      $result = { from: "from" }
+      $result1 = $value | concat( $currency );
+      $result2 = $value | concat( $input.first );
+      $result3 = $result.value | concat( $currency );
+      $result4 = $result.value | concat( $input.first );
+    expected:
+      issues:
+        [
+            {"loc":"5:11/5:39","recommendation":"`$value$currency`"},
+            {"loc":"6:11/6:42","recommendation":"`$value${ $input.first }`"},
+            {"loc":"7:11/7:46","recommendation":"`${ $result.value }$currency`"},
+            {"loc":"8:11/8:49","recommendation":"`${ $result.value }${ $input.first }`"}
+        ]

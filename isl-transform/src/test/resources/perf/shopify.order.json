@@ -1,0 +1,968 @@
+{
+  "id": 4580469145667,
+  "admin_graphql_api_id": "gid://shopify/Order/4580469145667",
+  "app_id": 1354745,
+  "browser_ip": "159.196.168.127",
+  "buyer_accepts_marketing": false,
+  "cancel_reason": null,
+  "cancelled_at": null,
+  "cart_token": null,
+  "checkout_id": 29063913046083,
+  "checkout_token": "f6e841c16b7fde4eed29b10747cb5e23",
+  "client_details": {
+    "accept_language": "en-US,en;q=0.9",
+    "browser_height": null,
+    "browser_ip": "159.196.168.127",
+    "browser_width": null,
+    "session_hash": null,
+    "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/104.0.0.0 Safari/537.36"
+  },
+  "closed_at": null,
+  "confirmed": true,
+  "contact_email": "laszlo+tc3@onesaas.com",
+  "created_at": "2022-08-19T05:25:44Z",
+  "currency": "USD",
+  "current_subtotal_price": "186.40",
+  "current_subtotal_price_set": {
+    "shop_money": {
+      "amount": "186.40",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "186.40",
+      "currency_code": "USD"
+    }
+  },
+  "current_total_discounts": "46.60",
+  "current_total_discounts_set": {
+    "shop_money": {
+      "amount": "46.60",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "46.60",
+      "currency_code": "USD"
+    }
+  },
+  "current_total_duties_set": null,
+  "current_total_price": "203.43",
+  "current_total_price_set": {
+    "shop_money": {
+      "amount": "203.43",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "203.43",
+      "currency_code": "USD"
+    }
+  },
+  "current_total_tax": "17.03",
+  "current_total_tax_set": {
+    "shop_money": {
+      "amount": "17.03",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "17.03",
+      "currency_code": "USD"
+    }
+  },
+  "customer_locale": "en",
+  "device_id": null,
+  "discount_codes": [
+    {
+      "code": "20 OFF",
+      "amount": "46.60",
+      "type": "percentage"
+    }
+  ],
+  "email": "laszlo+tc3@onesaas.com",
+  "estimated_taxes": false,
+  "financial_status": "paid",
+  "fulfillment_status": null,
+  "gateway": "bogus",
+  "landing_site": null,
+  "landing_site_ref": null,
+  "location_id": null,
+  "name": "#1003",
+  "note": null,
+  "note_attributes": [],
+  "number": 3,
+  "order_number": 1003,
+  "order_status_url": "https://us-demo2022.myshopify.com/56418009155/orders/232e879f4e2b63c1457263f3fd3bdded/authenticate?key=444c5ea6b52cc966208fcffe002eca2a",
+  "original_total_duties_set": null,
+  "payment_gateway_names": [
+    "bogus"
+  ],
+  "phone": null,
+  "presentment_currency": "USD",
+  "processed_at": "2022-08-19T05:25:42Z",
+  "processing_method": "direct",
+  "reference": null,
+  "referring_site": null,
+  "source_identifier": null,
+  "source_name": "shopify_draft_order",
+  "source_url": null,
+  "subtotal_price": "186.40",
+  "subtotal_price_set": {
+    "shop_money": {
+      "amount": "186.40",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "186.40",
+      "currency_code": "USD"
+    }
+  },
+  "tags": "",
+  "tax_lines": [
+    {
+      "price": "13.52",
+      "rate": 0.0725,
+      "title": "California State Tax",
+      "price_set": {
+        "shop_money": {
+          "amount": "13.52",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "13.52",
+          "currency_code": "USD"
+        }
+      },
+      "channel_liable": false
+    },
+    {
+      "price": "3.51",
+      "rate": 0.01875,
+      "title": "Santa Clara County Tax",
+      "price_set": {
+        "shop_money": {
+          "amount": "3.51",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "3.51",
+          "currency_code": "USD"
+        }
+      },
+      "channel_liable": false
+    }
+  ],
+  "taxes_included": false,
+  "test": true,
+  "token": "232e879f4e2b63c1457263f3fd3bdded",
+  "total_discounts": "46.60",
+  "total_discounts_set": {
+    "shop_money": {
+      "amount": "46.60",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "46.60",
+      "currency_code": "USD"
+    }
+  },
+  "total_line_items_price": "233.00",
+  "total_line_items_price_set": {
+    "shop_money": {
+      "amount": "233.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "233.00",
+      "currency_code": "USD"
+    }
+  },
+  "total_outstanding": "0.00",
+  "total_price": "203.43",
+  "total_price_set": {
+    "shop_money": {
+      "amount": "203.43",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "203.43",
+      "currency_code": "USD"
+    }
+  },
+  "total_price_usd": "203.43",
+  "total_shipping_price_set": {
+    "shop_money": {
+      "amount": "0.00",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "0.00",
+      "currency_code": "USD"
+    }
+  },
+  "total_tax": "17.03",
+  "total_tax_set": {
+    "shop_money": {
+      "amount": "17.03",
+      "currency_code": "USD"
+    },
+    "presentment_money": {
+      "amount": "17.03",
+      "currency_code": "USD"
+    }
+  },
+  "total_tip_received": "0.00",
+  "total_weight": 0,
+  "updated_at": "2022-08-19T05:25:46Z",
+  "user_id": 73703292995,
+  "billing_address": {
+    "first_name": "Test",
+    "address1": "2700 Coast Avenue",
+    "phone": "",
+    "city": "Mountain View",
+    "zip": "94043",
+    "province": "California",
+    "country": "United States",
+    "last_name": "Customer3",
+    "address2": "",
+    "company": "",
+    "latitude": 37.4306346,
+    "longitude": -122.0960826,
+    "name": "Test Customer3",
+    "country_code": "US",
+    "province_code": "CA"
+  },
+  "customer": {
+    "id": 5850658111555,
+    "email": "laszlo+tc3@onesaas.com",
+    "accepts_marketing": false,
+    "created_at": "2022-08-19T05:15:32Z",
+    "updated_at": "2022-08-19T05:25:45Z",
+    "first_name": "Test",
+    "last_name": "Customer3",
+    "orders_count": 0,
+    "state": "disabled",
+    "total_spent": "0.00",
+    "last_order_id": null,
+    "note": "",
+    "verified_email": true,
+    "multipass_identifier": null,
+    "tax_exempt": false,
+    "tags": "",
+    "last_order_name": null,
+    "currency": "USD",
+    "phone": null,
+    "accepts_marketing_updated_at": "2022-08-19T05:15:32Z",
+    "marketing_opt_in_level": null,
+    "tax_exemptions": [],
+    "sms_marketing_consent": null,
+    "admin_graphql_api_id": "gid://shopify/Customer/5850658111555",
+    "default_address": {
+      "id": 7109237145667,
+      "customer_id": 5850658111555,
+      "first_name": "Test",
+      "last_name": "Customer3",
+      "company": "",
+      "address1": "2700 Coast Avenue",
+      "address2": "",
+      "city": "Mountain View",
+      "province": "California",
+      "country": "United States",
+      "zip": "94043",
+      "phone": "",
+      "name": "Test Customer3",
+      "province_code": "CA",
+      "country_code": "US",
+      "country_name": "United States",
+      "default": true
+    }
+  },
+  "discount_applications": [
+    {
+      "target_type": "line_item",
+      "type": "manual",
+      "value": "20.0",
+      "value_type": "percentage",
+      "allocation_method": "across",
+      "target_selection": "all",
+      "title": "20 OFF",
+      "description": "20 OFF"
+    }
+  ],
+  "fulfillments": [],
+  "line_items": [
+    {
+      "id": 11633764728899,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11633764728899",
+      "destination_location": {
+        "id": 3393983381571,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "Test Customer3",
+        "address1": "2700 Coast Avenue",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "fulfillable_quantity": 2,
+      "fulfillment_service": "manual",
+      "fulfillment_status": null,
+      "gift_card": false,
+      "grams": 0,
+      "name": "Awesome T-Shirt - S / Green",
+      "origin_location": {
+        "id": 3393939505219,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "US-Demo2022",
+        "address1": "2700 Coast Ave",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "price": "35.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 6720866549827,
+      "properties": [],
+      "quantity": 2,
+      "requires_shipping": true,
+      "sku": "ATS001",
+      "taxable": true,
+      "title": "Awesome T-Shirt",
+      "total_discount": "0.00",
+      "total_discount_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "variant_id": 40133051777091,
+      "variant_inventory_management": "shopify",
+      "variant_title": "S / Green",
+      "vendor": "US-Demo2022",
+      "tax_lines": [
+        {
+          "channel_liable": false,
+          "price": "4.06",
+          "price_set": {
+            "shop_money": {
+              "amount": "4.06",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "4.06",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.0725,
+          "title": "California State Tax"
+        },
+        {
+          "channel_liable": false,
+          "price": "1.05",
+          "price_set": {
+            "shop_money": {
+              "amount": "1.05",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "1.05",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.01875,
+          "title": "Santa Clara County Tax"
+        }
+      ],
+      "duties": [],
+      "discount_allocations": [
+        {
+          "amount": "14.00",
+          "amount_set": {
+            "shop_money": {
+              "amount": "14.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "14.00",
+              "currency_code": "USD"
+            }
+          },
+          "discount_application_index": 0
+        }
+      ]
+    },
+    {
+      "id": 11633764761667,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11633764761667",
+      "destination_location": {
+        "id": 3393983381571,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "Test Customer3",
+        "address1": "2700 Coast Avenue",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "fulfillable_quantity": 1,
+      "fulfillment_service": "manual",
+      "fulfillment_status": null,
+      "gift_card": false,
+      "grams": 0,
+      "name": "Awesome T-Shirt - M / Green",
+      "origin_location": {
+        "id": 3393939505219,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "US-Demo2022",
+        "address1": "2700 Coast Ave",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "price": "35.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 6720866549827,
+      "properties": [],
+      "quantity": 1,
+      "requires_shipping": true,
+      "sku": "ATS004",
+      "taxable": true,
+      "title": "Awesome T-Shirt",
+      "total_discount": "0.00",
+      "total_discount_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "variant_id": 40133051875395,
+      "variant_inventory_management": "shopify",
+      "variant_title": "M / Green",
+      "vendor": "US-Demo2022",
+      "tax_lines": [
+        {
+          "channel_liable": false,
+          "price": "2.03",
+          "price_set": {
+            "shop_money": {
+              "amount": "2.03",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "2.03",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.0725,
+          "title": "California State Tax"
+        },
+        {
+          "channel_liable": false,
+          "price": "0.53",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.53",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.53",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.01875,
+          "title": "Santa Clara County Tax"
+        }
+      ],
+      "duties": [],
+      "discount_allocations": [
+        {
+          "amount": "7.00",
+          "amount_set": {
+            "shop_money": {
+              "amount": "7.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "7.00",
+              "currency_code": "USD"
+            }
+          },
+          "discount_application_index": 0
+        }
+      ]
+    },
+    {
+      "id": 11633764794435,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11633764794435",
+      "destination_location": {
+        "id": 3393983381571,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "Test Customer3",
+        "address1": "2700 Coast Avenue",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "fulfillable_quantity": 3,
+      "fulfillment_service": "manual",
+      "fulfillment_status": null,
+      "gift_card": false,
+      "grams": 0,
+      "name": "Awesome T-Shirt - L / Green",
+      "origin_location": {
+        "id": 3393939505219,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "US-Demo2022",
+        "address1": "2700 Coast Ave",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "price": "35.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "35.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 6720866549827,
+      "properties": [],
+      "quantity": 3,
+      "requires_shipping": true,
+      "sku": "ATS007",
+      "taxable": true,
+      "title": "Awesome T-Shirt",
+      "total_discount": "0.00",
+      "total_discount_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "variant_id": 40133051973699,
+      "variant_inventory_management": "shopify",
+      "variant_title": "L / Green",
+      "vendor": "US-Demo2022",
+      "tax_lines": [
+        {
+          "channel_liable": false,
+          "price": "6.09",
+          "price_set": {
+            "shop_money": {
+              "amount": "6.09",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "6.09",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.0725,
+          "title": "California State Tax"
+        },
+        {
+          "channel_liable": false,
+          "price": "1.58",
+          "price_set": {
+            "shop_money": {
+              "amount": "1.58",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "1.58",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.01875,
+          "title": "Santa Clara County Tax"
+        }
+      ],
+      "duties": [],
+      "discount_allocations": [
+        {
+          "amount": "21.00",
+          "amount_set": {
+            "shop_money": {
+              "amount": "21.00",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "21.00",
+              "currency_code": "USD"
+            }
+          },
+          "discount_application_index": 0
+        }
+      ]
+    },
+    {
+      "id": 11633764827203,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11633764827203",
+      "destination_location": {
+        "id": 3393983381571,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "Test Customer3",
+        "address1": "2700 Coast Avenue",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "fulfillable_quantity": 1,
+      "fulfillment_service": "manual",
+      "fulfillment_status": null,
+      "gift_card": false,
+      "grams": 0,
+      "name": "My First Variant item - Large",
+      "origin_location": {
+        "id": 3393939505219,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "US-Demo2022",
+        "address1": "2700 Coast Ave",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "price": "11.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "11.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "11.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 6720832438339,
+      "properties": [],
+      "quantity": 1,
+      "requires_shipping": true,
+      "sku": "MFVI-L",
+      "taxable": true,
+      "title": "My First Variant item",
+      "total_discount": "0.00",
+      "total_discount_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "variant_id": 40132923949123,
+      "variant_inventory_management": "shopify",
+      "variant_title": "Large",
+      "vendor": "US-Demo2022",
+      "tax_lines": [
+        {
+          "channel_liable": false,
+          "price": "0.64",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.64",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.64",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.0725,
+          "title": "California State Tax"
+        },
+        {
+          "channel_liable": false,
+          "price": "0.17",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.17",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.17",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.01875,
+          "title": "Santa Clara County Tax"
+        }
+      ],
+      "duties": [],
+      "discount_allocations": [
+        {
+          "amount": "2.20",
+          "amount_set": {
+            "shop_money": {
+              "amount": "2.20",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "2.20",
+              "currency_code": "USD"
+            }
+          },
+          "discount_application_index": 0
+        }
+      ]
+    },
+    {
+      "id": 11633764859971,
+      "admin_graphql_api_id": "gid://shopify/LineItem/11633764859971",
+      "destination_location": {
+        "id": 3393983381571,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "Test Customer3",
+        "address1": "2700 Coast Avenue",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "fulfillable_quantity": 1,
+      "fulfillment_service": "manual",
+      "fulfillment_status": null,
+      "gift_card": false,
+      "grams": 0,
+      "name": "Test Inventoried Item",
+      "origin_location": {
+        "id": 3393939505219,
+        "country_code": "US",
+        "province_code": "CA",
+        "name": "US-Demo2022",
+        "address1": "2700 Coast Ave",
+        "address2": "",
+        "city": "Mountain View",
+        "zip": "94043"
+      },
+      "price": "12.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "12.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "12.00",
+          "currency_code": "USD"
+        }
+      },
+      "product_exists": true,
+      "product_id": 6720865468483,
+      "properties": [],
+      "quantity": 1,
+      "requires_shipping": true,
+      "sku": "TII001",
+      "taxable": true,
+      "title": "Test Inventoried Item",
+      "total_discount": "0.00",
+      "total_discount_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "variant_id": 40133049745475,
+      "variant_inventory_management": "shopify",
+      "variant_title": "",
+      "vendor": "US-Demo2022",
+      "tax_lines": [
+        {
+          "channel_liable": false,
+          "price": "0.70",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.70",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.70",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.0725,
+          "title": "California State Tax"
+        },
+        {
+          "channel_liable": false,
+          "price": "0.18",
+          "price_set": {
+            "shop_money": {
+              "amount": "0.18",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "0.18",
+              "currency_code": "USD"
+            }
+          },
+          "rate": 0.01875,
+          "title": "Santa Clara County Tax"
+        }
+      ],
+      "duties": [],
+      "discount_allocations": [
+        {
+          "amount": "2.40",
+          "amount_set": {
+            "shop_money": {
+              "amount": "2.40",
+              "currency_code": "USD"
+            },
+            "presentment_money": {
+              "amount": "2.40",
+              "currency_code": "USD"
+            }
+          },
+          "discount_application_index": 0
+        }
+      ]
+    }
+  ],
+  "payment_details": {
+    "credit_card_bin": "1",
+    "avs_result_code": null,
+    "cvv_result_code": null,
+    "credit_card_number": "•••• •••• •••• 1",
+    "credit_card_company": "Bogus"
+  },
+  "payment_terms": null,
+  "refunds": [],
+  "shipping_address": {
+    "first_name": "Test",
+    "address1": "2700 Coast Avenue",
+    "phone": "",
+    "city": "Mountain View",
+    "zip": "94043",
+    "province": "California",
+    "country": "United States",
+    "last_name": "Customer3",
+    "address2": "",
+    "company": "",
+    "latitude": 37.4306346,
+    "longitude": -122.0960826,
+    "name": "Test Customer3",
+    "country_code": "US",
+    "province_code": "CA"
+  },
+  "shipping_lines": [
+    {
+      "id": 3830439084099,
+      "carrier_identifier": null,
+      "code": "custom",
+      "delivery_category": null,
+      "discounted_price": "0.00",
+      "discounted_price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "phone": null,
+      "price": "0.00",
+      "price_set": {
+        "shop_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        },
+        "presentment_money": {
+          "amount": "0.00",
+          "currency_code": "USD"
+        }
+      },
+      "requested_fulfillment_service_id": null,
+      "source": "shopify",
+      "title": "Free shipping",
+      "tax_lines": [],
+      "discount_allocations": []
+    }
+  ],
+  "transactions": [
+    {
+      "id": 5645658652739,
+      "admin_graphql_api_id": "gid://shopify/OrderTransaction/5645658652739",
+      "amount": "203.43",
+      "authorization": "53433",
+      "created_at": "2022-08-19T05:25:42Z",
+      "currency": "USD",
+      "device_id": null,
+      "error_code": null,
+      "gateway": "bogus",
+      "kind": "sale",
+      "location_id": null,
+      "message": "Bogus Gateway: Forced success",
+      "order_id": 4580469145667,
+      "parent_id": null,
+      "processed_at": "2022-08-19T05:25:42Z",
+      "receipt": {
+        "paid_amount": "203.43"
+      },
+      "source_name": "shopify_draft_order",
+      "status": "success",
+      "test": true,
+      "user_id": null,
+      "payment_details": {
+        "credit_card_bin": "1",
+        "avs_result_code": null,
+        "cvv_result_code": null,
+        "credit_card_number": "•••• •••• •••• 1",
+        "credit_card_company": "Bogus"
+      }
+    }
+  ],
+  "TransactionFees": [
+    {
+      "id": "5645658652739",
+      "fees": []
+    }
+  ]
+}

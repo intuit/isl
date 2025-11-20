@@ -1,0 +1,95 @@
+name: Tests for Retry Modifiers
+tests:
+- name: Simple Retry, will retry but result is the same
+  inputs:
+    result: { "status": 200 }
+  script: |
+    fun run() {
+      result: $result | retry.when( $.status == 200 )
+    }
+  expected: { "result": { "status": 200 } }
+
+- name: Simple Retry with exit due to positive condition
+  inputs:
+  script: |
+    fun run() {
+      $value = {
+        status: 198 // we'll add to 200
+      }
+      result: @.This.Add( $value ) | retry.when( $.status < 200 )  // will retry and increment 
+    }
+    fun add( $value ){
+      $value.status = {{ $value.status + 1 }}
+      @.Log.Info(`Added ${ $value }`)
+      return $value
+    }
+  expected: { "result": { "status": 200 } }
+
+- name: Retry 0 times (run once)
+  inputs:
+  script: |
+    fun run() {
+      $value = {
+        status: 198 // we'll add to 200
+      }
+      result: @.This.Add( $value ) | retry.when( $.status < 250, { retryCount: 0 } )  // will not retry 
+    }
+    fun add( $value ){
+      $value.status = {{ $value.status + 1 }}
+      @.Log.Info(`Added ${ $value }`)
+      return $value
+    }
+  # 1 past original 198 - we run at least once
+  expected: { "result": { "status": 199 } }
+
+- name: Retry 3 times (default)
+  inputs:
+  script: |
+    fun run() {
+      $value = {
+        status: 5 // we'll add to 200
+      }
+      result: @.This.Add( $value ) | retry.when( $.status < 250 )  // will retry and increment 3 times 
+    }
+    fun add( $value ){
+      $value.status = {{ $value.status + 1 }}
+      @.Log.Info(`Added ${ $value }`)
+      return $value
+    }
+  # 1 + 3 retries past original 5
+  expected: { "result": { "status": 9 } }
+
+- name: Retry 3 times (explicitly)
+  inputs:
+  script: |
+    fun run() {
+      $value = {
+        status: 5 // we'll add to 200
+      }
+      result: @.This.Add( $value ) | retry.when( $.status < 250, { retryCount: 3 } )  // will retry and increment 3 times 
+    }
+    fun add( $value ){
+      $value.status = {{ $value.status + 1 }}
+      @.Log.Info(`Added ${ $value }`)
+      return $value
+    }
+  # 1 + 3 retries past original 5
+  expected: { "result": { "status": 9 } }
+
+- name: Simple Retry 8 times
+  inputs:
+  script: |
+    fun run() {
+      $value = {
+        status: 191 // we'll add to 200
+      }
+      result: @.This.Add( $value ) | retry.when( $.status < 200, { retryCount: 8 } )  // will retry and increment 
+    }
+    fun add( $value ){
+      $value.status = {{ $value.status + 1 }}
+      @.Log.Info(`Added ${ $value }`)
+      return $value
+    }
+  expected: { "result": { "status": 200 } }
+
+# TODO: Not sure how but we need to test the backOff and the delay times

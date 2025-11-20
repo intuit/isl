@@ -1,0 +1,23 @@
+name: ""
+tests:
+- name: ""
+  script: |
+    result: `simple result`
+  expected: { "result": "simple result" }
+  
+- name: ""
+  script: |
+    $val: 123result: `simple $val result`
+  expected: { "result": "simple 123 result" }
+  
+- name: ""
+  script: |
+    $val: 123result: `simple $val result $val`
+  expected: { "result": "simple 123 result 123" }
+  
+- name: ""
+  script: |
+    $val: '  123   ';result: `simple ${ $val | trim } result '$val'`
+  expected: { "result": "simple 123 result '  123   '" }
+  
+scripts: null

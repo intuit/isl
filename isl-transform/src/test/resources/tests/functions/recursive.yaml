@@ -1,0 +1,40 @@
+name: ""
+tests:
+  - name: "simple recursion"
+    script: |
+      fun run(){
+        return {
+          result: @.This.recurse( 5 ) 
+        }
+      }
+      fun recurse( $value ){
+        if( $value > 1 )
+          $next = {{ $value - 1 }}
+          return {{ $value * @.This.recurse( $next ) }}
+        else
+          return 1
+        endif
+      }
+    expected: { "result": 120 }
+
+
+  - name: "multi level recursion"
+    script: |
+      fun run(){
+        return {
+          result: @.This.recurse1( 25 ) 
+        }
+      }
+      fun recurse1( $value ){
+        return @.This.recurse( $value )
+      }
+      fun recurse( $value ){
+        if( $value > 1 )
+          $next = {{ $value - 1 }}
+          return {{ $value * @.This.recurse1( $next ) }}
+        else
+          return 1
+        endif
+      }
+    expected: { "result": 15511210043330985984000000 }
+

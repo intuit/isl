@@ -1,0 +1,504 @@
+{
+  "id": {
+    "externalId": "4580469145667"
+  },
+  "number": "1003",
+  "date": {
+    "timeStamp": "2022-08-19T05:25:42Z"
+  },
+  "status": "open",
+  "note": null,
+  "taxTreatment": "exclusive",
+  "customer": {
+    "id": {
+      "externalId": "5850658111555"
+    },
+    "name": {
+      "businessName": "",
+      "individualName": {
+        "firstName": "Test",
+        "lastName": "Customer3"
+      }
+    },
+    "emails": [
+      {
+        "email": "laszlo+tc3@onesaas.com"
+      }
+    ],
+    "phones": [
+      {
+        "phoneNumber": ""
+      }
+    ]
+  },
+  "lineItems": [
+    {
+      "lineType": "product",
+      "externalLineItemId": "11633764728899",
+      "index": 0,
+      "quantity": 2,
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "70.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "70.00"
+        }
+      },
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        }
+      },
+      "productId": {
+        "externalId": "6720866549827"
+      },
+      "variantId": {
+        "externalId": "40133051777091"
+      },
+      "sku": "ATS001",
+      "name": "Awesome T-Shirt - S / Green",
+      "description": "Awesome T-Shirt - S / Green",
+      "options": [],
+      "discountTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "14.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "14.00"
+        }
+      },
+      "discounts": [
+        {
+          "name": null,
+          "type": "percentage",
+          "value": "20.0",
+          "description": "20 OFF",
+          "applicationType": "manual"
+        }
+      ],
+      "taxes": [
+        {
+          "code": "California State Tax",
+          "name": "California State Tax",
+          "value": 7.2500,
+          "type": "percentage"
+        },
+        {
+          "code": "Santa Clara County Tax",
+          "name": "Santa Clara County Tax",
+          "value": 1.87500,
+          "type": "percentage"
+        }
+      ],
+      "taxTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "5.11"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "5.11"
+        }
+      },
+      "fulfillmentStatus": null,
+      "productNotAvailable": false,
+      "variantNotAvailable": false
+    },
+    {
+      "lineType": "product",
+      "externalLineItemId": "11633764761667",
+      "index": 1,
+      "quantity": 1,
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        }
+      },
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        }
+      },
+      "productId": {
+        "externalId": "6720866549827"
+      },
+      "variantId": {
+        "externalId": "40133051875395"
+      },
+      "sku": "ATS004",
+      "name": "Awesome T-Shirt - M / Green",
+      "description": "Awesome T-Shirt - M / Green",
+      "options": [],
+      "discountTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "7.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "7.00"
+        }
+      },
+      "discounts": [
+        {
+          "name": null,
+          "type": "percentage",
+          "value": "20.0",
+          "description": "20 OFF",
+          "applicationType": "manual"
+        }
+      ],
+      "taxes": [
+        {
+          "code": "California State Tax",
+          "name": "California State Tax",
+          "value": 7.2500,
+          "type": "percentage"
+        },
+        {
+          "code": "Santa Clara County Tax",
+          "name": "Santa Clara County Tax",
+          "value": 1.87500,
+          "type": "percentage"
+        }
+      ],
+      "taxTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "2.56"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "2.56"
+        }
+      },
+      "fulfillmentStatus": null,
+      "productNotAvailable": false,
+      "variantNotAvailable": false
+    },
+    {
+      "lineType": "product",
+      "externalLineItemId": "11633764794435",
+      "index": 2,
+      "quantity": 3,
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "105.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "105.00"
+        }
+      },
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "35.00"
+        }
+      },
+      "productId": {
+        "externalId": "6720866549827"
+      },
+      "variantId": {
+        "externalId": "40133051973699"
+      },
+      "sku": "ATS007",
+      "name": "Awesome T-Shirt - L / Green",
+      "description": "Awesome T-Shirt - L / Green",
+      "options": [],
+      "discountTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "21.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "21.00"
+        }
+      },
+      "discounts": [
+        {
+          "name": null,
+          "type": "percentage",
+          "value": "20.0",
+          "description": "20 OFF",
+          "applicationType": "manual"
+        }
+      ],
+      "taxes": [
+        {
+          "code": "California State Tax",
+          "name": "California State Tax",
+          "value": 7.2500,
+          "type": "percentage"
+        },
+        {
+          "code": "Santa Clara County Tax",
+          "name": "Santa Clara County Tax",
+          "value": 1.87500,
+          "type": "percentage"
+        }
+      ],
+      "taxTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "7.67"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "7.67"
+        }
+      },
+      "fulfillmentStatus": null,
+      "productNotAvailable": false,
+      "variantNotAvailable": false
+    },
+    {
+      "lineType": "product",
+      "externalLineItemId": "11633764827203",
+      "index": 3,
+      "quantity": 1,
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "11.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "11.00"
+        }
+      },
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "11.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "11.00"
+        }
+      },
+      "productId": {
+        "externalId": "6720832438339"
+      },
+      "variantId": {
+        "externalId": "40132923949123"
+      },
+      "sku": "MFVI-L",
+      "name": "My First Variant item - Large",
+      "description": "My First Variant item - Large",
+      "options": [],
+      "discountTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "2.20"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "2.20"
+        }
+      },
+      "discounts": [
+        {
+          "name": null,
+          "type": "percentage",
+          "value": "20.0",
+          "description": "20 OFF",
+          "applicationType": "manual"
+        }
+      ],
+      "taxes": [
+        {
+          "code": "California State Tax",
+          "name": "California State Tax",
+          "value": 7.2500,
+          "type": "percentage"
+        },
+        {
+          "code": "Santa Clara County Tax",
+          "name": "Santa Clara County Tax",
+          "value": 1.87500,
+          "type": "percentage"
+        }
+      ],
+      "taxTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "0.81"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "0.81"
+        }
+      },
+      "fulfillmentStatus": null,
+      "productNotAvailable": false,
+      "variantNotAvailable": false
+    },
+    {
+      "lineType": "product",
+      "externalLineItemId": "11633764859971",
+      "index": 4,
+      "quantity": 1,
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "12.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "12.00"
+        }
+      },
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "12.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "12.00"
+        }
+      },
+      "productId": {
+        "externalId": "6720865468483"
+      },
+      "variantId": {
+        "externalId": "40133049745475"
+      },
+      "sku": "TII001",
+      "name": "Test Inventoried Item",
+      "description": "Test Inventoried Item",
+      "options": [],
+      "discountTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "2.40"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "2.40"
+        }
+      },
+      "discounts": [
+        {
+          "name": null,
+          "type": "percentage",
+          "value": "20.0",
+          "description": "20 OFF",
+          "applicationType": "manual"
+        }
+      ],
+      "taxes": [
+        {
+          "code": "California State Tax",
+          "name": "California State Tax",
+          "value": 7.2500,
+          "type": "percentage"
+        },
+        {
+          "code": "Santa Clara County Tax",
+          "name": "Santa Clara County Tax",
+          "value": 1.87500,
+          "type": "percentage"
+        }
+      ],
+      "taxTotal": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "0.88"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "0.88"
+        }
+      },
+      "fulfillmentStatus": null,
+      "productNotAvailable": false,
+      "variantNotAvailable": false
+    },
+    {
+      "lineType": "shipping",
+      "sku": "custom",
+      "name": "Free shipping",
+      "description": "Free shipping",
+      "amount": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "0.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "0.00"
+        }
+      },
+      "quantity": 1,
+      "unitPriceBeforeTax": {
+        "settlementMoney": {
+          "currency": "USD",
+          "amount": "0.00"
+        },
+        "presentmentMoney": {
+          "currency": "USD",
+          "amount": "0.00"
+        }
+      },
+      "taxes": []
+    }
+  ],
+  "total": {
+    "settlementMoney": {
+      "currency": "USD",
+      "amount": "203.43"
+    },
+    "presentmentMoney": {
+      "currency": "USD",
+      "amount": "203.43"
+    }
+  },
+  "totalTaxes": {
+    "settlementMoney": {
+      "currency": "USD",
+      "amount": "17.03"
+    },
+    "presentmentMoney": {
+      "currency": "USD",
+      "amount": "17.03"
+    }
+  },
+  "totalDiscounts": {
+    "settlementMoney": {
+      "currency": "USD",
+      "amount": "46.60"
+    },
+    "presentmentMoney": {
+      "currency": "USD",
+      "amount": "46.60"
+    }
+  }
+}

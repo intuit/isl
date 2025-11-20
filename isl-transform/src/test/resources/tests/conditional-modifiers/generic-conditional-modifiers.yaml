@@ -1,0 +1,90 @@
+name: Tests for Generic Conditional Modifiers
+tests:
+# modifier.test() is a conditional modifier - should not be recognized as a standard modifier
+- name: Test Modifier - should not be recognized
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      result: $result | test
+      value: $result.value | test
+      value_p1: $result.value | test( 1 )
+      value_p2: $result.value | test( 1, 2 )
+    }
+  expected:
+    {
+      "result": "Unknown Modifier: test",
+      "value": "Unknown Modifier: test",
+      "value_p1": "Unknown Modifier: test",
+      "value_p2": "Unknown Modifier: test"
+    }
+
+# modifier.test() with param that is a condition
+- name: Test Modifier with condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | test( $result )
+      cond_2: "prevValue" | test( $result, 1 )
+      cond_2n: "prevValue" | test( !$result, 1 )
+      cond_3: "prevValue" | test( $result, 1, 2 )
+      cond_4: "prevValue" | test( $result.value, 1, 2 )
+      cond_4n: "prevValue" | test( !$result.value, 1, 2 )
+      cond_5: "prevValue" | test( $result.value, 1, 2, "3", "4", 5 )
+    }
+  expected:
+    {
+      "cond_1": "|test( exists [Select] $result, [] )",
+      "cond_2": "|test( exists [Select] $result, [[Val] `1`] )",
+      "cond_2n": "|test( notexists [Select] $result, [[Val] `1`] )",
+      "cond_3": "|test( exists [Select] $result, [[Val] `1`, [Val] `2`] )",
+      "cond_4": "|test( exists [Select] $result -> value, [[Val] `1`, [Val] `2`] )",
+      "cond_4n": "|test( notexists [Select] $result -> value, [[Val] `1`, [Val] `2`] )",
+      "cond_5": "|test( exists [Select] $result -> value, [[Val] `1`, [Val] `2`, [Val] `3`, [Val] `4`, [Val] `5`] )"
+    }
+
+### Wildcard
+# modifier.do.when() is a conditional modifier - should not be recognized as a standard modifier
+- name: do.when Modifier - should not be recognized
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      result: $result | do.when
+      value: $result.value | do.this
+      value_p1: $result.value | do.when( 1 )
+      value_p2: $result.value | do.when( 1, 2 )
+    }
+  expected:
+    {
+      "result": "Unknown Modifier: do.when",
+      "value": "Unknown Modifier: do.this",
+      "value_p1": "Unknown Modifier: do.when",
+      "value_p2": "Unknown Modifier: do.when"
+    }
+
+# modifier.do.when() with param that is a condition
+- name: do.when Modifier with condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | do.when( $result )
+      cond_2: "prevValue" | do.when( $result, 1 )
+      cond_2n: "prevValue" | do.when( !$result, 1 )
+      cond_3: "prevValue" | do.when( $result, 1, 2 )
+      cond_4: "prevValue" | do.when( $result.value, 1, 2 )
+      cond_4n: "prevValue" | do.when( !$result.value, 1, 2 )
+      cond_5: "prevValue" | do.when( $result.value, 1, 2, "3", "4", 5 )
+    }
+  expected:
+    {
+      "cond_1": "|do.when( exists [Select] $result, [] )",
+      "cond_2": "|do.when( exists [Select] $result, [[Val] `1`] )",
+      "cond_2n": "|do.when( notexists [Select] $result, [[Val] `1`] )",
+      "cond_3": "|do.when( exists [Select] $result, [[Val] `1`, [Val] `2`] )",
+      "cond_4": "|do.when( exists [Select] $result -> value, [[Val] `1`, [Val] `2`] )",
+      "cond_4n": "|do.when( notexists [Select] $result -> value, [[Val] `1`, [Val] `2`] )",
+      "cond_5": "|do.when( exists [Select] $result -> value, [[Val] `1`, [Val] `2`, [Val] `3`, [Val] `4`, [Val] `5`] )"
+    }

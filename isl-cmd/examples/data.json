@@ -1,0 +1,27 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "name": "apple",
+      "price": 1.50,
+      "quantity": 3,
+      "active": true
+    },
+    {
+      "id": 2,
+      "name": "banana",
+      "price": 0.80,
+      "quantity": 5,
+      "active": false
+    },
+    {
+      "id": 3,
+      "name": "orange",
+      "price": 2.00,
+      "quantity": 2,
+      "active": true
+    }
+  ]
+}
+
+

@@ -1,0 +1,39 @@
+name: ""
+tests:
+  - name: ""
+    script: "result: null ?? null;"
+    expected: { "result": null }
+  - name: ""
+    script: "result: null ?? '';"
+    expected: { "result": "" }
+  - name: ""
+    script: "result: '' ?? null;"
+    expected: { "result": null }
+  - name: ""
+    script: "result: 123 ?? null;"
+    expected: { "result": 123 }
+  - name: ""
+    script: "result: null ?? 123;"
+    expected: { "result": 123 }
+  - name: ""
+    script: |-
+      $v: 123;
+      result: $abc ?? $v;
+    expected: { "result": 123 }
+  - name: ""
+    script: |-
+      $v: 123;
+      result: $v ?? $abc;
+    expected: { "result": 123 }
+  - name: ""
+    script: |-
+      $v: 123;
+      $v2: 123;
+      result: null ?? '' ?? $v ?? $v2;
+    expected: { "result": 123 }
+  - name: ""
+    script: "result: @.Config.Get('') ?? @.Config.Get('a');"
+    expected: { "result": "a Value" }
+  - name: ""
+    script: "result: @.Config.Get( null ?? 'abc' ) ?? @.Config.Get('a');"
+    expected: { "result": "abc Value" }

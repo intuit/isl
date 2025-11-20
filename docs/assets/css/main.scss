@@ -1,0 +1,57 @@
+---
+# Only the main Sass file needs front matter (the dashes are enough)
+---
+
+@charset "utf-8";
+
+@import "minimal-mistakes/skins/{{ site.minimal_mistakes_skin | default: 'default' }}"; // skin
+@import "minimal-mistakes"; // main partials
+
+/* Custom styles for ISL Documentation */
+
+/* Reduce main content font size */
+.page__content {
+  font-size: 0.85em; /* Default is 1em (16px), reduced to ~13.6px */
+  
+  p, li, dl {
+    font-size: 1em; /* Inherit from parent .page__content */
+  }
+  
+  /* Keep headings proportional but slightly smaller */
+  h1 {
+    font-size: 1.8em; /* Default is 2em */
+  }
+  
+  h2 {
+    font-size: 1.5em; /* Default is 1.75em */
+  }
+  
+  h3 {
+    font-size: 1.25em; /* Default is 1.5em */
+  }
+  
+  h4 {
+    font-size: 1.1em; /* Default is 1.25em */
+  }
+  
+  /* Keep code blocks readable */
+  pre, code {
+    font-size: 0.95em;
+  }
+  
+  /* Adjust table text */
+  table {
+    font-size: 0.95em;
+  }
+}
+
+/* Ensure TOC stays at a good size */
+.toc {
+  font-size: 0.9em;
+}
+
+/* Ensure sidebar navigation stays readable */
+.sidebar {
+  font-size: 0.9em;
+}
+

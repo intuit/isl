@@ -1,0 +1,274 @@
+name: ""
+tests:
+  - name: ""
+    script: |
+      fun run ( $input ) {
+        $v = { prop1: true, name: 'george' }
+        $result = switch ( $v.prop1 ) 
+          true -> @.This.transform ( $v );
+          false -> $result.user = 'other';
+          else -> { data: 'else' };
+        endswitch
+        return $result
+      }
+
+      fun transform( $input ){
+         return { data: $input.name }
+      }
+    expected: { "data":"george" }
+  - name: ""
+    script: |
+      fun run ( $input ) {
+        $v = { prop1: false, name: 'george' }
+        $result = switch ( $v.prop1 ) 
+            true -> @.This.transform ( $v );
+            false -> { data: 'other' };
+            else -> { data: 'else' };
+        endswitch
+    
+        return $result
+      }
+      
+      fun transform( $input ){
+         return { data: $input.name }
+      }
+    expected: {"data":"other"}
+  - name: ""
+    script: |
+      fun run ( $input ){
+        $v = { prop1: 123, name: 'george' }
+        $result = switch ( $v.prop1 ) 
+          true -> @.This.transform ( $v );
+          false -> { data: 'other' };
+          else -> { data: 'else' };
+        endswitch
+      
+        return $result
+      }
+      
+      fun transform( $input ){
+         return { data: $input.name }
+      }
+    expected: {"data":"else"}
+  - name: ""
+    script: |
+      fun run ( $input ){
+        $v = { prop1: 123, name: 'george' }
+        $result = switch ( $v.prop1 ) 
+          true -> @.This.transform ( $v );
+          false -> { data: 'other' };
+          else -> @.This.transform ( { name: 'call else' } );
+        endswitch
+      
+        return $result
+      }
+      
+      fun transform( $input ){
+         return { data: $input.name }
+      }
+    expected: { "data":"call else" }
+  - name: ""
+    script: |
+      fun run ( $input ){
+        $v = { prop1: 123, name: 'george' }
+        $result = switch ( $v.prop1 ) 
+          true -> @.This.transform ( $v );
+          false -> { data: 'other' };
+          else -> @.This.transform ( { name: 'call else with modifier' } ) | kv;
+        endswitch
+    
+        return { data: $result }
+      }
+   
+      fun transform( $input ) {
+         return { data: $input.name }
+      }
+    expected:
+      {
+        "data": [
+          {
+            "key":"data",
+            "value":"call else with modifier"
+          }
+        ]
+      }
+  - name: ""
+    script: |
+      $val: 12;
+      description: switch ( $val ) 12 -> true; else -> false; endswitch
+    expected: { "description": true }
+  - name: ""
+    script: |
+      $val: 12;
+      description: switch ( $val )
+         12 -> true;
+         else -> false;
+      endswitch
+    expected: { "description": true }
+  - name: ""
+    script: |
+      $val: 12;
+      description: switch ( $val )
+         12 -> { a: $val };
+         else -> { b: $val };
+      endswitch
+    expected: { "description": { "a": 12 } }
+  - name: ""
+    script: |-
+      $val: 12;
+      switch ( $val )
+         12 -> $val = 14;
+         "some:text" -> $val = 14;
+         else -> $val = 15;
+      endswitch
+      description: $val;
+    expected: { "description": 14 }
+  - name: ""
+    script: |
+      $val: 13;description: switch ( $val ) 12 -> true; else -> false; endswitch
+    expected: { "description": false }
+  - name: ""
+    script: |
+      $val: 10;description: switch ( $val ) 10 -> "a"; 12 -> "b"; else -> "c"; endswitch
+    expected: { "description": "a" }
+  - name: ""
+    script: |
+      $val: 'Current User';
+      $result: {};
+      switch ( $val ) 
+         'Current User' -> $result.user = 'current';
+         'Other User' -> $result.user = 'other';
+      endswitch
+      
+      result: $result
+    expected:
+      {
+        "result": {
+          "user":"current"
+        }
+      }
+  - name: ""
+    script: |
+      fun run ( $input ){
+        $val: 'Current User';
+        $result: {};
+        switch ( $val ) 
+          'Current User' -> $result.user = 'current';
+          'Other User' -> $result.user = 'other';
+        endswitch
+      
+        return $result
+      }
+    expected: {"user":"current"}
+  - name: ""
+    script: |
+      description: switch ( $val ) /^v/ -> "regexstart"; else -> "no"; endswitch
+    expected: { "description": "regexstart" }
+    scriptReference: null
+    inputs:
+      val: value
+  - name: ""
+    script: |
+      description: switch ( $val ) contains "val" -> "containval"; else -> "no"; endswitch
+    expected: { "description": "containval" }
+    scriptReference: null
+    inputs:
+      val: value
+  - name: ""
+    script: |
+      description: switch ( $val ) contains "abc" -> "containval"; endsWith "lue" -> "endswith lue"; else -> "no"; endswitch
+    expected: { "description": "endswith lue" }
+    scriptReference: null
+    inputs:
+      val: value
+  - name: ""
+    script: |-
+      $val1: 12; 
+      $val2: 12
+      description: switch ( $val1 )
+          0 -> "zero";
+          == $val2 -> "val2";
+          else -> false;
+      endswitch
+    expected: { "description": "val2" }
+  - name: ""
+    script: |-
+      $val1: {{ 1 + 11 }}; 
+      $val2: 14;
+      description: switch ( $val1 )
+          0 -> "zero";
+          == $val2 -> "val2";
+          else -> null;
+      endswitch
+    expected: { "description": null }
+  - name: ""
+    script: |-
+      $val1: 'AUD';
+      country: switch ( $val1 )
+          in ['AUD', 'USD', 'CAD'] -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "yes" }
+  - name: ""
+    script: |-
+      $val1: 'EUR';
+      country: switch ( $val1 )     
+          in ['AUD', 'USD', 'CAD'] -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "no" }
+  - name: ""
+    script: |-
+      $val1: 'AUD';
+      country: switch ( $val1 )
+          !in ['AUD', 'USD', 'CAD'] -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "no" }
+  - name: ""
+    script: |-
+      $val1: 'EUR';
+      country: switch ( $val1 )
+          !in ['AUD', 'USD', 'CAD'] -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "yes" }
+  - name: ""
+    script: |-
+      $currencies: ['AUD', 'USD', 'CAD'];
+      $val1: 'AUD'; country: 
+      switch ( $val1 )
+          in $currencies -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "yes" }
+  - name: ""
+    script: |-
+      $currencies: ['AUD', 'USD', 'CAD'];$val1: 'EUR';
+      country: switch ( $val1 )     in $currencies -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "no" }
+  - name: ""
+    script: |-
+      $currencies: ['AUD', 'USD', 'CAD'];$val1: 'AUD';
+      country: switch ( $val1 )     !in $currencies -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "no" }
+  - name: ""
+    script: |-
+      $currencies: ['AUD', 'USD', 'CAD'];$val1: 'EUR';
+      country: switch ( $val1 )     !in $currencies -> "yes";
+          else -> "no";
+      endswitch
+    expected: { "country": "yes" }
+
+  - name: ""
+    script: |-
+      $account: "EXTRA_DEPOSIT";
+      result: switch ( $account )
+          /deposit/ -> "is-deposit";
+          else -> "no";
+      endswitch
+    expected: { "result": "is-deposit" }

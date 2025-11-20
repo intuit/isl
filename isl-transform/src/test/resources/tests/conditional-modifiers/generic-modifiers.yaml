@@ -1,0 +1,109 @@
+name: Tests for Generic Modifiers
+tests:
+# modifier.simple()
+- name: Simple Modifier
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      result: $result | simple
+      value: $result.value | simple
+      value_p1: $result.value | simple( 1 )
+      value_p2: $result.value | simple( 1, 2 )
+    }
+  expected:
+    {
+      "result": "|simple( {\"value\":200}, null, null )",
+      "value": "|simple( 200, null, null )",
+      "value_p1": "|simple( 200, 1, null )",
+      "value_p2": "|simple( 200, 1, 2 )"
+    }
+
+# modifier.simple() with param that could be a condition
+- name: Simple Modifier with potential condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | simple( $result )
+      cond_2: "prevValue" | simple( $result, 1 )
+      cond_3: "prevValue" | simple( $result, 1, 2 )
+    }
+  expected:
+    {
+      "cond_1": "|simple( prevValue, {\"value\":200}, null )",
+      "cond_2": "|simple( prevValue, {\"value\":200}, 1 )",
+      "cond_3": "|simple( prevValue, {\"value\":200}, 1 )"
+    }
+
+# modifier.simple() with param that IS a condition so will fail
+- name: Simple Modifier with potential condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | simple( !$result )
+      cond_2: "prevValue" | simple( !$result, 1 )
+      cond_3: "prevValue" | simple( !$result, 1, 2 )
+    }
+  expected:
+    {
+      "cond_1": "Unknown Extension: simple",
+      "cond_2": "Unknown Extension: simple",
+      "cond_3": "Unknown Extension: simple"
+    }
+
+# Tests for Wildcard Modifiers
+- name: Wildcard Modifier
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      result: $result | wild.card
+      value: $result.value | wild.card
+      value_p1: $result.value | wild.card( 1 )
+      value_p2: $result.value | wild.card( 1, 2 )
+    }
+  expected:
+    {
+      "result": "|wild.card( {\"value\":200}, card, null, null, null )",
+      "value": "|wild.card( 200, card, null, null, null )",
+      "value_p1": "|wild.card( 200, card, 1, null, null )",
+      "value_p2": "|wild.card( 200, card, 1, 2, null )"
+    }
+
+# modifier.wild.card() with param that could be a condition
+- name: wild.card with potential condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | wild.card( $result )
+      cond_2: "prevValue" | wild.card( $result, 1 )
+      cond_3: "prevValue" | wild.card( $result, 1, 2 )
+    }
+  expected:
+    {
+      "cond_1": "|wild.card( prevValue, card, {\"value\":200}, null, null )",
+      "cond_2": "|wild.card( prevValue, card, {\"value\":200}, 1, null )",
+      "cond_3": "|wild.card( prevValue, card, {\"value\":200}, 1, 2 )"
+    }
+
+# wild.card() with param that IS a condition so will fail
+- name: wild.card with valid condition
+  inputs:
+    result: { "value": 200 }
+  script: |
+    fun run() {
+      cond_1: "prevValue" | wild.card( !$result )
+      cond_2: "prevValue" | wild.card( !$result, 1 )
+      cond_3: "prevValue" | wild.card( !$result, 1, 2 )
+      cond_4: "prevValue" | wild.card( $result > 10, 1, 2 )
+    }
+  expected:
+    {
+      "cond_1": "Unknown Extension: wild.card",
+      "cond_2": "Unknown Extension: wild.card",
+      "cond_3": "Unknown Extension: wild.card",
+      "cond_4": "Unknown Extension: wild.card"
+    }

@@ -1,0 +1,37 @@
+name: ""
+tests:
+  - name: "Simple Type Variable"
+    script: |
+      $result: MyCustomType = { abc: 123 }
+      return {
+        result: $result,
+        type: $result | typeof
+      }
+
+    expected: { "result": { "abc": 123 }, "type": "MyCustomType" }
+
+  - name: "Long Type Variable"
+    script: |
+      $result: idx.banking.account.v3 = { abc: 123 }
+      return {
+        result: $result,
+        type: $result | typeof
+      }
+
+    expected: { "result": { "abc": 123 }, "type": "idx.banking.account.v3" }
+
+
+  - name: "Child Type Variable"
+    script: |
+      $result: idx.banking.account.v3 = { 
+        abc: 123,
+        child: idx.banking.transaction.v3 = {
+          amount: 234
+        }
+      }
+      return {
+        type: $result | typeof,
+        childType: $result.child | typeof
+      }
+
+    expected: {"type":"idx.banking.account.v3","childType":"idx.banking.transaction.v3"}

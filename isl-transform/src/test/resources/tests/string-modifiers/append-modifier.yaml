@@ -1,0 +1,43 @@
+name: ""
+tests:
+- name: ""
+  script: |
+    result: "" | append()
+  expected: { "result": "" }
+  
+- name: ""
+  script: |
+    result: "123" | append()
+  expected: { "result": "123" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | append()
+  expected: { "result": "123" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | append( "456" )
+  expected: { "result": "123456" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | append( "456", $missing, $other )
+  expected: { "result": "123456" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | append( "456", $missing, $other, "last" )
+  expected: { "result": "123456last" }
+
+- name: ""
+  script: |
+    $var = "123"
+    result: $var | append( "X", $var, "Y", $var, "Z")
+  expected: { "result": "123X123Y123Z" }
+
+scripts: null
