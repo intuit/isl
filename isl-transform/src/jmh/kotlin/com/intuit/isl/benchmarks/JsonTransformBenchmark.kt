@@ -8,20 +8,24 @@ import com.intuit.isl.runtime.TransformCompiler
 import com.intuit.isl.runtime.ITransformer
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
+import org.mvel2.MVEL
+import org.mvel2.integration.impl.MapVariableResolverFactory
 import org.openjdk.jmh.annotations.*
 import java.io.File
+import java.io.Serializable
 import java.util.concurrent.TimeUnit
 
 /**
- * Benchmark comparing JOLT vs ISL Transform performance
+ * Benchmark comparing JSON transformation performance: JOLT vs ISL vs MVEL
  * 
- * This benchmark compares the performance of:
+ * This benchmark compares the performance of three JVM-based JSON transformation approaches:
  * - JOLT: A popular JSON-to-JSON transformation library
  * - ISL Simple: Basic field mapping (matching JOLT capabilities)
  * - ISL Complex (Verbose): Full features with many intermediate variables
  * - ISL Complex (Clean): Full features with inline transformations
+ * - MVEL: A Java-based expression language with scripting capabilities
  * 
- * Both perform similar transformations on a Shopify order JSON.
+ * All perform similar transformations on a Shopify order JSON.
  * Note: JOLT is more limited and cannot perform all the operations ISL can,
  * so this is a simplified comparison focusing on basic field mapping.
  */
@@ -31,19 +35,22 @@ import java.util.concurrent.TimeUnit
 @Warmup(iterations = 1, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 @Fork(1)
-open class JoltVsIslBenchmark {
+open class JsonTransformBenchmark {
 
     private lateinit var shopifyOrderJson: String
     private lateinit var shopifyOrderObject: Any
     private lateinit var shopifyOrderNode: JsonNode
+    private lateinit var shopifyOrderMap: Map<*, *>
     private lateinit var islSimpleScript: String
     private lateinit var islComplexVerboseScript: String
     private lateinit var islComplexCleanScript: String
+    private lateinit var mvelScript: String
     private lateinit var joltSpec: List<Any>
     private lateinit var islSimpleTransformer: ITransformer
     private lateinit var islComplexVerboseTransformer: ITransformer
     private lateinit var islComplexCleanTransformer: ITransformer
     private lateinit var joltChainr: Chainr
+    private lateinit var mvelCompiled: Serializable
 
     @Setup(Level.Trial)
     fun setup() {
@@ -53,6 +60,7 @@ open class JoltVsIslBenchmark {
         shopifyOrderJson = File(resourcesDir, "shopify-order.json").readText()
         shopifyOrderNode = JsonConvert.mapper.readTree(shopifyOrderJson)
         shopifyOrderObject = JsonUtils.jsonToObject(shopifyOrderJson)
+        shopifyOrderMap = JsonConvert.mapper.readValue(shopifyOrderJson, Map::class.java) as Map<*, *>
         
         // Load and compile simple ISL script (matching JOLT capabilities)
         islSimpleScript = File(resourcesDir, "shopify-transform-simple.isl").readText()
@@ -70,6 +78,10 @@ open class JoltVsIslBenchmark {
         val joltSpecJson = File(resourcesDir, "shopify-transform.jolt").readText()
         joltSpec = JsonUtils.jsonToList(joltSpecJson)
         joltChainr = Chainr.fromSpec(joltSpec)
+        
+        // Load and compile MVEL script
+        mvelScript = File(resourcesDir, "shopify-transform.mvel").readText()
+        mvelCompiled = MVEL.compileExpression(mvelScript)
     }
 
     /**
@@ -128,6 +140,19 @@ open class JoltVsIslBenchmark {
     }
 
     /**
+     * Benchmark: MVEL transformation (pre-compiled script)
+     * 
+     * Measures MVEL's performance with a pre-compiled expression.
+     * This is the most common production scenario for MVEL.
+     * Uses basic field mapping matching JOLT/ISL Simple capabilities.
+     */
+    @Benchmark
+    fun mvelTransformation(): Any? {
+        val vars = hashMapOf<String, Any?>("input" to shopifyOrderMap)
+        return MVEL.executeExpression(mvelCompiled, vars)
+    }
+
+    /**
      * Benchmark: JOLT full cycle (parse spec + transform)
      * 
      * Measures JOLT's performance including spec parsing.
@@ -182,6 +207,19 @@ open class JoltVsIslBenchmark {
         context.setVariable("\$input", shopifyOrderNode)
         val result = transformer.runTransformAsync("run", context)
         result.result;
+    }
+
+    /**
+     * Benchmark: MVEL full cycle (parse + compile + execute)
+     * 
+     * Measures MVEL's performance including script parsing and compilation.
+     * This simulates the scenario where scripts are not cached.
+     */
+    @Benchmark
+    fun mvelFullCycle(): Any? {
+        val compiled = MVEL.compileExpression(mvelScript)
+        val vars = hashMapOf<String, Any?>("input" to shopifyOrderMap)
+        return MVEL.executeExpression(compiled, vars)
     }
 }
 

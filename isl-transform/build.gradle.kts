@@ -68,6 +68,9 @@ dependencies {
     // JOLT for comparison benchmarks
     jmh("com.bazaarvoice.jolt:jolt-core:0.1.8")
     jmh("com.bazaarvoice.jolt:json-utils:0.1.8")
+    
+    // MVEL for comparison benchmarks
+    jmh("org.mvel:mvel2:2.5.2.Final")
 }
 
 // Configure ANTLR
@@ -114,6 +117,10 @@ tasks.compileJava {
 
 tasks.compileTestKotlin {
     dependsOn(tasks.generateTestGrammarSource)
+}
+
+tasks.named("compileJmhKotlin") {
+    dependsOn(tasks.generateJmhGrammarSource)
 }
 
 // Make sure sourcesJar depends on generateGrammarSource

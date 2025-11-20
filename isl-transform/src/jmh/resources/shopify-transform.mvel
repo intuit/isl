@@ -1,0 +1,106 @@
+// MVEL transformation - Shopify order to internal format
+// Matches the simple ISL transformation capabilities
+
+// Helper to map line items
+def mapLineItems(items) {
+    result = [];
+    foreach (item : items) {
+        result.add([
+            "itemId": item.id,
+            "sku": item.sku,
+            "name": item.title,
+            "vendor": item.vendor,
+            "quantity": item.quantity,
+            "unitPrice": item.price,
+            "weight": item.grams,
+            "productId": item.product_id,
+            "variantTitle": item.variant_title
+        ]);
+    }
+    return result;
+}
+
+// Helper to map note attributes
+def mapNoteAttributes(attrs) {
+    result = [];
+    foreach (attr : attrs) {
+        result.add([
+            "name": attr.name,
+            "value": attr.value
+        ]);
+    }
+    return result;
+}
+
+// Main transformation
+[
+    "orderId": input.id,
+    "orderNumber": input.order_number,
+    "orderName": input.name,
+    
+    // Customer fields
+    "customerId": input.customer.id,
+    "customerFirstName": input.customer.first_name,
+    "customerLastName": input.customer.last_name,
+    "customerEmail": input.customer.email,
+    "customerPhone": input.customer.phone,
+    "customerOrders": input.customer.orders_count,
+    "customerLifetimeValue": input.customer.total_spent,
+    
+    // Customer address
+    "customerStreet": input.customer.default_address.address1,
+    "customerCity": input.customer.default_address.city,
+    "customerState": input.customer.default_address.province_code,
+    "customerZip": input.customer.default_address.zip,
+    "customerCountry": input.customer.default_address.country_code,
+    
+    // Shipping address
+    "shippingStreet": input.shipping_address.address1,
+    "shippingCity": input.shipping_address.city,
+    "shippingState": input.shipping_address.province_code,
+    "shippingZip": input.shipping_address.zip,
+    "shippingCountry": input.shipping_address.country_code,
+    
+    // Line items
+    "items": mapLineItems(input.line_items),
+    
+    // Financial fields
+    "subtotal": input.subtotal_price,
+    "shippingCost": input.total_shipping_price_set.shop_money.amount,
+    "tax": input.total_tax,
+    "discounts": input.total_discounts,
+    "total": input.total_price,
+    "currency": input.currency,
+    
+    // Status fields
+    "paymentStatus": input.financial_status,
+    "fulfillmentStatus": input.fulfillment_status,
+    "paymentMethod": input.payment_gateway_names[0],
+    
+    // Other fields
+    "source": input.source_name,
+    "browserIp": input.browser_ip,
+    "tagsRaw": input.tags,
+    "notes": input.note,
+    
+    // Note attributes
+    "noteAttributes": mapNoteAttributes(input.note_attributes),
+    
+    "processedAt": input.processed_at,
+    "isConfirmed": input.confirmed,
+    "isTest": input.test,
+    
+    // Default values (matching JOLT/ISL defaults)
+    "itemCount": 0,
+    "totalQuantity": 0,
+    "totalWeight": 0,
+    "totalWeightKg": 0,
+    "premiumItemCount": 0,
+    "vendorCount": 0,
+    "finalTotal": 0,
+    "shippingStatus": "PENDING",
+    "shippingSpeed": "STANDARD",
+    "isPaid": false,
+    "isFulfilled": false
+]
+
