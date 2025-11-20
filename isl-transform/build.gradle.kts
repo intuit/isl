@@ -82,16 +82,17 @@ tasks.generateGrammarSource {
     outputDirectory = file("src/main/java/com/intuit/isl/ant4")
     
     // Explicitly set the source directory
-    sourceSets.main.antlr4 {
-        srcDirs("src/main/ant4")
-    }
+    // sourceSets.main.antlr4 {
+    //     srcDirs("src/main/ant4")
+    // }
 
     logger.warn(">>> Directories {}", grammarDir.absolutePath)
     logger.warn(sourceSets.main)
     logger.warn(">>> Output {}", outputDirectory)
-    // setSource(grammarDir)
-    // include("**/*.g4")
-    // exclude("**/*.tokens", "**/*.interp")
+    
+    setSource(grammarDir.absolutePath)
+    include("**/*.g4")
+    exclude("**/*.tokens", "**/*.interp")
 }
 
 // Configure source directories
