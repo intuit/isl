@@ -86,6 +86,7 @@ ISL supports standard JSON data types.
 #### Special Types
 
 **Dates and Times**
+
 ISL has robust support for date and time manipulation, assuming UTC.
 
 {% raw %}
@@ -126,7 +127,9 @@ $userXml: $user | to.xml('user'); // <user name="Jane"><id>456</id></user>
 ```
 {% endraw %}
 
+
 **CSV**
+
 ISL can parse multi-line CSV data into an array of objects.
 
 - `| csv.parsemultiline(options)`
@@ -154,6 +157,7 @@ $user: {
 ```
 
 **Dynamic Property Names**
+
 Use string interpolation with backticks to create dynamic property names.
 
 ```isl
@@ -165,6 +169,7 @@ $object: {
 ```
 
 **Spread Operator**
+
 The `...` operator copies properties from one object or array into another.
 
 {% raw %}
@@ -177,6 +182,9 @@ $extended: {
 // { "a": 1, "b": 2, "c": 3 }
 ```
 {% endraw %}
+
+
+
 
 ### Control Flow
 
@@ -195,7 +203,9 @@ else
 endif
 ```
 
-**If Expression:** Unlike `if statement`, only supports a simple condition and block.  No nested `if` allowed.  No math expression in the condition and block.
+**If Expression:** 
+
+Unlike `if statement`, only supports a simple condition and block.  No nested `if` allowed.  No math expression in the condition and block.
 ```isl
 $isActive: if ($status == "active") true else false endif;
 // or a simpler version if you don't want an else branch
@@ -203,6 +213,7 @@ $isActive: if ($status == "active") true endif;
 ```
 
 **Coalesce Operator (`??`)**
+
 Returns the first non-null, non-empty-string value.
 ```isl
 $displayName: $user.name ?? $user.firstName ?? "Guest";
@@ -241,6 +252,7 @@ endswitch
 #### 3. Loops
 
 **foreach**
+
 Iterates over an array. The loop itself is an expression that returns an array of the results from each iteration.
 
 {% raw %}
@@ -275,6 +287,7 @@ endfor
 
 
 **while**
+
 Executes a block of code as long as a condition is true. A `maxLoops` option prevents infinite loops (default 50).
 
 {% raw %}
