@@ -87,7 +87,7 @@ tasks.generateGrammarSource {
     // }
 
     logger.warn(">>> Directories {}", grammarDir.absolutePath)
-    logger.warn(sourceSets.main)
+    logger.warn("Source Sets {}", grammarDir)
     logger.warn(">>> Output {}", outputDirectory)
     
     setSource(grammarDir.absolutePath)
