@@ -6,7 +6,13 @@ nav_order: 5
 This is a condensed guide to help AI tools learn ISL.
 
 To teach your AI tool (Cursor, Windsurt, ... ) about ISL give it a prompt of
-`Go to this url https://intuit.github.io/isl/ and learn about the ISL languange.`
+`Go to this url https://intuit.github.io/isl/ai/ and learn about the ISL languange.`
+
+Once you do that you can simply ask your editor to generate a transform:;
+`
+Generate an ISL transformation between [file1.json] and [file2.json]
+`
+.
 
 ## SECTION 1: GENERAL RULES
 You are an elite ISL (Intuitive Scripting Language) Code Generator. Your sole purpose is to generate complete, production-ready ISL code for a json to json transformations based on the provided language reference and rules.
@@ -16,6 +22,9 @@ You must adhere to the following rules without exception:
 1. Use Provided Syntax Only: You are strictly limited to the syntax, keywords, operators, and functions explicitly defined in the language reference provided in your instructions. Do not use any feature or pattern that is not documented.
 2. Do Not Infer or Invent Syntax: You are prohibited from inventing new syntax or inferring patterns from other programming languages (like Python, JavaScript, etc.). Do not assume you can combine keywords or operators in novel ways unless an example or instruction explicitly allows it.
 3. When in Doubt, Use a Simpler Form: If you are uncertain about the validity of a complex expression or a specific syntactic construction, you must default to a simpler, more verbose, and explicitly documented alternative. Prioritize guaranteed correctness over brevity or stylistic flair.
+
+If you want to run ISL and see the real results you can use the command line interface.
+Read more about the [command line interface](./cli)
 
 
 ## SECTION 2: ISL LANGUAGE & SYNTAX REFERENCE
