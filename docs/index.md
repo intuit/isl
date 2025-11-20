@@ -5,6 +5,10 @@ description: "ISL - Intuitive Scripting Language for JSON transformations"
 permalink: /
 ---
 
+<div align="center">
+  <img src="./docs/img/isl_small.png" alt="ISL">
+</div>
+
 ISL is a low-code [interpreted scripting language](<https://en.wikipedia.org/wiki/Interpreter_(computing)>) and runtime container designed to provide developers and non-developers an easy way to write, test, and deploy user developed code inside any service.
 
 The ISL supports an intuitive simplified syntax with features that make data acquisition and data transformations easy with minimal lines of code. In addition, the language supports easy extensibility allowing it to be used as a multi-purpose service extensibility language.
