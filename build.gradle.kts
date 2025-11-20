@@ -59,7 +59,7 @@ subprojects {
                 
                 pom {
                     name.set(project.name)
-                    description.set("ISL Transform - JSON transformation scripting language")
+                    description.set("ISL - JSON transformation scripting language")
                     url.set("https://github.com/intuit/isl")
                     
                     licenses {
