@@ -107,7 +107,6 @@ $formattedDate: $tomorrow | to.string("MM/dd/yyyy");
 ```
 
 **XML**
-
 ISL can parse and render XML.
 
 - `| xml.parse`: Converts an XML string to a JSON object.
