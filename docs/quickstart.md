@@ -29,7 +29,7 @@ dependencies {
 
 **Requirements:** Java 21 or higher
 
-## Step 2: Write Your First Transformation (2 minutes)
+## Step 2: Write Your First Transformation
 
 Let's transform a product JSON into a simpler format.
 
@@ -66,7 +66,7 @@ Let's transform a product JSON into a simpler format.
 }
 ```
 
-## Step 3: Run It in Java/Kotlin (2 minutes)
+## Step 3: Run It in Java/Kotlin
 
 ### Java Example
 ```java
@@ -83,7 +83,7 @@ public class QuickStart {
             {
                 id: $input.id,
                 name: $input.title,
-                description: `${$input.title} by ${$input.vendor}`,
+                description: `${ $input.title } by ${ $input.vendor }`,
                 isActive: $input.status == 'active',
                 tags: $input.tags | split(',') | map( $ | trim )
             }
@@ -91,6 +91,7 @@ public class QuickStart {
         
         // 2. Compile the script (do this once, reuse many times!)
         TransformCompiler compiler = new TransformCompiler();
+        // Make sure you cache this transformer if you plan to reuse it
         ITransformer transformer = compiler.compileIsl("product-transform", islScript);
         
         // 3. Prepare your input data
@@ -105,6 +106,7 @@ public class QuickStart {
             """;
         
         // 4. Create context and set variables
+        // Make sure you don't cache this context. This is unique per execution
         OperationContext context = new OperationContext();
         context.setVariable("$input", JsonConvert.convert(inputJson));
         

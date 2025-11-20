@@ -21,7 +21,11 @@ docs:
         url: /overview
       - title: "Java/Kotlin Integration"
         url: /java.start
-
+      - title: "Command Line Interface"
+        url: /cli
+      - title: "Teach your AI Tool ISL"
+        url: /ai
+        
   - title: Language Reference
     children:
       - title: "Variables"

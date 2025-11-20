@@ -1,5 +1,5 @@
-// Generated from ..\ant4\IslLexer.g4 by ANTLR 4.9.1
-package com.intuit.isl.ant4;
+// Generated from IslLexer.g4 by ANTLR 4.9.1
+package com.intuit.isl.antlr;
 import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.Token;

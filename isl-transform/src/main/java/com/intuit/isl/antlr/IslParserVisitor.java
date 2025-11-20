@@ -1,5 +1,5 @@
-// Generated from ..\ant4\IslParser.g4 by ANTLR 4.9.1
-package com.intuit.isl.ant4;
+// Generated from IslParser.g4 by ANTLR 4.9.1
+package com.intuit.isl.antlr;
 import org.antlr.v4.runtime.tree.ParseTreeVisitor;
 
 /**

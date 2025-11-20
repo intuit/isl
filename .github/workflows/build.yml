@@ -36,7 +36,7 @@ jobs:
           
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-      
+   
     - name: Build with Gradle
       run: ./gradlew build --no-daemon --stacktrace
       
@@ -47,14 +47,14 @@ jobs:
       if: always()
       run: ./gradlew jacocoTestReport --no-daemon
       
-    - name: Upload coverage to Codecov
-      if: always()
-      uses: codecov/codecov-action@v4
-      with:
-        files: ./isl-transform/build/reports/jacoco/test/jacocoTestReport.xml
-        flags: unittests
-        name: codecov-umbrella
-        fail_ci_if_error: false
+    # - name: Upload coverage to Codecov
+    #   if: always()
+    #   uses: codecov/codecov-action@v4
+    #   with:
+    #     files: ./isl-transform/build/reports/jacoco/test/jacocoTestReport.xml
+    #     flags: unittests
+    #     name: codecov-umbrella
+    #     fail_ci_if_error: false
         
     - name: Archive test results
       if: always()
