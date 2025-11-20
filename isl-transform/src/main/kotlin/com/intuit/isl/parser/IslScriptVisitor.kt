@@ -5,10 +5,10 @@ import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.commands.NoopCommand
 import com.intuit.isl.commands.NoopToken
 import com.intuit.isl.commands.StatementsBuildCommand
-import com.intuit.isl.ant4.IslLexer
-import com.intuit.isl.ant4.IslParser
-import com.intuit.isl.ant4.IslParser.ArgumentValueContext
-import com.intuit.isl.ant4.IslParserBaseVisitor
+import com.intuit.isl.antlr.IslLexer
+import com.intuit.isl.antlr.IslParser
+import com.intuit.isl.antlr.IslParser.ArgumentValueContext
+import com.intuit.isl.antlr.IslParserBaseVisitor
 import com.intuit.isl.parser.tokens.*
 import com.intuit.isl.runtime.TransformCompilationException
 import com.intuit.isl.types.*

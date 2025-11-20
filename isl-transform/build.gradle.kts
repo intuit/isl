@@ -73,28 +73,13 @@ dependencies {
 // Configure ANTLR
 tasks.generateGrammarSource {
     maxHeapSize = "64m"
-    val grammarDir = project.file("src/main/ant4")
     arguments = arguments + listOf(
         "-visitor",
-        "-package", "com.intuit.isl.ant4",
-        "-lib", grammarDir.absolutePath
+        "-package", "com.intuit.isl.antlr",
     )
-    outputDirectory = file("src/main/java/com/intuit/isl/ant4")
-    
-    // Explicitly set the source directory
-    // sourceSets.main.antlr4 {
-    //     srcDirs("src/main/ant4")
-    // }
-
-    println(">>>>> LOGS")
-    println(">>> Directories {}" + grammarDir.absolutePath)
-    println("Source Sets {}" + grammarDir)
-    println(">>> Output {}" + outputDirectory)
-    
-    setSource(grammarDir.absolutePath)
-    include("**/*.g4")
-    exclude("**/*.tokens", "**/*.interp")
+    outputDirectory = file("src/main/java/com/intuit/isl/antlr")
 }
+
 
 // Configure source directories
 sourceSets {

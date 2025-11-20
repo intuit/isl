@@ -43,7 +43,7 @@ jobs:
         find . -name "*.g4"
         echo ""
         echo "=== ANTLR directory contents ==="
-        ls -la isl-transform/src/main/ant4/
+        ls -la isl-transform/src/main/antlr/
         echo ""
         echo "=== Working directory ==="
         pwd
