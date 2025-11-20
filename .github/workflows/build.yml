@@ -36,18 +36,7 @@ jobs:
           
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
-      
-    - name: List ANTLR files
-      run: |
-        echo "=== Grammar files (.g4) ==="
-        find . -name "*.g4"
-        echo ""
-        echo "=== ANTLR directory contents ==="
-        ls -la isl-transform/src/main/antlr/
-        echo ""
-        echo "=== Working directory ==="
-        pwd
-    
+   
     - name: Build with Gradle
       run: ./gradlew build --no-daemon --stacktrace
       
