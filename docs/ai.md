@@ -284,11 +284,26 @@ Reusable blocks of code. Declared with `fun` and called with `@.`.
 fun calculateTotal($price, $tax) {
     return {{ $price * (1 + $tax) }};
 }
-
-$total: @.This.calculateTotal(100, 0.1);
 ```
+You can call the above function using this syntax `$total: @.This.calculateTotal(100, 0.1);`
 {% endraw %}
+
 `@.This` refers to a function in the current file.
+
+#### run function
+Generally try to include a main run function with the $input as the parameter that contains the primary function to be executed. All transformation code has to be either in a function or in a modifier.
+
+```isl
+// main entry
+fun run( $input ){
+    ... main transformation code goes here
+}
+
+// helper functions
+...
+
+// helper modifiers
+```
 
 #### Return Statement
 Functions must always return a value. If you need to exit a function without returning a specific value, you must return an empty object: `return {};`. A plain `return;` is not valid.
