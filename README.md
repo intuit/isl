@@ -18,7 +18,7 @@ Operating within a JVM-based runtime container, ISL provides a ready-to-deploy e
 
 ## Overview
 
-Originally ISL was designed as a **JSON-to-JSON transformation library** as an [alternative to JOLT](https://intuit.github.io/isl/dev/jolt-vs-isl-benchmark-report/) and other Java based JSON-to-JSON transformations but since then ISL has evolved into a fully fledged scripting languange while still providing a simple powerful JSON-to-JSON transformation capabilities.
+Originally ISL was designed as a **JSON-to-JSON transformation library** as an [alternative to JOLT](https://intuit.github.io/isl/dev/benchmark-report/) and other Java based JSON-to-JSON transformations but since then ISL has evolved into a fully fledged scripting languange while still providing a simple powerful JSON-to-JSON transformation capabilities.
 
 The ISL supports an intuitive simplified syntax with features that make data transformations easy with minimal lines of code.
 In addition, the language supports easy extensibility allowing it to be used as a multi-purpose service extensibility language.
@@ -145,7 +145,7 @@ Embedding the ISL in your own Java project to add scripting features is straight
 
 In most common scenarios on a 1:1 comparison ISL is about 46% faster than JOLT.
 
-Read the [Detailed benchmark of ISL vs JOLT](https://intuit.github.io/isl/dev/jolt-vs-isl-benchmark-report).
+Read the [Detailed benchmark of ISL vs JOLT vs MVEL](https://intuit.github.io/isl/dev/benchmark-report).
 
 | Feature | ISL | JOLT |
 |---------|-----|------|

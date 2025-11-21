@@ -9,7 +9,7 @@ Get up and running with ISL Transform in just 5 minutes!
 
 ISL is a JSON-to-JSON transformation language that makes data transformations simple and intuitive. If it looks like JSON, it's JSON!
 
-## Step 1: Add ISL to Your Project (1 minute)
+## Step 1: Add ISL to Your Project
 
 ### Maven
 ```xml

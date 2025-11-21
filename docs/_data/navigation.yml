@@ -81,7 +81,7 @@ docs:
       - title: "Hosting & Embedding"
         url: /dev/hosting
       - title: "Performance Benchmarks"
-        url: /dev/jolt-vs-isl-benchmark-report
+        url: /dev/benchmark-report
       - title: "Release Process"
         url: /dev/release
       - title: "Contributing"

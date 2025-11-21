@@ -1,0 +1,14 @@
+[
+  {
+    "operation": "shift",
+    "spec": {
+      "id": "orderId",
+      "name": "orderName",
+      "total": "amount",
+      "customer": {
+        "firstName": "customerName"
+      }
+    }
+  }
+]
+
