@@ -24,25 +24,27 @@ Added comprehensive JMH (Java Microbenchmark Harness) benchmarking framework to 
 
 #### Pre-Compiled Performance (Production Scenario)
 
-| Implementation | Score (ms/op) | vs JOLT | Memory/op | Description |
-|---------------|---------------|---------|-----------|-------------|
-| **MVEL** 🥇 | **0.003 ms** | 11.2x faster | ~12 KB | Fastest execution, but 12,727x compilation penalty |
-| **ISL Simple** 🥈 | **0.004 ms** | 8.4x faster | ~15 KB | **Best overall value** - speed + features + maintainability |
-| **ISL Complex (Clean)** 🥉 | **0.020 ms** | 1.7x faster | ~35 KB | Full features with inline transformations |
-| **ISL Complex (Verbose)** | **0.031 ms** | 1.1x faster | ~42 KB | Full features with many variables |
-| **JOLT** | **0.034 ms** | baseline | ~28 KB | Industry standard, limited features |
-| **Python (GraalVM)** | **0.074 ms** | 2.2x slower | ~8 KB | 17x slower than ISL, impractical for JSON |
+| Implementation | Score (ms/op) | vs ISL Simple | Memory/op | Description |
+|---------------|---------------|---------------|-----------|-------------|
+| **MVEL** 🥇 | **0.003 ms** | 1.3x faster | ~12 KB | Fastest execution, but 12,727x compilation penalty |
+| **ISL Simple** 🥈 | **0.004 ms** | **baseline** | ~15 KB | **Best overall value** - speed + features + maintainability |
+| **ISL Complex (Clean)** 🥉 | **0.020 ms** | 5x slower | ~35 KB | Full features with inline transformations |
+| **JOLT** | **0.034 ms** | 8.5x slower | ~28 KB | Industry standard, limited features |
+| **Python (GraalVM)** | **0.074 ms** | 18.5x slower | - | 17x slower than ISL, impractical for JSON |
+
+**Note:** ISL Complex Verbose excluded from comparisons (intentionally inefficient coding style for demonstration).
 
 #### Full Cycle Performance (Parse + Compile + Execute)
 
-| Implementation | Score (ms/op) | vs JOLT | Memory/op | Compilation Penalty |
-|---------------|---------------|---------|-----------|---------------------|
-| **JOLT** 🥇 | **0.070 ms** | baseline | ~32 KB | 2.1x (minimal) |
-| **ISL Simple** 🥈 | **0.149 ms** | 2.1x slower | ~65 KB | 36x |
-| **ISL Complex (Clean)** | **0.366 ms** | 5.2x slower | ~180 KB | 17x |
-| **ISL Complex (Verbose)** | **0.555 ms** | 7.9x slower | ~225 KB | 17x |
-| **MVEL** ⚠️ | **35.185 ms** | 502x slower | ~450 KB | **12,727x** (catastrophic) |
-| **Python (GraalVM)** ❌ | **240.277 ms** | **3,432x slower** | **~3.2 MB** | **3,247x** (catastrophic) |
+| Implementation | Score (ms/op) | vs ISL Simple | Memory/op | Compilation Penalty |
+|---------------|---------------|---------------|-----------|---------------------|
+| **JOLT** 🥇 | **0.070 ms** | 2.1x faster | ~32 KB | 2.1x (minimal) |
+| **ISL Simple** 🥈 | **0.149 ms** | **baseline** | ~65 KB | 36x |
+| **ISL Complex (Clean)** | **0.366 ms** | 2.5x slower | ~180 KB | 17x |
+| **MVEL** ⚠️ | **35.185 ms** | 236x slower | ~450 KB | **12,727x** (catastrophic) |
+| **Python (GraalVM)** ❌ | **240.277 ms** | **1,612x slower** | **~3.2 MB** | **3,247x** (catastrophic) |
+
+**Note:** ISL Complex Verbose excluded from comparisons (intentionally inefficient coding style).
 
 **Key Insights**:
 - **ISL Simple is the best overall choice**: 8.4x faster than JOLT, 17x faster than Python, with rich features and low memory usage

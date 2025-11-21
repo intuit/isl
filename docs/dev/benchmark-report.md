@@ -19,8 +19,8 @@ This report compares the performance of four transformation approaches: **JOLT**
 
 - [JOLT Transform](../../isl-transform/src/jmh/resources/shopify-transform.jolt) - Standard JOLT Transformation of the Source Input Json
 - [ISL Simple](../../isl-transform/src/jmh/resources/shopify-transform-simple.isl) - Simple ISL Transformation generating a result similar to the JOLT result
-- [ISL Complex](../../isl-transform/src/jmh/resources/shopify-transform-complex.isl) - More complex ISL Transformation on the same input adding functions, modifiers, string interpolations, conditions, variables, math operations, ...
-- [ISL Complex Verbose](../../isl-transform/src/jmh/resources/shopify-transform.isl) - A more verbose version of the Complex implementation above using many variables, making the code very verbose (a bit hard to read)
+- [ISL Complex (Clean)](../../isl-transform/src/jmh/resources/shopify-transform-complex.isl) - More complex ISL Transformation on the same input adding functions, modifiers, string interpolations, conditions, variables, math operations with clean inline style
+- [ISL Complex (Verbose)](../../isl-transform/src/jmh/resources/shopify-transform.isl) - ⚠️ *Not included in comparisons* - Intentionally verbose version with excessive variables for demonstration purposes
 - [MVEL Transform](../../isl-transform/src/jmh/resources/shopify-transform.mvel) - MVEL expression language transformation matching simple field mapping capabilities
 - [Python Transform](../../isl-transform/src/jmh/resources/shopify-transform.py) - GraalVM Python transformation with function-based approach
 
@@ -31,42 +31,48 @@ This report compares the performance of four transformation approaches: **JOLT**
 
 This represents the most common production scenario where transformation scripts are compiled once and cached for reuse.
 
-| Implementation | Average Time | vs JOLT | Relative Performance | Memory/op |
-|---------------|-------------|---------|---------------------|-----------|
-| **MVEL** 🥇 | **0.003 ms** | **92% faster** ⚡⚡ | **11.2x faster** | ~12 KB |
-| **ISL Simple** 🥈 | **0.004 ms** | **88% faster** ⚡⚡ | **8.4x faster** | ~15 KB |
-| **ISL Complex (Clean)** 🥉 | **0.020 ms** | **41% faster** ⚡ | **1.7x faster** | ~35 KB |
-| **JOLT** ⚠️ | **0.034 ms** | baseline | 1.0x | ~28 KB |
-| **Python (GraalVM)** ❌ | **0.074 ms** | 118% slower | 0.5x | - |
+| Implementation | Average Time | vs ISL Simple | Relative Performance | Memory/op |
+|---------------|-------------|---------------|---------------------|-----------|
+| **MVEL** 🥇 | **0.003 ms** | 25% faster ⚡ | **1.3x faster** | ~12 KB |
+| **ISL Simple** 🥈 | **0.004 ms** | **baseline** | **1.0x** | ~15 KB |
+| **ISL Complex (Clean)** 🥉 | **0.020 ms** | 5x slower | **0.2x** | ~35 KB |
+| **JOLT** ⚠️ | **0.034 ms** | 8.5x slower | 0.12x | ~28 KB |
+| **Python (GraalVM)** ❌ | **0.074 ms** | 18.5x slower | 0.05x | - |
 
-**Winner: ISL Simple** - Best overall value with near-MVEL performance + superior features + deterministic output
+**Note:** ISL Complex Verbose is excluded from comparisons as it uses a different coding style (excessive variables) that doesn't match the other implementations.
+
+**Winner: ISL Simple** - Best overall value with near-MVEL performance + superior features + deterministic output + low memory footprint
 
 ### Full Transformation Cycle (Parse + Compile + Execute)
 ❌ Not recommended for production
 
 This simulates the scenario where scripts must be parsed and compiled on every execution.
 
-| Implementation | Average Time | vs JOLT | Compilation Overhead | Memory/op |
-|---------------|-------------|---------|---------------------|-----------|
-| **JOLT** 🥇 | **0.070 ms** | baseline | 0.036 ms | ~32 KB |
-| **ISL Simple** 🥈 | **0.149 ms** | 113% slower | 0.145 ms | ~65 KB |
-| **ISL Complex (Clean)** | **0.366 ms** | 423% slower | 0.346 ms | ~180 KB |
-| **MVEL** ⚠️ | **35.185 ms** | **50,164% slower** ⚠️ | **35.182 ms** | ~450 KB |
-| **Python (GraalVM)** ❌ | **240.277 ms** | **343,153% slower** ❌ | **240.203 ms** | ~3.2 MB |
+| Implementation | Average Time | vs ISL Simple | Compilation Overhead | Memory/op |
+|---------------|-------------|---------------|---------------------|-----------|
+| **JOLT** 🥇 | **0.070 ms** | 2.1x faster ⚡ | 0.036 ms | ~32 KB |
+| **ISL Simple** 🥈 | **0.149 ms** | **baseline** | 0.145 ms | ~65 KB |
+| **ISL Complex (Clean)** | **0.366 ms** | 2.5x slower | 0.346 ms | ~180 KB |
+| **MVEL** ⚠️ | **35.185 ms** | **236x slower** ⚠️ | **35.182 ms** | ~450 KB |
+| **Python (GraalVM)** ❌ | **240.277 ms** | **1,612x slower** ❌ | **240.203 ms** | ~3.2 MB |
+
+**Note:** ISL Complex Verbose is excluded from comparisons as it represents an intentionally inefficient coding style for demonstration purposes.
 
 **⚠️ Warning:** 
-- **MVEL:** Extremely slow compilation (129x slower than pre-compiled) makes it unsuitable for dynamic scenarios
+- **MVEL:** Extremely slow compilation (12,727x slower than pre-compiled) makes it unsuitable for dynamic scenarios
 - **Python:** Catastrophic initialization overhead (3,247x slower than pre-compiled) - GraalVM context creation is extremely expensive
 
 ### Compilation Cost Analysis
 
-| Library | Full Cycle | Pre-Compiled | **Compilation Cost** | Penalty | Memory Overhead |
-|---------|-----------|--------------|---------------------|---------|-----------------|
-| **JOLT** | 0.070 ms | 0.034 ms | **0.036 ms** 🥇 | 1.1x | +4 KB |
-| **ISL Simple** | 0.149 ms | 0.004 ms | **0.145 ms** 🥈 | 36x | +50 KB |
+| Library | Full Cycle | Pre-Compiled | **Compilation Cost** | Penalty vs Pre-Compiled | Memory Overhead |
+|---------|-----------|--------------|---------------------|------------------------|-----------------|
+| **JOLT** | 0.070 ms | 0.034 ms | **0.036 ms** 🥇 | 2.1x | +4 KB |
+| **ISL Simple** | 0.149 ms | 0.004 ms | **0.145 ms** 🥈 | **36x** | +50 KB |
 | **ISL Complex** | 0.366 ms | 0.020 ms | **0.346 ms** | 17x | +145 KB |
 | **MVEL** | 35.185 ms | 0.003 ms | **35.182 ms** ⚠️ | **12,727x** | +438 KB |
 | **Python** | 240.277 ms | 0.074 ms | **240.203 ms** ❌ | **3,247x** | +3.19 MB |
+
+**Key Insight:** ISL Simple's 36x compilation penalty is reasonable compared to MVEL (12,727x) and Python (3,247x). JOLT has the lowest penalty but is 8.5x slower in execution.
 
 ## Key Findings
 
@@ -537,20 +543,6 @@ The ISL Complex version achieves superior performance through:
 
 **Never compile on-the-fly in production** - Cache compiled transformations at startup or use lazy initialization with caching.
 
-### Decision Matrix
-
-```
-Can pre-compile? → YES → Need absolute fastest? → YES → MVEL (0.003 ms)
-                                                 ↓ NO
-                                            ISL Simple (0.004 ms) ← RECOMMENDED
-                  ↓ NO
-            Compile dynamically? → YES → JOLT (0.070 ms)
-                                  ↓ NO
-                              ISL Simple (0.149 ms)
-
-Python? → ❌ NO - Use ISL instead
-          (17x slower execution, 3,247x initialization penalty, 213x more memory)
-```
 
 **Bottom Line:** For 99% of JSON transformation use cases, **ISL Simple is the best choice** - it's nearly as fast as MVEL while being far more practical for production systems.
 

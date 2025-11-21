@@ -449,10 +449,12 @@ Based on real-world testing with a 4.5KB Shopify order transformation comparing 
 | Implementation | Pre-Compiled (ms) | Full Cycle (ms) | Memory/op | Throughput (ops/sec) |
 |---------------|-------------------|-----------------|-----------|----------------------|
 | **ISL Simple** 🥇 | **0.004** | 0.149 | ~15 KB | **~250,000** |
-| **ISL Complex** | **0.020** | 0.366 | ~35 KB | **~50,000** |
+| **ISL Complex (Clean)** | **0.020** | 0.366 | ~35 KB | **~50,000** |
 | MVEL | 0.003 | 35.185 | ~12 KB | ~333,000 (if pre-compiled) |
 | JOLT | 0.034 | 0.070 | ~28 KB | ~29,400 |
 | Python (GraalVM) | 0.074 | 240.277 | ~3.2 MB | ~13,500 (if context cached) |
+
+**Note:** ISL Complex Verbose is excluded from this comparison as it represents an intentionally inefficient coding style for demonstration purposes.
 
 **Key Takeaways:**
 - **ISL Simple is the best overall choice**: 8.4x faster than JOLT, 17x faster than Python
@@ -470,7 +472,6 @@ Based on real-world testing with a 4.5KB Shopify order transformation comparing 
 
 - **[Language Reference](../language/)** - Complete ISL syntax guide
 - **[Modifiers Reference](../language/modifiers.md)** - All available modifiers
-- **[Examples](../examples/)** - Real-world transformation examples
 
 ---
 
@@ -488,5 +489,5 @@ Based on real-world testing with a 4.5KB Shopify order transformation comparing 
 
 ---
 
-**Need more help?** Check out the [Quick Start Guide](../quickstart.md) or browse [example transformations](../examples/)!
+**Need more help?** Check out the [Quick Start Guide](../quickstart.md)!
 
