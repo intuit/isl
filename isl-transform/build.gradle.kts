@@ -235,6 +235,7 @@ jmh {
     timeUnit.set("ms")  // Milliseconds
     resultFormat.set("JSON")  // Output format
     resultsFile.set(project.layout.buildDirectory.file("reports/jmh/results.json").get().asFile)
+    profilers.set(listOf("gc"))  // Enable GC profiler for memory allocation tracking
 }
 
 // Enable zip64 for large JMH jar (GraalVM dependencies are large)

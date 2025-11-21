@@ -444,20 +444,25 @@ $customer = {   // build object shapes
 
 ## 📊 Performance Benchmarks
 
-Based on real-world testing with a 4.5KB Shopify order transformation:
+Based on real-world testing with a 4.5KB Shopify order transformation comparing ISL, JOLT, MVEL, and Python:
 
-| Scenario | Time (ms) | Throughput (ops/sec) |
-|----------|-----------|----------------------|
-| **Pre-compiled Execution** | 0.034 | ~29,400 |
-| **Parsing Only** | 0.484 | ~2,066 |
-| **Compilation Only** | 0.904 | ~1,106 |
-| **Full Cycle (parse + compile + execute)** | 0.717 | ~1,395 |
+| Implementation | Pre-Compiled (ms) | Full Cycle (ms) | Memory/op | Throughput (ops/sec) |
+|---------------|-------------------|-----------------|-----------|----------------------|
+| **ISL Simple** 🥇 | **0.004** | 0.149 | ~15 KB | **~250,000** |
+| **ISL Complex** | **0.020** | 0.366 | ~35 KB | **~50,000** |
+| MVEL | 0.003 | 35.185 | ~12 KB | ~333,000 (if pre-compiled) |
+| JOLT | 0.034 | 0.070 | ~28 KB | ~29,400 |
+| Python (GraalVM) | 0.074 | 240.277 | ~3.2 MB | ~13,500 (if context cached) |
 
 **Key Takeaways:**
-- Pre-compilation provides **19x performance improvement**
-- Execution is extremely fast (~34 microseconds)
-- Parsing and compilation are one-time costs
-- For high-throughput scenarios, always pre-compile
+- **ISL Simple is the best overall choice**: 8.4x faster than JOLT, 17x faster than Python
+- Pre-compilation provides **36x performance improvement** for ISL
+- ISL execution is extremely fast (~4 microseconds for simple, ~20 microseconds for complex)
+- **Low memory footprint**: ISL uses only ~15 KB per operation vs Python's ~3.2 MB (213x difference)
+- **Python is impractical**: 240 ms initialization + 17x slower execution makes it unsuitable for JSON transformations
+- For high-throughput scenarios, always pre-compile and cache transformations
+
+**See full comparison**: [Performance Benchmarks Report](benchmark-report.md)
 
 ---
 
