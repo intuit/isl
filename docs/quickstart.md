@@ -190,7 +190,6 @@ Now that you've got the basics, explore more features:
 4. **[Conditionals](./language/conditions.md)** - If/else, switch statements, and regex matching
 5. **[Math Operations](./language/math.md)** - Math expressions and functions
 6. **[Best Practices](./dev/best-practices.md)** - Performance optimization and patterns
-7. **[Examples](./examples/)** - Real-world transformation examples
 
 ## 🚀 What Can ISL Do?
 
