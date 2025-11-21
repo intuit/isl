@@ -13,28 +13,33 @@ import org.graalvm.polyglot.Value
 import org.mvel2.MVEL
 import org.mvel2.integration.impl.MapVariableResolverFactory
 import org.openjdk.jmh.annotations.*
+import org.openjdk.jmh.infra.Blackhole
+import org.openjdk.jmh.profile.GCProfiler
 import java.io.File
 import java.io.Serializable
 import java.util.concurrent.TimeUnit
 
 /**
- * Benchmark comparing JSON transformation performance: JOLT vs ISL vs MVEL
+ * Benchmark comparing JSON transformation performance: JOLT vs ISL vs MVEL vs Python
  * 
- * This benchmark compares the performance of three JVM-based JSON transformation approaches:
+ * This benchmark compares the performance of four approaches:
  * - JOLT: A popular JSON-to-JSON transformation library
  * - ISL Simple: Basic field mapping (matching JOLT capabilities)
  * - ISL Complex (Verbose): Full features with many intermediate variables
  * - ISL Complex (Clean): Full features with inline transformations
  * - MVEL: A Java-based expression language with scripting capabilities
+ * - Python: GraalVM Python polyglot for JSON transformations
  * 
  * All perform similar transformations on a Shopify order JSON.
  * Note: JOLT is more limited and cannot perform all the operations ISL can,
  * so this is a simplified comparison focusing on basic field mapping.
+ * 
+ * Memory profiling is enabled via gc.alloc to track memory allocations.
  */
 @State(Scope.Benchmark)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
-@Warmup(iterations = 1, time = 1, timeUnit = TimeUnit.SECONDS)
+@Warmup(iterations = 2, time = 1, timeUnit = TimeUnit.SECONDS)
 @Measurement(iterations = 3, time = 1, timeUnit = TimeUnit.SECONDS)
 @Fork(1)
 open class JsonTransformBenchmark {
