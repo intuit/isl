@@ -1,3 +1,6 @@
+import java.util.zip.ZipFile
+import java.util.zip.ZipEntry
+
 plugins {
     kotlin("jvm")
     id("antlr")
@@ -71,6 +74,13 @@ dependencies {
     
     // MVEL for comparison benchmarks
     jmh("org.mvel:mvel2:2.5.2.Final")
+    
+    // GraalVM for Python comparison benchmarks
+    jmh("org.graalvm.polyglot:polyglot:24.1.1")
+    jmh("org.graalvm.python:python-language:24.1.1")
+    jmh("org.graalvm.python:python-resources:24.1.1")
+    jmh("org.graalvm.truffle:truffle-api:24.1.1")
+    jmh("org.bouncycastle:bcprov-jdk18on:1.78.1")  // Required by Python
 }
 
 // Configure ANTLR
@@ -225,5 +235,110 @@ jmh {
     timeUnit.set("ms")  // Milliseconds
     resultFormat.set("JSON")  // Output format
     resultsFile.set(project.layout.buildDirectory.file("reports/jmh/results.json").get().asFile)
+}
+
+// Enable zip64 for large JMH jar (GraalVM dependencies are large)
+// And properly merge service files for GraalVM language discovery
+tasks.named<Jar>("jmhJar") {
+    isZip64 = true
+    
+    // Use INCLUDE strategy to allow service file processing
+    duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    
+    manifest {
+        attributes(
+            "Multi-Release" to "true"
+        )
+    }
+}
+
+// Post-process the JMH JAR to merge service files
+// This is critical for GraalVM to discover the Python language
+tasks.register("mergeJmhServices") {
+    dependsOn("jmhJar")
+    
+    doLast {
+        val jmhJarFile = tasks.getByName<Jar>("jmhJar").archiveFile.get().asFile
+        val tempDir = File(layout.buildDirectory.get().asFile, "jmh-service-merge")
+        val servicesDir = File(tempDir, "META-INF/services")
+        servicesDir.mkdirs()
+        
+        // Collect all service files from the JAR
+        val serviceProviders = mutableMapOf<String, MutableSet<String>>()
+        
+        ZipFile(jmhJarFile).use { jar: ZipFile ->
+            jar.entries().asSequence()
+                .filter { entry: ZipEntry -> 
+                    entry.name.startsWith("META-INF/services/") && !entry.isDirectory 
+                }
+                .forEach { entry: ZipEntry ->
+                    val serviceName = entry.name.substringAfter("META-INF/services/")
+                    val providers = jar.getInputStream(entry).bufferedReader().readLines()
+                        .map { line: String -> line.trim() }
+                        .filter { line: String -> line.isNotEmpty() && !line.startsWith("#") }
+                    serviceProviders.getOrPut(serviceName) { mutableSetOf() }.addAll(providers)
+                }
+        }
+        
+        // Extract the entire JAR
+        val extractDir = File(tempDir, "jar-contents")
+        extractDir.mkdirs()
+        
+        println("Extracting JMH JAR...")
+        ZipFile(jmhJarFile).use { jar: ZipFile ->
+            jar.entries().asSequence().forEach { entry: ZipEntry ->
+                val entryFile = File(extractDir, entry.name)
+                if (entry.isDirectory) {
+                    entryFile.mkdirs()
+                } else {
+                    entryFile.parentFile.mkdirs()
+                    // Skip service files - we'll write the merged ones
+                    if (!entry.name.startsWith("META-INF/services/")) {
+                        jar.getInputStream(entry).use { input ->
+                            entryFile.outputStream().use { output ->
+                                input.copyTo(output)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Write merged service files
+        val extractedServicesDir = File(extractDir, "META-INF/services")
+        extractedServicesDir.mkdirs()
+        serviceProviders.forEach { (serviceName, providers) ->
+            val serviceFile = File(extractedServicesDir, serviceName)
+            serviceFile.writeText(providers.sorted().joinToString("\n") + "\n")
+        }
+        
+        // Backup and recreate the JAR
+        val backupFile = File(jmhJarFile.parentFile, "${jmhJarFile.name}.backup")
+        jmhJarFile.renameTo(backupFile)
+        
+        println("Repacking JMH JAR with merged services...")
+        exec {
+            workingDir = extractDir
+            commandLine = if (System.getProperty("os.name").lowercase().contains("windows")) {
+                listOf("cmd", "/c", "jar", "cfm", jmhJarFile.absolutePath, "META-INF/MANIFEST.MF", ".")
+            } else {
+                listOf("jar", "cfm", jmhJarFile.absolutePath, "META-INF/MANIFEST.MF", ".")
+            }
+        }
+        
+        // Clean up
+        backupFile.delete()
+        tempDir.deleteRecursively()
+        
+        println("✓ Successfully merged ${serviceProviders.size} service files in JMH JAR")
+        serviceProviders.forEach { (service, providers) ->
+            println("  - $service: ${providers.size} provider(s)")
+        }
+    }
+}
+
+// Make jmh task depend on service merging
+tasks.named("jmh") {
+    dependsOn("mergeJmhServices")
 }
 

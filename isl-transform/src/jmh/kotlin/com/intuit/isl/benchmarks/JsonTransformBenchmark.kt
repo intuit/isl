@@ -8,6 +8,8 @@ import com.intuit.isl.runtime.TransformCompiler
 import com.intuit.isl.runtime.ITransformer
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
+import org.graalvm.polyglot.Context
+import org.graalvm.polyglot.Value
 import org.mvel2.MVEL
 import org.mvel2.integration.impl.MapVariableResolverFactory
 import org.openjdk.jmh.annotations.*
@@ -45,12 +47,15 @@ open class JsonTransformBenchmark {
     private lateinit var islComplexVerboseScript: String
     private lateinit var islComplexCleanScript: String
     private lateinit var mvelScript: String
+    private lateinit var pythonScript: String
     private lateinit var joltSpec: List<Any>
     private lateinit var islSimpleTransformer: ITransformer
     private lateinit var islComplexVerboseTransformer: ITransformer
     private lateinit var islComplexCleanTransformer: ITransformer
     private lateinit var joltChainr: Chainr
     private lateinit var mvelCompiled: Serializable
+    private lateinit var pythonContext: Context
+    private lateinit var pythonInlineScript: String
 
     @Setup(Level.Trial)
     fun setup() {
@@ -82,6 +87,22 @@ open class JsonTransformBenchmark {
         // Load and compile MVEL script
         mvelScript = File(resourcesDir, "shopify-transform.mvel").readText()
         mvelCompiled = MVEL.compileExpression(mvelScript)
+        
+        // Load and initialize GraalVM Python
+        pythonScript = File(resourcesDir, "shopify-transform.py").readText()
+        pythonInlineScript = File(resourcesDir, "shopify-transform-inline.py").readText()
+        pythonContext = Context.newBuilder("python")
+            .allowAllAccess(true)
+            .option("engine.WarnInterpreterOnly", "false")
+            .build()
+    }
+
+    @TearDown(Level.Trial)
+    fun tearDown() {
+        // Close Python context to free resources
+        if (::pythonContext.isInitialized) {
+            pythonContext.close()
+        }
     }
 
     /**
@@ -220,6 +241,41 @@ open class JsonTransformBenchmark {
         val compiled = MVEL.compileExpression(mvelScript)
         val vars = hashMapOf<String, Any?>("input" to shopifyOrderMap)
         return MVEL.executeExpression(compiled, vars)
+    }
+
+    /**
+     * Benchmark: GraalVM Python transformation (pre-initialized context)
+     * 
+     * Measures GraalVM Python's performance with a pre-initialized context and loaded function.
+     * This is the most common production scenario for GraalVM polyglot.
+     * Java parses the JSON, Python performs the transformation.
+     */
+    @Benchmark
+    fun pythonTransformation(): Any? {
+        // Pass input data as a global variable and execute inline transformation
+        pythonContext.getBindings("python").putMember("input_data", shopifyOrderMap)
+        pythonContext.eval("python", pythonInlineScript)
+        return pythonContext.getBindings("python").getMember("transformation_result").`as`(Map::class.java)
+    }
+
+    /**
+     * Benchmark: GraalVM Python full cycle (initialize context + load script + execute)
+     * 
+     * Measures GraalVM Python's performance including context initialization and script loading.
+     * This simulates the scenario where contexts are not cached.
+     * WARNING: This is extremely expensive and not recommended for production.
+     */
+    @Benchmark
+    fun pythonFullCycle(): Any? {
+        val ctx = Context.newBuilder("python")
+            .allowAllAccess(true)
+            .option("engine.WarnInterpreterOnly", "false")
+            .build()
+        ctx.getBindings("python").putMember("input_data", shopifyOrderMap)
+        ctx.eval("python", pythonInlineScript)
+        val result = ctx.getBindings("python").getMember("transformation_result").`as`(Map::class.java)
+        ctx.close()
+        return result
     }
 }
 
