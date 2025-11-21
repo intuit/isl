@@ -56,6 +56,19 @@ open class JsonTransformBenchmark {
     private lateinit var mvelCompiled: Serializable
     private lateinit var pythonContext: Context
     private lateinit var pythonInlineScript: String
+    
+    // Simple transformation resources (minimal overhead testing)
+    private lateinit var simpleOrderJson: String
+    private lateinit var simpleOrderObject: Any
+    private lateinit var simpleOrderNode: JsonNode
+    private lateinit var simpleOrderMap: Map<*, *>
+    private lateinit var simpleIslScript: String
+    private lateinit var simpleIslTransformer: ITransformer
+    private lateinit var simpleMvelScript: String
+    private lateinit var simpleMvelCompiled: Serializable
+    private lateinit var simpleJoltSpec: List<Any>
+    private lateinit var simpleJoltChainr: Chainr
+    private lateinit var simplePythonInlineScript: String
 
     @Setup(Level.Trial)
     fun setup() {
@@ -95,6 +108,30 @@ open class JsonTransformBenchmark {
             .allowAllAccess(true)
             .option("engine.WarnInterpreterOnly", "false")
             .build()
+        
+        // ===== Simple transformation setup (minimal overhead testing) =====
+        
+        // Load simple order JSON
+        simpleOrderJson = File(resourcesDir, "simple-order.json").readText()
+        simpleOrderNode = JsonConvert.mapper.readTree(simpleOrderJson)
+        simpleOrderObject = JsonUtils.jsonToObject(simpleOrderJson)
+        simpleOrderMap = JsonConvert.mapper.readValue(simpleOrderJson, Map::class.java) as Map<*, *>
+        
+        // Load and compile simple ISL script
+        simpleIslScript = File(resourcesDir, "simple-transform.isl").readText()
+        simpleIslTransformer = TransformCompiler().compileIsl("simple", simpleIslScript)
+        
+        // Load and compile simple JOLT spec
+        val simpleJoltSpecJson = File(resourcesDir, "simple-transform.jolt").readText()
+        simpleJoltSpec = JsonUtils.jsonToList(simpleJoltSpecJson)
+        simpleJoltChainr = Chainr.fromSpec(simpleJoltSpec)
+        
+        // Load and compile simple MVEL script
+        simpleMvelScript = File(resourcesDir, "simple-transform.mvel").readText()
+        simpleMvelCompiled = MVEL.compileExpression(simpleMvelScript)
+        
+        // Load simple Python script
+        simplePythonInlineScript = File(resourcesDir, "simple-transform-inline.py").readText()
     }
 
     @TearDown(Level.Trial)
@@ -273,6 +310,109 @@ open class JsonTransformBenchmark {
             .build()
         ctx.getBindings("python").putMember("input_data", shopifyOrderMap)
         ctx.eval("python", pythonInlineScript)
+        val result = ctx.getBindings("python").getMember("transformation_result").`as`(Map::class.java)
+        ctx.close()
+        return result
+    }
+    
+    // ===== Simple transformation benchmarks (minimal overhead testing) =====
+    
+    /**
+     * Benchmark: Simple JOLT transformation (pre-compiled spec)
+     * 
+     * Tests minimal JOLT overhead with a tiny JSON and simple 4-field mapping.
+     */
+    @Benchmark
+    fun simpleJoltTransformation(): Any {
+        return simpleJoltChainr.transform(simpleOrderObject)
+    }
+    
+    /**
+     * Benchmark: Simple JOLT full cycle (parse + compile + transform)
+     * 
+     * Tests JOLT compilation overhead with minimal transformation.
+     */
+    @Benchmark
+    fun simpleJoltFullCycle(): Any {
+        val chainr = Chainr.fromSpec(simpleJoltSpec)
+        return chainr.transform(simpleOrderObject)
+    }
+    
+    /**
+     * Benchmark: Simple ISL transformation (pre-compiled script)
+     * 
+     * Tests minimal ISL overhead with a tiny JSON and simple 4-field mapping.
+     */
+    @Benchmark
+    fun simpleIslTransformation(): String = runBlocking {
+        val context = OperationContext()
+        context.setVariable("\$input", simpleOrderNode)
+        val result = simpleIslTransformer.runTransformAsync("run", context).result
+        JsonConvert.mapper.writeValueAsString(result)
+    }
+    
+    /**
+     * Benchmark: Simple ISL full cycle (parse + compile + transform)
+     * 
+     * Tests ISL compilation overhead with minimal transformation.
+     */
+    @Benchmark
+    fun simpleIslFullCycle(): String = runBlocking {
+        val transformer = TransformCompiler().compileIsl("simple", simpleIslScript)
+        val context = OperationContext()
+        context.setVariable("\$input", simpleOrderNode)
+        val result = transformer.runTransformAsync("run", context).result
+        JsonConvert.mapper.writeValueAsString(result)
+    }
+    
+    /**
+     * Benchmark: Simple MVEL transformation (pre-compiled script)
+     * 
+     * Tests minimal MVEL overhead with a tiny JSON and simple 4-field mapping.
+     */
+    @Benchmark
+    fun simpleMvelTransformation(): Any {
+        val factory = MapVariableResolverFactory(mapOf("input" to simpleOrderMap))
+        return MVEL.executeExpression(simpleMvelCompiled, factory)
+    }
+    
+    /**
+     * Benchmark: Simple MVEL full cycle (parse + compile + transform)
+     * 
+     * Tests MVEL compilation overhead with minimal transformation.
+     */
+    @Benchmark
+    fun simpleMvelFullCycle(): Any {
+        val compiled = MVEL.compileExpression(simpleMvelScript)
+        val factory = MapVariableResolverFactory(mapOf("input" to simpleOrderMap))
+        return MVEL.executeExpression(compiled, factory)
+    }
+    
+    /**
+     * Benchmark: Simple GraalVM Python transformation (pre-initialized context)
+     * 
+     * Tests minimal Python overhead with a tiny JSON and simple 4-field mapping.
+     */
+    @Benchmark
+    fun simplePythonTransformation(): Any? {
+        pythonContext.getBindings("python").putMember("input_data", simpleOrderMap)
+        pythonContext.eval("python", simplePythonInlineScript)
+        return pythonContext.getBindings("python").getMember("transformation_result").`as`(Map::class.java)
+    }
+    
+    /**
+     * Benchmark: Simple GraalVM Python full cycle (initialize context + load script + execute)
+     * 
+     * Tests Python context initialization overhead with minimal transformation.
+     */
+    @Benchmark
+    fun simplePythonFullCycle(): Any? {
+        val ctx = Context.newBuilder("python")
+            .allowAllAccess(true)
+            .option("engine.WarnInterpreterOnly", "false")
+            .build()
+        ctx.getBindings("python").putMember("input_data", simpleOrderMap)
+        ctx.eval("python", simplePythonInlineScript)
         val result = ctx.getBindings("python").getMember("transformation_result").`as`(Map::class.java)
         ctx.close()
         return result
