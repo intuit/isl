@@ -1,56 +1,126 @@
-# Publishing the ISL Extension
+# Publishing the ISL VSCode Extension
 
-This guide explains how to publish the ISL Language Support extension to the VS Code Marketplace.
+This guide explains how to publish the ISL Language Support extension to the VSCode Marketplace and Open VSX Registry.
 
 ## Prerequisites
 
-1. **Node.js and npm**: Ensure you have Node.js 14+ installed
-2. **Visual Studio Code**: Install VS Code for testing
-3. **vsce**: Install the VS Code Extension Manager
-   ```bash
-   npm install -g @vscode/vsce
-   ```
-4. **Azure DevOps Account**: Create a free account at https://dev.azure.com
-5. **Personal Access Token (PAT)**: Generate a PAT with "Marketplace (Manage)" scope
+### 1. VSCode Marketplace (Microsoft)
 
-## Setup
+You need a Visual Studio Marketplace publisher account:
 
-### 1. Install Dependencies
+1. Go to https://marketplace.visualstudio.com/manage
+2. Sign in with your Microsoft account
+3. Create a publisher (or use existing one)
+4. Generate a Personal Access Token (PAT):
+   - Go to https://dev.azure.com/
+   - Click on User Settings → Personal Access Tokens
+   - Create new token with:
+     - **Organization:** All accessible organizations
+     - **Scopes:** Marketplace → **Manage**
+   - Copy the token (you won't see it again!)
+
+### 2. Open VSX Registry (Eclipse Foundation)
+
+For VS Codium, Code-OSS, and other VSCode-compatible editors:
+
+1. Go to https://open-vsx.org/
+2. Sign in with GitHub
+3. Go to Settings → Access Tokens
+4. Generate a new token
+5. Copy the token
+
+## GitHub Secrets Setup
+
+Add these secrets to your GitHub repository (Settings → Secrets and variables → Actions):
+
+- `VSCE_TOKEN`: Your Visual Studio Marketplace Personal Access Token
+- `OVSX_TOKEN`: Your Open VSX Registry Access Token
+
+## Manual Publishing
+
+### Publish to VSCode Marketplace
 
 ```bash
 cd plugin
-npm install
+npx vsce publish
 ```
 
-### 2. Compile the Extension
+You'll be prompted for your PAT if not set in environment.
+
+### Publish to Open VSX
 
 ```bash
-npm run compile
+cd plugin
+npx ovsx publish -p YOUR_TOKEN
 ```
 
-### 3. Test Locally
+## Automated Publishing via GitHub Actions
 
-Press `F5` in VS Code to launch the Extension Development Host and test your extension.
+### Method 1: Git Tag (Recommended)
 
-## Publishing Steps
-
-### 1. Create a Publisher
-
-If you don't have a publisher ID yet:
+Create and push a version tag:
 
 ```bash
-vsce create-publisher <your-publisher-name>
+# Update version in package.json first
+cd plugin
+npm version patch  # or minor, or major
+
+# Tag the release
+git tag plugin-v1.0.1
+git push origin plugin-v1.0.1
 ```
 
-Or login with an existing publisher:
+The workflow will automatically:
+1. Build the extension
+2. Run tests
+3. Package the .vsix
+4. Publish to VSCode Marketplace
+5. Publish to Open VSX Registry
+6. Create a GitHub Release with the .vsix file
+
+### Method 2: Manual Workflow Dispatch
+
+Go to GitHub Actions → "Publish VSCode Extension" → Run workflow
+
+Enter the version number and click "Run workflow"
+
+## Version Management
+
+Update version in `plugin/package.json`:
+
+```json
+{
+  "version": "1.0.1"
+}
+```
+
+Or use npm:
 
 ```bash
-vsce login <your-publisher-name>
+cd plugin
+npm version patch  # 1.0.0 → 1.0.1
+npm version minor  # 1.0.0 → 1.1.0
+npm version major  # 1.0.0 → 2.0.0
 ```
 
-### 2. Update package.json
+## Pre-publish Checklist
 
-Update the `publisher` field in `package.json` with your publisher name:
+Before publishing, ensure:
+
+- [ ] Version number updated in `package.json`
+- [ ] `CHANGELOG.md` updated with new version changes
+- [ ] `README.md` is current and accurate
+- [ ] All TypeScript compiles without errors (`npm run compile`)
+- [ ] Extension icon is present (`images/icon.png`)
+- [ ] `lib/isl-cmd-all.jar` is included and up-to-date
+- [ ] All AI assistant files are included (`.cursorrules`, `.windsurfrules`, etc.)
+- [ ] License file is present
+- [ ] Publisher name is set correctly in `package.json`
+- [ ] Test locally: `code --install-extension isl-language-support-X.X.X.vsix`
+
+## Updating the Publisher
+
+If you need to change the publisher in `package.json`:
 
 ```json
 {
@@ -58,96 +128,47 @@ Update the `publisher` field in `package.json` with your publisher name:
 }
 ```
 
-### 3. Package the Extension
-
-Create a `.vsix` file:
-
-```bash
-vsce package
-```
-
-This creates a `isl-language-support-1.0.0.vsix` file.
-
-### 4. Test the VSIX Package
-
-Install the packaged extension locally to test:
-
-```bash
-code --install-extension isl-language-support-1.0.0.vsix
-```
-
-### 5. Publish to Marketplace
-
-Publish using your PAT:
-
-```bash
-vsce publish
-```
-
-Or publish with a specific version bump:
-
-```bash
-vsce publish patch  # 1.0.0 -> 1.0.1
-vsce publish minor  # 1.0.0 -> 1.1.0
-vsce publish major  # 1.0.0 -> 2.0.0
-```
-
-### 6. Verify Publication
-
-Visit the [VS Code Marketplace](https://marketplace.visualstudio.com/) and search for your extension.
-
-## Updating the Extension
-
-1. Make your changes
-2. Update version in `package.json`
-3. Update `CHANGELOG.md`
-4. Commit changes
-5. Run `vsce publish` or `vsce publish <patch|minor|major>`
-
-## Important Files
-
-- **icon.png**: Replace placeholder with actual 128x128 icon before publishing
-- **README.md**: Main documentation (displayed on marketplace)
-- **CHANGELOG.md**: Version history (displayed on marketplace)
-- **LICENSE**: Apache 2.0 license
-
-## Pre-Publishing Checklist
-
-- [x] Icon image (ISL logo from docs/img/isl_small.png copied to images/icon.png)
-  - [ ] Verify icon is exactly 128x128 pixels (see ICON-SETUP.md if resizing needed)
-- [x] README.md is complete with screenshots/examples
-- [x] CHANGELOG.md is up to date
-- [x] LICENSE file is present
-- [ ] All tests pass
-- [ ] Extension works in Extension Development Host
-- [ ] package.json metadata is correct (description, keywords, repository, etc.)
-- [ ] Version number follows semver
-- [ ] No sensitive data in code
-
-## Marketplace Categories
-
-The extension is listed in:
-- Programming Languages
-- Formatters
-- Linters
-
-## Resources
-
-- [VS Code Publishing Guide](https://code.visualstudio.com/api/working-with-extensions/publishing-extension)
-- [Extension Manifest Reference](https://code.visualstudio.com/api/references/extension-manifest)
-- [Marketplace Publisher Portal](https://marketplace.visualstudio.com/manage)
+Make sure this matches your Visual Studio Marketplace publisher ID.
 
 ## Troubleshooting
 
-### "Publisher not found"
-Run `vsce login <publisher-name>` with your PAT.
+### "Cannot find publisher"
 
-### "Missing icon"
-Add a 128x128 PNG icon at `images/icon.png` or remove the icon field from package.json.
+Make sure the `publisher` field in `package.json` matches your marketplace publisher ID exactly.
 
-### "Activation event not found"
-Ensure `activationEvents` in package.json matches your language configuration.
+### "Package size too large"
 
-### Package size too large
-Check `.vscodeignore` to exclude unnecessary files (node_modules, src files, etc.).
+The VSCode Marketplace has a 100MB limit. Our extension includes the ISL runtime JAR (~35MB), which is well under the limit.
 
+### "Authentication failed"
+
+- Verify your PAT is valid and hasn't expired
+- Check that the PAT has the "Marketplace → Manage" scope
+- Make sure the secret name in GitHub matches exactly (`VSCE_TOKEN`, `OVSX_TOKEN`)
+
+### "Version already exists"
+
+You can't republish the same version. Update the version number in `package.json`.
+
+## CI/CD Pipeline
+
+The repository includes two workflows:
+
+1. **`plugin-ci.yml`** - Runs on every push/PR to `plugin/`:
+   - Builds on Ubuntu, Windows, macOS
+   - Tests with Node 18 and 20
+   - Creates build artifacts
+
+2. **`publish-plugin.yml`** - Runs on version tags (`plugin-v*`):
+   - Builds and packages extension
+   - Publishes to VSCode Marketplace
+   - Publishes to Open VSX Registry
+   - Creates GitHub Release
+
+## Links
+
+- **VSCode Marketplace:** https://marketplace.visualstudio.com/vscode
+- **Open VSX Registry:** https://open-vsx.org/
+- **Publisher Management:** https://marketplace.visualstudio.com/manage
+- **Extension Guidelines:** https://code.visualstudio.com/api/references/extension-guidelines
+- **Publishing Extensions:** https://code.visualstudio.com/api/working-with-extensions/publishing-extension

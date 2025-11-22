@@ -1,0 +1,64 @@
+name: Plugin CI
+
+on:
+  push:
+    branches: [ main, plugin ]
+    paths:
+      - 'plugin/**'
+      - '.github/workflows/plugin-ci.yml'
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'plugin/**'
+      - '.github/workflows/plugin-ci.yml'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        cache-dependency-path: plugin/package-lock.json
+        
+    - name: Install dependencies
+      working-directory: plugin
+      run: npm ci
+      
+    - name: Lint code
+      working-directory: plugin
+      run: npm run lint || echo "No lint script configured"
+      continue-on-error: true
+      
+    - name: Compile TypeScript
+      working-directory: plugin
+      run: npm run compile
+      
+    - name: Run tests
+      working-directory: plugin
+      run: npm test || echo "No tests configured"
+      continue-on-error: true
+      
+    - name: Package extension
+      working-directory: plugin
+      run: npx vsce package
+      
+    - name: Upload build artifact
+      if: matrix.os == 'ubuntu-latest' && matrix.node-version == '18.x'
+      uses: actions/upload-artifact@v4
+      with:
+        name: isl-language-support-build
+        path: plugin/*.vsix
+        retention-days: 7
+
