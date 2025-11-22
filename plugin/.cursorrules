@@ -1,0 +1,144 @@
+# ISL (Intuitive Scripting Language) Rules for AI Assistants
+
+You are assisting with ISL (Intuitive Scripting Language) code - a declarative language for JSON-to-JSON transformations.
+This langunage applies to .isl files.
+
+## Quick Reference
+
+- **Variables**: Start with `$` (e.g., `$user`, `$price`)
+- **Functions**: Declared with `fun`, called with `@.This.functionName()`
+- **Modifiers**: Piped transformations using `|` (e.g., `$text | trim | upperCase`)
+- **Math**: Wrapped in `{{ }}` (e.g., `{{ $price * 1.1 }}`)
+- **Strings**: Use backticks for interpolation (e.g., `` `Hello ${$name}` ``)
+- **Objects**: JSON-like syntax with spread operator `...`
+- **Control Flow**: `if/else/endif`, `switch/endswitch`, `foreach/endfor`, `while/endwhile`
+
+## Core Principles
+
+1. **Use Only Documented Syntax**: Never invent or infer features from other languages
+2. **When Uncertain, Use Simpler Forms**: Prioritize correctness over brevity
+3. **Always Include `fun run($input)`**: This is the main entry point for transformations
+
+## Common Patterns
+
+### Basic Transformation
+```isl
+fun run($input) {
+    userId: $input.id | to.string;
+    fullName: `${$input.firstName} ${$input.lastName}`;
+    total: {{ $input.price * $input.quantity }};
+}
+```
+
+### Array Processing
+```isl
+items: $input.lineItems | map({
+    id: $.id,
+    price: $.price | to.decimal
+}) | filter($.price > 100);
+```
+
+### Conditionals
+```isl
+status: if ($input.paid) "completed" else "pending" endif;
+```
+
+### Helper Functions
+```isl
+fun calculateTotal($items) {
+    $sum: $items | map($.price) | reduce({{ $acc + $it }});
+    return $sum;
+}
+```
+
+## Built-in Modifiers (Most Common)
+
+**String**: `trim`, `upperCase`, `lowerCase`, `capitalize`, `split`, `replace`, `length`
+**Array**: `map`, `filter`, `reduce`, `sort`, `unique`, `first`, `last`, `at(index)`
+**Math**: `round`, `absolute`, `precision(decimals)`
+**Conversion**: `to.string`, `to.number`, `to.decimal`, `to.boolean`, `to.array`
+**Date**: `date.parse(format)`, `date.add(value, unit)`, `to.string(format)`
+**Object**: `keys`, `kv`, `select(path)`, `delete(prop)`, `getProperty(name)`
+**JSON/XML**: `json.parse`, `xml.parse`, `to.xml(rootName)`
+
+## Important Syntax Rules
+
+1. **No parentheses around modifiers in conditions**:
+   - ❌ `if (($str | length) > 5) ... endif`
+   - ✅ `if ($str | length > 5) ... endif`
+
+2. **Return statement required in functions**:
+   - ❌ `return;`
+   - ✅ `return {};` or `return $value;`
+
+3. **String interpolation rules**:
+   - Simple variables: `` `Hello $name` ``
+   - Deep paths: `` `Hello ${$user.name}` ``
+   - Math: `` `Total: {{ $a + $b }}` ``
+   - Literal $: `` `Price: \$${$amount}` ``
+
+4. **Foreach without parentheses around array**:
+   - ❌ `foreach $item in ($array | filter(...))`
+   - ✅ `foreach $item in $array | filter(...)`
+
+5. **Dot notation not allowed after modifiers**:
+   - ❌ `$id: ($items | last).id`
+   - ✅ `$lastItem: $items | last; $id: $lastItem.id;`
+
+## File Structure Template
+
+```isl
+// Main entry point - REQUIRED
+fun run($input) {
+    // Main transformation logic here
+    orderId: $input.id;
+    customer: @.This.transformCustomer($input.customer);
+    items: $input.items | map(@.This.transformItem($));
+}
+
+// Helper functions
+fun transformCustomer($customer) {
+    return {
+        id: $customer.id,
+        name: `${$customer.firstName} ${$customer.lastName}`
+    };
+}
+
+fun transformItem($item) {
+    return {
+        id: $.id,
+        price: $.price | to.decimal | precision(2)
+    };
+}
+
+// Custom modifiers (optional)
+modifier calculateDiscount($price, $percent) {
+    return {{ $price * (1 - $percent / 100) }};
+}
+```
+
+## Common Mistakes to Avoid
+
+1. Don't use JavaScript/Python syntax (no `const`, `let`, `def`, `lambda`, etc.)
+2. Don't use `=>` arrow functions (use `fun` declarations)
+3. Don't use `.map()` method syntax (use `| map()` modifier)
+4. Don't forget `{{ }}` around math operations
+5. Don't use `return;` without a value (use `return {};`)
+6. Math expressions can only contain math operators, not function calls or modifiers
+
+## When Writing ISL Code
+
+1. Start with the `fun run($input)` function
+2. Break complex logic into helper functions or modifiers
+3. Use modifiers for simple transformations and chaining
+4. Use functions for complex logic with multiple steps
+5. Add helpful comments for beginners, but don't over-comment
+6. Use proper spacing: `| map( $.id )` not `|map($.id)`
+
+## Learn More
+Critical that you ALSO read this guide: https://intuit.github.io/isl/ai/ this has more detailed guidelines.
+Full documentation: https://intuit.github.io/isl/
+Language reference: https://intuit.github.io/isl/language/
+Modifiers list: https://intuit.github.io/isl/language/modifiers/
+- CLI: https://intuit.github.io/isl/cli/
+
