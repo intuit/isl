@@ -25,7 +25,8 @@
     "jolt"
   ],
   "activationEvents": [
-    "onLanguage:isl"
+    "onLanguage:isl",
+    "workspaceContains:**/*.isl"
   ],
   "main": "./out/extension.js",
   "contributes": {

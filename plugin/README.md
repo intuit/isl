@@ -4,6 +4,22 @@ Comprehensive language support for ISL (Intuitive Scripting Language) - a powerf
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
+## 🤖 AI Assistant Support
+
+This extension includes comprehensive AI assistant configuration for Cursor, Windsurf, VSCode Copilot, and other AI-powered editors. When you open an ISL file, your AI assistant will automatically understand ISL syntax and can help you write transformations.
+
+**AI configuration files included:**
+- `.cursorrules` - For Cursor AI
+- `.windsurfrules` - For Windsurf AI  
+- `.github/copilot-instructions.md` - For GitHub Copilot
+- `ISL-LANGUAGE-GUIDE.md` - Complete reference for all AI assistants
+
+Simply ask your AI assistant to:
+- Generate ISL transformations between JSON files
+- Explain ISL syntax and modifiers
+- Convert data transformation logic to ISL
+- Debug and improve your ISL code
+
 ## Features
 
 ### 🎨 Syntax Highlighting
