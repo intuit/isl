@@ -1,6 +1,6 @@
 # https://nixpacks.com/docs/configuration/file
 [phases.setup]
-nixPkgs = ["jdk", "nodejs", "npm"]
+nixPkgs = ["jdk", "nodejs"]
 
 [phases.build]
 cmds = ["cd backend && ./gradlew clean build -x test"]
