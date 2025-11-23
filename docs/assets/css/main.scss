@@ -107,23 +107,6 @@ pre[class*="language-"] {
   }
 }
 
-/* Adjust masthead (header) width to match content */
-.masthead {
-  @include breakpoint($x-large) {
-    max-width: 1600px;
-  }
-}
-
-.masthead__inner-wrap {
-  @include breakpoint($large) {
-    max-width: 100%;
-  }
-  
-  @include breakpoint($x-large) {
-    max-width: 1600px;
-  }
-}
-
 /* Adjust breadcrumbs width to match content */
 .breadcrumbs {
   @include breakpoint($large) {
