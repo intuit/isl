@@ -59,26 +59,26 @@ Given Input JSON:
 And Transformation:
 ```isl
 fun transform( $input ){
-  return {
-    // Simple JSON Path Selectors
-    id: $input.id,
-    // piped modifiers using `|`
-    name: $input.title | trim,
-    // easy string building using interpolation ` ... `
-    short_description: `${ $input.title } by ${ $input.vendor }`,
-    // child object building
-    primary_image: {
-        id: $input.images[0].id,
-        url: $input.images[0].src
-    },
-    // conditional properties
-    is_active: if( $input.status == "active" ) true else false,
-    option_name: $input.options.name,
-    // array to csv
-    option_values: $input.options.values | join(','),
-    // date processing
-    updated: $input.updated_at | date.fromEpochSeconds | to.string("yyyy-MM-dd HH:mm")
-  }
+    return {
+      // Simple JSON Path Selectors
+      id: $input.id,
+      // piped modifiers using `|`
+      name: $input.title | trim,
+      // easy string building using interpolation ` ... `
+      short_description: `${ $input.title } by ${ $input.vendor }`,
+      // child object building
+      primary_image: {
+          id: $input.images[0].id,
+          url: $input.images[0].src
+      },
+      // conditional properties
+      is_active: if( $input.status == "active" ) true else false,
+      option_name: $input.options.name,
+      // array to csv
+      option_values: $input.options.values | join(','),
+      // date processing
+      updated: $input.updated_at | date.fromEpochSeconds | to.string("yyyy-MM-dd HH:mm")
+    }
 }
 ```
 
