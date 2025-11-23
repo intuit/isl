@@ -39,8 +39,16 @@
   }
   
   /* Keep code blocks readable */
-  pre, code {
+  code {
     font-size: 1.43em; /* 1em relative to base (0.7em * 1.43 ≈ 1em) */
+  }
+  
+  pre {
+    font-size: 1.43em; /* 1em relative to base (0.7em * 1.43 ≈ 1em) */
+    
+    code {
+      font-size: 1em; /* Inherit from pre, don't multiply again */
+    }
   }
 
   /* Adjust table text */
