@@ -8,7 +8,7 @@ ISL has basic support for most common math operations.
 
 {% raw %}
 Math operations have to be expressed as a Math Expression `{{ expression }}`:
-```
+```isl
 $total = {{ $item.quantity * $item.amount - $item.discount }}
 ```
 

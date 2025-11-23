@@ -74,7 +74,7 @@ result8: "aa aaaaab aab aaaab" | regex.replaceFirst( "a+b" )
 ```
 
 Evaluates to:
-```
+```json
 {
 	"result1": [ " b ", " a " ],
 	"result2": [ "CAseInSensiTive" ],
@@ -90,11 +90,12 @@ Evaluates to:
 ## Json Processing
 `| json.parse` - parses a text and converts it to a JSON payload.
 
-```
+```isl
 $t = "{\"x\":\"1\",\"y\":\"2\"}";
 result = $t | json.parse;
 
 ```
+
 Evaluates to:
 ```json
 {
@@ -109,6 +110,7 @@ Evaluates to:
 $t: "abc";
 $result: $t | json.parse;
 ```
+
 Evaluates to:
 ```json
 null
@@ -116,7 +118,7 @@ null
 
 ## Yaml Processing
 `| yaml.parse` - parses a Yaml text and converts it to a JSON payload.
-```
+```isl
 $t = "info: 
 		title: test
 		version: 1.0.2";
@@ -239,7 +241,7 @@ $hasC = $value | has('c');  // false
 ```
 
 - `| default( defaultValue )` - returns the default value if the input is `null` or empty (empty string, empty array, or empty object).
-```
+```isl
 $name = null | default("Unknown");  // "Unknown"
 $text = "" | default("N/A");  // "N/A"
 $value = "Hello" | default("N/A");  // "Hello"
@@ -331,7 +333,7 @@ items: [ 1, 2, 3, 4] | filter( $fit < 3 );
 
 Evaluates to: 
 ```json
-"items": [ 1, 2 ]
+{ "items": [ 1, 2 ] }
 ```
 
 Combine wth the `foreach`. Note that the `filter` is still applied on the `$fit` iterator not on the `foreach` iterator of `$i`.
@@ -343,15 +345,17 @@ result: foreach $i in $items | filter ( $fit < 3 )
 		value: $i
 	}
 endfor
-```json
+```
 
 Evaluates to:
-```
-"items": [ {
+```json
+{
+	"items": [ {
 		"value": 1
 	}, {
 		"value": 2
 	}]
+}
 ```
 
 ### Reduce

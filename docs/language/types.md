@@ -40,7 +40,7 @@ An object type can have a defined schema:
 
 Schema:
 
-```
+```json
 {
 	"FirstName":{"type":"string"},
 	"LastName":{"type":"string"},
@@ -54,7 +54,7 @@ Array definitions can be combined with other types to obtain types array:
 
 - `$a: []` -> Schema: `{"type":"array"}`
 - `$a: string[]` -> Schema:
-  ```
+  ```json
   {
     "type":"array",
     "items":{
@@ -62,8 +62,9 @@ Array definitions can be combined with other types to obtain types array:
     }
   }
   ```
+
 - `$a: { FirstName: string, LastName: string }[]` -> Schema:
-  ```
+  ```json
   {
     "type":"array",
     "items":{
@@ -85,7 +86,7 @@ Types are not currently available when declaring a variable inside a function.
 
 ISL support `type` declarations that can be reused across the current file:
 
-```
+```isl
 type customer as { FirstName: String };
 
 // Function that receives one number and returns one `customer`
@@ -100,7 +101,7 @@ fun download(id: number): customer
 An ISL type can also be imported from a declared schema.
 Note that the ISL will not attempt to download the declared schema and validate against it but the tooling around it (e.g. an IDE) can do that.
 
-```
+```isl
 type customer from "https://...";
 
 fun download(id: number): customer
@@ -113,7 +114,7 @@ fun download(id: number): customer
 
 Since 2.4.0 ISL supports Named Type Declaration in which a specific entity can be declared as having a type that the host understands.
 
-```
+```isl
 $account: mycompany.account = {
 	id: {
 		externalId: "1234"

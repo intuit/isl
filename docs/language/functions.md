@@ -79,7 +79,7 @@ Modifiers are special functions than can be _piped_ `|` one after another.
 You can use your own modifiers inline inside any expression. First parameter is the left-hand-value in front of the modifier.
 
 {% raw %}
-```
+```isl
 // math.isl file
 modifier gstAmount( $price ){
     {{ $price * 0.1 }};  // 10%
@@ -106,7 +106,7 @@ context.registerExtensionMethod("Modifier.encode.*", MyClass::encode);
 
 You now have access to the modifier using the `| encode.value` format:
 
-```
+```isl
 value: "my text" | encode.base64;
 value: "my text" | encode.url;
 value: "my text" | encode.urlQueryParam;
@@ -158,7 +158,7 @@ ISL Files can import other ISL Files using the `import Name from file` syntax:
 
 Import all functions from the other file.
 
-```
+```isl
 import Name from "file.isl";
 ```
 
@@ -166,7 +166,7 @@ You can then call them via `@.Name.FunctionName( $param1, $param2 ... )`.
 
 The default `run` function can be called via `@.Name.Run( ... )`. Importing a module automatically imports the declared modifiers:
 
-```
+```isl
 import Math from 'math.isl';
 
 // Modifiers need to be prefixed with the name of the import

@@ -15,7 +15,7 @@ See complete list of [String Modifiers](../language/modifiers.md#string-processi
 ## String Interpolation
 String interpolation is done using the classical backtick ``` ` text ` ``` and  `$` prefix for the interpolated values.
 
-```
+```isl
 $value: `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `.
 ```
 
@@ -31,7 +31,7 @@ $value: `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `
 ### Dynamic String Interpolation
 Use the *merge* modifier to run string interpolation on a dynamically constructed string. For example,
 
-```
+```isl
     $who = "world"
     $aModifier = "uppercase"
     $message = "Hello ${$who |" | concat($aModifier) | concat("}!")

@@ -38,9 +38,9 @@
     font-size: 1.1em; /* Default is 1.25em */
   }
   
-  /* Keep code blocks readable */
-  pre, code, .highlight, .div.highlighter-rouge {
-    font-size: 1em; /* 1em relative to base (0.7em * 1.43 ≈ 1em) */
+  /* Keep code blocks readable - using Prism.js for syntax highlighting */
+  pre, code {
+    font-size: 1em; /* 1em relative to base */
   }
   
   /* Adjust table text */

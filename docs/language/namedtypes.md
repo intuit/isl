@@ -9,7 +9,7 @@ Since ISL 2.4.0, Named Types Declaration is supported, in which a specific entit
 For example for hosts can declare a variable as having a known types.
 Type declaration follows the format of `$variable: Type = value`
 
-```
+```isl
 $account: mycompany.account = {
 	id: {
 		externalId: "1234"

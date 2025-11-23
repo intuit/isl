@@ -17,7 +17,7 @@ By default the `csv.parsemultiline` will assume first row is the `headers` and t
 Columns with no known header name are automatically created with name `ColX` with the `X` being the positional column name.
 
 Expression:
-```
+```isl
 // default parsing
 result1: "a,b,c\n1,2,3" | csv.parsemultiline
 // using custom headers
@@ -52,7 +52,7 @@ Evaluates to:
 - `{ skipLines: 3 }` - skip a number of lines. Default Value: `0`.
 
 Expression:
-```
+```isl
 result1 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["a", "b", "c"] })
 result2 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["3", "1"] })
 result3 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["x", "y", "z"] })
