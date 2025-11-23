@@ -57,6 +57,10 @@
   font-size: 1.2em;
 }
 
+.highlighter-rouge{
+  font-size: 1em;
+}
+
 /* Fix Prism.js comment rendering - remove extra line after comments */
 .token.comment::after,
 span.comment::after {

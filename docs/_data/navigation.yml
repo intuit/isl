@@ -60,6 +60,8 @@ docs:
 
   - title: Examples
     children:
+      - title: "Transformations"
+        url: /examples/index
       - title: "Date Examples"
         url: /examples/dates
       - title: "Object Examples"

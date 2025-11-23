@@ -259,7 +259,7 @@ try {
 
 - Explore the [Language Documentation](./docs/language/)
 - Learn about [Modifiers](./docs/language/modifiers.md)
-- See [Advanced Examples](./docs/examples/)
+- See [Advanced Examples](./docs/examples/index.md)
 - Check out [Custom Functions](./docs/language/functions.md)
 
 ## Resources
