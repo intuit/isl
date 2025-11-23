@@ -17,7 +17,7 @@ if (typeof lunr === 'undefined') {
 
 function initializeSearch() {
   // Wait for search input to be available
-  var searchInput = document.querySelector('.search__input');
+  var searchInput = document.querySelector('.search-input');
   if (!searchInput) {
     setTimeout(initializeSearch, 100);
     return;
