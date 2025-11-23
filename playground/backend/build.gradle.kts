@@ -64,33 +64,43 @@ tasks.withType<Test> {
     useJUnitPlatform()
 }
 
-// Task to build frontend
-tasks.register<Exec>("buildFrontend") {
-    description = "Build the frontend React application"
-    group = "build"
-    
-    workingDir = file("../frontend")
-    
-    commandLine = if (System.getProperty("os.name").lowercase().contains("windows")) {
-        listOf("cmd", "/c", "npm install && npm run build")
-    } else {
-        listOf("sh", "-c", "npm install && npm run build")
+// Check if frontend directory exists (for local combined builds)
+val frontendDir = file("../frontend")
+val hasFrontend = frontendDir.exists() && frontendDir.isDirectory
+
+if (hasFrontend) {
+    // Task to build frontend
+    tasks.register<Exec>("buildFrontend") {
+        description = "Build the frontend React application"
+        group = "build"
+        
+        workingDir = frontendDir
+        
+        commandLine = if (System.getProperty("os.name").lowercase().contains("windows")) {
+            listOf("cmd", "/c", "npm install && npm run build")
+        } else {
+            listOf("sh", "-c", "npm install && npm run build")
+        }
     }
-}
 
-// Task to copy frontend build to Spring Boot static resources
-tasks.register<Copy>("copyFrontend") {
-    description = "Copy frontend build to static resources"
-    group = "build"
-    
-    dependsOn("buildFrontend")
-    
-    from("../frontend/dist")
-    into("src/main/resources/static")
-}
+    // Task to copy frontend build to Spring Boot static resources
+    tasks.register<Copy>("copyFrontend") {
+        description = "Copy frontend build to static resources"
+        group = "build"
+        
+        dependsOn("buildFrontend")
+        
+        from("../frontend/dist")
+        into("src/main/resources/static")
+    }
 
-// Make the Spring Boot build depend on frontend build
-tasks.named("processResources") {
-    dependsOn("copyFrontend")
+    // Make the Spring Boot build depend on frontend build
+    tasks.named("processResources") {
+        dependsOn("copyFrontend")
+    }
+    
+    println("✓ Frontend build enabled (frontend directory found)")
+} else {
+    println("⚠ Frontend build skipped (frontend directory not found - expected for Railway deployment)")
 }
 
