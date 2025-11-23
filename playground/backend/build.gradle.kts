@@ -7,7 +7,7 @@ plugins {
 
 group = "com.intuit.isl"
 version = "1.0.0"
-java.sourceCompatibility = JavaVersion.VERSION_17
+java.sourceCompatibility = JavaVersion.VERSION_21
 
 // Force Jackson version to match ISL requirements
 ext["jackson.version"] = "2.18.3"
@@ -56,7 +56,7 @@ dependencies {
 tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
     kotlinOptions {
         freeCompilerArgs = listOf("-Xjsr305=strict")
-        jvmTarget = "17"
+        jvmTarget = "21"
     }
 }
 
