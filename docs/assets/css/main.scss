@@ -40,7 +40,7 @@
   
   /* Keep code blocks readable */
   pre, code {
-    font-size: 0.95em;
+    font-size: 1.43em; /* 1em relative to base (0.7em * 1.43 ≈ 1em) */
   }
 
   /* Adjust table text */
@@ -55,10 +55,6 @@
 }
 .sidebar__right {
   font-size: 1.2em;
-}
-
-.highlighter-rouge{
-  font-size: 1em;
 }
 
 /* Fix Prism.js comment rendering - remove extra line after comments */
