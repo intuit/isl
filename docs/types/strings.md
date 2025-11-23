@@ -2,6 +2,8 @@
 title: Strings
 parent: Data Types
 nav_order: 1
+description: "ISL string type with support for interpolation, concatenation, and built-in modifiers for uppercase, lowercase, trim, and more."
+excerpt: "ISL string type with support for interpolation, concatenation, and built-in modifiers for uppercase, lowercase, trim, and more."
 ---
 
 The most basic type of ISL is the `string` type which is the default type for all properties and variables.

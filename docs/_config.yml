@@ -92,7 +92,7 @@ search_full_content: true
 search_provider: lunr
 
 # SEO Related
-og_image: /img/isl.png
+og_image: /img/isl_og.png
 social:
   type: Organization
   name: Intuit

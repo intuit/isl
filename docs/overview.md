@@ -1,6 +1,8 @@
 ---
 title: Overview
 nav_order: 3
+description: "ISL is a WYSIWYG JSON transformation language. See examples of data transformations from input JSON to output JSON with ISL's intuitive syntax."
+excerpt: "ISL is a WYSIWYG JSON transformation language. See examples of data transformations from input JSON to output JSON with ISL's intuitive syntax."
 ---
 
 In the most simple form the ISL is a JSON transformation language:

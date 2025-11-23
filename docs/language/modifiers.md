@@ -2,6 +2,8 @@
 title: Built-in Modifiers
 parent: Language Reference
 nav_order: 6
+description: "ISL built-in modifiers for data transformations including map, filter, reduce, string processing, date formatting, and regex operations."
+excerpt: "ISL built-in modifiers for data transformations including map, filter, reduce, string processing, date formatting, and regex operations."
 ---
 
 [Modifiers are always used](./functions.md#modifiers) after a statement using the `|` (pipe) separator. They should be in general used for simple conversions or simple data processing.
@@ -263,7 +265,7 @@ $items = [] | default(["none"]);  // ["none"]
 	$sorted = $value | sort;	// [ 1, 30, 99 ]
 	```
 
-- `| sort( {by: "propertyname", order: "asc/desc", caseSensitive: true/false} )` - sorts an array of objects by a specific property.
+- `| sort( {by: "propertyName", order: "asc/desc", caseSensitive: true/false} )` - sorts an array of objects by a specific property.
 	```
    	$value = [ { b: 8, a: "anna" }, { b: 5, a: "zoe" }, { b: 2, a: "max" } ];
 	$sorted = $value | sort( { by: "a", order: "desc"});	// [ { "b": 5, "a": "zoe"}, { "b": 2, "a": "max" }, { "b": 8, "a": "anna" } ]
@@ -427,7 +429,7 @@ Evaluates to:
 ## Unsupported XForm Modifiers
 - `| get('type')` - get a custom attribute. Used  for attributes that can't be read through the normal `$value.name` e.g. `_void` due to parser limitation or attributes based on name like in the `| keys`.
 - `| get_key_from_value` - does not seem used anywhere.
-- `| unique( [selector] )` - similar to `@.Array.Unique( )` [see above](#array-processing). This modifier allows a field selector that will be used to calculate the uniquness of the objects. 
+- `| unique( [selector] )` - similar to `@.Array.Unique( )` [see above](#array-processing). This modifier allows a field selector that will be used to calculate the uniqueness of the objects. 
 	- `$items | unique ( $.id )` - return a unique list of objects, using the `$.id` as the unique selector.
 
 - `| mask:accountNumber` or `| mask:creditCardNumber` - apply standard masking.

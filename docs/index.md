@@ -1,8 +1,9 @@
 ---
 title: ISL
 nav_order: 1
-description: "ISL - Intuitive Scripting Language for JSON transformations"
+description: "ISL is a low-code interpreted scripting language for easy JSON-to-JSON transformations. Simple, intuitive syntax with powerful features for data acquisition and transformation."
 permalink: /
+excerpt: "ISL is a low-code interpreted scripting language for easy JSON-to-JSON transformations. Simple, intuitive syntax with powerful features for data acquisition and transformation."
 ---
 
 <div align="center">

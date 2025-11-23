@@ -1,6 +1,8 @@
 ---
 title: Quick Start
 nav_order: 2
+description: "Get up and running with ISL in just 5 minutes! Learn how to add ISL to your project and transform JSON data with simple, intuitive syntax."
+excerpt: "Get up and running with ISL in just 5 minutes! Learn how to add ISL to your project and transform JSON data with simple, intuitive syntax."
 ---
 
 Get up and running with ISL Transform in just 5 minutes!

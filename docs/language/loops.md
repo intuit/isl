@@ -173,7 +173,7 @@ For example this script will fail:
 
 ```isl
 $result = []
-parallel { worders: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
+parallel { workers: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
 	# convert each payload into an order
 	$r = @.This.Transform( $o )
 
@@ -186,7 +186,7 @@ To capture the result you need to use one of the following two approaches:
 ```isl
 
 // Option 1 - return a variable from inside the parallel foreach
-$result = parallel { worders: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
+$result = parallel { workers: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
 	# convert each payload into an order
 	$r = @.This.Transform( $o )
 
@@ -196,7 +196,7 @@ endfor
 
 
 // Option 2 - return a new object
-$result = parallel { worders: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
+$result = parallel { workers: 20 } foreach $o in $page.orders | filter ( $.total > 0 )
 	# convert each payload into an order
 
 	// create and return an object - these will be captured in $result[]

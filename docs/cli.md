@@ -1,6 +1,8 @@
 ---
 title: Command Line Interface
 nav_order: 4
+description: "ISL CLI is a powerful command-line tool for running ISL transformation scripts. Supports JSON/YAML input/output, variables, parameters, and multiple formats."
+excerpt: "ISL CLI is a powerful command-line tool for running ISL transformation scripts. Supports JSON/YAML input/output, variables, parameters, and multiple formats."
 ---
 
 The ISL CLI is a powerful command-line tool for running ISL transformation scripts. It supports JSON and YAML input/output, variables, parameters, and multiple output formats.

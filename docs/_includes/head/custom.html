@@ -1,0 +1,33 @@
+<!-- Custom Open Graph and Twitter Card meta tags for better social media previews -->
+
+{% if page.excerpt %}
+  <meta property="og:description" content="{{ page.excerpt | strip_html | strip_newlines | truncate: 200 }}" />
+  <meta name="twitter:description" content="{{ page.excerpt | strip_html | strip_newlines | truncate: 200 }}" />
+{% elsif page.description %}
+  <meta property="og:description" content="{{ page.description | strip_html | strip_newlines | truncate: 200 }}" />
+  <meta name="twitter:description" content="{{ page.description | strip_html | strip_newlines | truncate: 200 }}" />
+{% endif %}
+
+<!-- Twitter Card -->
+<meta name="twitter:card" content="summary" />
+<meta name="twitter:title" content="{{ page.title | default: site.title }}" />
+
+<!-- Specific image size for Open Graph (already set in _config.yml but reinforced here) -->
+{% if page.header.og_image %}
+  <meta property="og:image" content="{{ page.header.og_image | absolute_url }}" />
+  <meta name="twitter:image" content="{{ page.header.og_image | absolute_url }}" />
+{% elsif site.og_image %}
+  <meta property="og:image" content="{{ site.og_image | absolute_url }}" />
+  <meta name="twitter:image" content="{{ site.og_image | absolute_url }}" />
+{% endif %}
+
+<!-- Image dimensions for better rendering -->
+<meta property="og:image:width" content="600" />
+<meta property="og:image:height" content="315" />
+
+<!-- Load Prism.js for ISL syntax highlighting -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-core.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/autoloader/prism-autoloader.min.js"></script>
+<script src="{{ '/assets/js/prism-isl.js' | relative_url }}"></script>
+

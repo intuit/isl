@@ -347,7 +347,7 @@ fun run( $input ) {
 
 ### MVEL Transformation (107 lines)
 
-```javascript
+```java
 // MVEL transformation - matches simple field mapping
 // Helper to map line items
 def mapLineItems(items) {

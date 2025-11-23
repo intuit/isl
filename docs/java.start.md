@@ -1,6 +1,8 @@
 ---
 title: Java/Kotlin Integration
 nav_order: 4
+description: "Learn how to embed ISL in your Java/Kotlin project. Add ISL transformation capabilities to your JVM application with simple Maven or Gradle integration."
+excerpt: "Learn how to embed ISL in your Java/Kotlin project. Add ISL transformation capabilities to your JVM application with simple Maven or Gradle integration."
 ---
 
 This guide shows you how to embed ISL in your Java/Kotlin project.

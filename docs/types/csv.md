@@ -45,7 +45,7 @@ Evaluates to:
 **Available Options:**
 
 - `{ seek: [ "c1", "c2" ]}` - list of the values to look for in each line. The order does not matter. Not all values have to be listed. This is case sensitive.
-- `{ maxRows: value }` - stop searching after encountering a certain numebr of rows. Prevents scanning the entire csv if we know the row we are looking for is towards the beginning of the file.
+- `{ maxRows: value }` - stop searching after encountering a certain number of rows. Prevents scanning the entire csv if we know the row we are looking for is towards the beginning of the file.
 - `{ separator: "|" }` - use the `|` separator. Default value: `,`.
 - `{ escapeChar: "\\" }` - char used for escaping the separator. Default value: `\`. There is no way to completely disable the `escapeChar`.
 - `{ quoteChar: "\"" }` - char used for quotes. If null or an empty string are provided, it will ignore quote characters.

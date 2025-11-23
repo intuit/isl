@@ -114,7 +114,7 @@ fun download(id: number): customer
 Since 2.4.0 ISL supports Named Type Declaration in which a specific entity can be declared as having a type that the host understands.
 
 ```
-$account: myconmpany.account = {
+$account: mycompany.account = {
 	id: {
 		externalId: "1234"
 	},

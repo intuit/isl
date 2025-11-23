@@ -2,6 +2,8 @@
 title: Objects
 parent: Language Reference
 nav_order: 2
+description: "ISL object syntax for modeling JSON structures. Learn how to create nested objects, arrays, and use dynamic property names in ISL."
+excerpt: "ISL object syntax for modeling JSON structures. Learn how to create nested objects, arrays, and use dynamic property names in ISL."
 ---
 
 ISL can be used to model all types of objects, in alignment with the JSON format.
