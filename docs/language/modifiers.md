@@ -54,7 +54,7 @@ If you need more complex operations then please prefer a `function` to a modifie
  - `{ comments: true/false }` when regex contains comments that have to be ignored during the execution stage.
 
 Expressions:
-```
+```isl
 // using find
 result1: "a b c a b c" | regex.find( "(\s.?\s)" )
 // using find with 'ignoreCase' option
@@ -148,7 +148,7 @@ null
 
 - `| keys` - returns an array with all the `keys` from an object. Can be used to introspect an object.
 
-	```
+	```isl
 	$value = { a: 1, b: 2 };
 
 	$k = $value | keys;	// [ "a", "b" ]
@@ -159,7 +159,7 @@ null
 	```
 
 - `| kv` - returns an array with all the keys and values from an object. Each element will have `.key` and `.value`. Can be used to introspect an object:
-	```
+	```isl
    	$value = { a: 1, b: 2 };
 
 	$k = $value | kv;	// [ { "key": "a", "value": "1" }, { "key": "b", "value": "2" } ]
@@ -172,7 +172,7 @@ null
 	The reverse of this call is `| to.object` which will convert an array of `[ { key: key, value: value } ]` to an object.
 
 - `| sort` or `| sort(order: "asc/desc", caseSensitive: true/false)` - sorts the keys of the object. The defaults are `order: "asc"` and `caseSensitive: true`.
-	```
+	```isl
    	$value = { b: 2, c: 3, a: 1 };
 	$sorted = $value | sort;	// { a: 1, b: 2, c:3 }
 	```
@@ -180,7 +180,7 @@ null
 - `| join.string( keySeparator, valueSeparator )`, `| join.path( keySeparator, valueSeparator )`, `join.query( keySeparator, valueSeparator )` - joins all the properties of an object into a single string using the 
 	specified `keySeparator` (default of `,`) between the keys and the `valueSeparator` (default of `=`) between the property and the value.
 	The specified encoding (e.g. `path`) is also applied as per the [available encodings](#conversions).
-```
+```isl
 $value = { a: "1 2", b: "3 4" };
 
 $csv = $value | join.string;	// "a=1 2,b=3 4"
@@ -190,7 +190,7 @@ $path = $value | join.path("/","_");		// "a_1%202/b_3%204"
 
 - `| delete ( propertyName )` - deletes a specific property from an object. This is a modification in-place
 	so it should always be applied to the same object:
-```
+```isl
 $value = { a: "1 2", b: "3 4" };
 $value = $value | delete ( "b" );	// { a: "1 2" }
 ```
@@ -198,7 +198,7 @@ $value = $value | delete ( "b" );	// { a: "1 2" }
 - `| getProperty( 'property name' )` - get a custom property from the object. This is a **case insensitive** search for the property name.
 - `| setProperty( 'property name', $value )` - set a custom property into an object. This is a **case insensitive** set for the property name.
 - `$name` - Use string interpolation to generate dynamic property names.
-```
+```isl
 $propName = "dynamic";
 $value = {
 	name: $name,
@@ -214,25 +214,25 @@ will generate:
 ```
 
 - `| pick( 'key1', 'key2', ... )` - creates a new object with only the specified keys from the original object.
-```
+```isl
 $value = { a: 1, b: 2, c: 3 };
 $result = $value | pick('a', 'c');  // { a: 1, c: 3 }
 ```
 
 - `| omit( 'key1', 'key2', ... )` - creates a new object excluding the specified keys from the original object.
-```
+```isl
 $value = { a: 1, b: 2, c: 3 };
 $result = $value | omit('b');  // { a: 1, c: 3 }
 ```
 
 - `| rename( 'oldKey', 'newKey' )` - renames a key in an object.
-```
+```isl
 $value = { a: 1, b: 2 };
 $result = $value | rename('a', 'x');  // { x: 1, b: 2 }
 ```
 
 - `| has( 'key' )` - checks if an object has a specific key, returns `true` or `false`.
-```
+```isl
 $value = { a: 1, b: 2 };
 $hasA = $value | has('a');  // true
 $hasC = $value | has('c');  // false
@@ -256,17 +256,17 @@ $items = [] | default(["none"]);  // ["none"]
 - `@.Array.Range( Start, Count, [Increment]])` - generate an array of `Count` Integers starting from `Start` using the `Increment`. `@.Array.Range( 0, 5 )` generates `[0, 1, 2, 3, 4]`.
 - `@.Array.Unique( <list of numbers OR strings> )` - remove all duplicate values from an array and returns a set of unique values.
 - `| sort` or `| sort( {order: "asc/desc", caseSensitive: true/false} )` - sorts an array of values (either as text or numbers, depending on the type of the first item in the array). The defaults are `order: "asc"` and `caseSensitive: true`. Note: `caseSensitive` only works on text.
-	```
+	```isl
    	$value = [ "b", "c", "a" ];
 	$sorted = $value | sort;	// [ "a", "b", "c" ]
 	```
-	```
+	```isl
    	$value = [ 99, 1, 30 ];
 	$sorted = $value | sort;	// [ 1, 30, 99 ]
 	```
 
 - `| sort( {by: "propertyName", order: "asc/desc", caseSensitive: true/false} )` - sorts an array of objects by a specific property.
-	```
+	```isl
    	$value = [ { b: 8, a: "anna" }, { b: 5, a: "zoe" }, { b: 2, a: "max" } ];
 	$sorted = $value | sort( { by: "a", order: "desc"});	// [ { "b": 5, "a": "zoe"}, { "b": 2, "a": "max" }, { "b": 8, "a": "anna" } ]
 	```	
@@ -274,7 +274,7 @@ $items = [] | default(["none"]);  // ["none"]
 - `| join.string( separator )`, `| join.path( separator )`, `join.query( separator )` - joins all the values of an array into a single string using the 
 	specified `separator` (default of `,`).
 	The specified encoding (e.g. `path`) is also applied as per the [available encodings](#conversions).
-	```
+	```isl
    	$value = [ "a b", "c d" ];
 
 	$csv = $value | join.string;	// "a b,c d"
@@ -299,20 +299,23 @@ The `| map ( statement )` modifier can be used to map data in an array from one 
 The `$` variable will contain the current element.
 
 Create an object:
-```
+```isl
 items: [ 1, 2, 3, 4] | map( { id: $ } );
 ```
+
 Evaluates to: 
-```
+
+```json
 "items": [ { "id": 1 }, { "id": 2 },{ "id" : 3 }, { "id": 4 } ]
 ```
 
 Create simpler arrays from objects:
-```
+```isl
 items: [ { amount : 3.1 }, { amount : 4.5 }, { amount: 3 }, { }, { amount: "abc" }, { amount: true } ] | map ( $.amount )
 ```
+
 Evaluates to: 
-```
+```json
 "items": [ 3.1, 4.5, 3, null, "abc", true ]
 ```
 
@@ -322,24 +325,26 @@ The `| filter ( condition )` modifier can be used to quickly filter items out of
 The condition is done against the custom `$fit` filter iterator.
 
 E.g. 
-```
+```isl
 items: [ 1, 2, 3, 4] | filter( $fit < 3 );
 ```
+
 Evaluates to: 
-```
+```json
 "items": [ 1, 2 ]
 ```
 
 Combine wth the `foreach`. Note that the `filter` is still applied on the `$fit` iterator not on the `foreach` iterator of `$i`.
 
-```
+```isl
 $items: [ 1, 2, 3, 4 ] | filter( $fit < 3 );
 result: foreach $i in $items | filter ( $fit < 3 ) 
 	{
 		value: $i
 	}
 endfor
-```
+```json
+
 Evaluates to:
 ```
 "items": [ {
@@ -357,9 +362,10 @@ The modifier will receive two variables `$acc` - the accumulator and `$it` the c
 The value returned will be captured as the new `$acc` to be used on the next iteration. 
 
 E.g.
-```
+```isl
 totalWithGst: [ 1, 2, 3, 4 ] | reduce(  {{ $acc + $it * 1.10 }} );
 ```
+
 Evaluates to:
 ```json
 { 
@@ -368,7 +374,7 @@ Evaluates to:
 ```
 
 E.g.
-```
+```isl
 $lines: [ 
 	{ amount : 3.1 }, 
 	{ amount : 4.5 }, 
@@ -379,6 +385,7 @@ $lines: [
 ];
 total: $lines | reduce( {{ $acc + $it.amount * 1.23 }} )
 ```
+
 Evaluates to:
 ```json
 { 
@@ -425,31 +432,6 @@ Evaluates to:
 		- Simplest usage is `| retry.when ( $.status in [500, 502, 503] )`
 		- To test a group of values you can use [regex match](./conditions.md#regex-conditions) `| retry.when ( $.status matches '4\d\d|5\d\d' )` - match for any `4xx` or `5xx` code.
 
-
-## Unsupported XForm Modifiers
-- `| get('type')` - get a custom attribute. Used  for attributes that can't be read through the normal `$value.name` e.g. `_void` due to parser limitation or attributes based on name like in the `| keys`.
-- `| get_key_from_value` - does not seem used anywhere.
-- `| unique( [selector] )` - similar to `@.Array.Unique( )` [see above](#array-processing). This modifier allows a field selector that will be used to calculate the uniqueness of the objects. 
-	- `$items | unique ( $.id )` - return a unique list of objects, using the `$.id` as the unique selector.
-
-- `| mask:accountNumber` or `| mask:creditCardNumber` - apply standard masking.
-- `| (custom enum mapping)` - will generate a warning to replace with `| enum:nameofenum` to be explicit about enum value mappings.
-- `| normalize_txn_amt_sign( txType )` - normalize amounts based on txType.
-    ```
-    if ( ($value < 0 AND txType == 'CREDIT') OR ($value > 0 AND txType == 'DEBIT') )
-      return - $value;
-    else
-      return $value;
-    endif
-    ```
-
-- `| extract_account_number_from_iban` 
-- `| open_banking_tokenize` 
-- `| open_banking_balance_filter` 
-- `| normalized_account_type_map` 
-- `| account_category_map` 
-- `| open_banking_tokenize` 
-
 ## Compression & Decompression
 ### Zip
 1. `@.Zip.Start()` - Initializes a zip archive that will hold the files. This object needs to be piped into any of the following commands.
@@ -460,7 +442,7 @@ Evaluates to:
 6. `| gzip()` - Compresses the input using gzip compression, you can also specify the charset. ie. `| gzip("UTF-8")`. The default charset is UTF-8.
 
 Example usage:
-```
+```isl
 $z = @.Zip.Start();
 $archive: $z | zip.add("foo.txt", "hello world!", "UTF-8") | zip.add("bar.bin", $byteArray) | zip.close
 ```
@@ -471,7 +453,7 @@ $archive: $z | zip.add("foo.txt", "hello world!", "UTF-8") | zip.add("bar.bin", 
 3. `| gunzipTobytes` - Decompresses the input using gzip decompression and returns the decompressed bytes, it accepts both byte array and binary node.
 
 Example usage:
-```
+```isl
 $unzipped = $zippedBytes | unzip;
 $contentString = $unzipped[0].content | to.string(“utf-8”);
 ```

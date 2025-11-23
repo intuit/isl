@@ -99,6 +99,7 @@ $result: [
 	3
 ]
 ```
+
 Will output:
 ```json
 [ 1, 2, 3]
@@ -117,6 +118,7 @@ $result: {
 	value: $result.data ?? 'defaultValue',
 }
 ```
+
 Will output:
 ```json
 {
