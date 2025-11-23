@@ -465,6 +465,7 @@ fun run($input) {
 ```
 
 **ISL Transformation:**
+{% raw %}
 ```isl
 {
   id: $input.order_number,
@@ -487,6 +488,7 @@ fun run($input) {
   created_at: $input.created_timestamp | date.fromEpochSeconds | to.string("yyyy-MM-dd HH:mm:ss")
 }
 ```
+{% endraw %}
 
 **Output:**
 ```json

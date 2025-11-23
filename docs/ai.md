@@ -456,9 +456,10 @@ fun run( $input ){
 Please respect this and generate code using this structure.
 
 Few more rules to generate clean ISL:
+{% raw %}
 - It's generally nice to leave spaces inside the brackets `(  )` when calling functions or modifiers, especially if inside it there are brackets like this `| map( {{ $it.quantity * $it.unitPrice }} )`
 - If you think the user is learning or a beginner in ISL you can write helpful comments and add links to the docs to explain how syntax works but don't exaggerate and don't duplicate
-
+{% endraw %}
 
 ### Advanced Topics
 
