@@ -1,0 +1,16 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: isl-playground
+  jackson:
+    serialization:
+      indent-output: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
