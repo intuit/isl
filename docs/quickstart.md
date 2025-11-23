@@ -9,7 +9,9 @@ Get up and running with ISL Transform in just 5 minutes!
 
 ## What is ISL?
 
-ISL is a JSON-to-JSON transformation language that makes data transformations simple and intuitive. If it looks like JSON, it's JSON!
+ISL is a JSON-to-JSON transformation language that makes data transformations simple and intuitive. 
+
+⌨️ **If it looks like a JSON it's a valid ISL :)**
 
 ## Step 1: Add ISL to Your Project
 
@@ -56,6 +58,10 @@ Let's transform a product JSON into a simpler format.
     tags: $input.tags | split(',') | map( $ | trim )
 }
 ```
+
+**Note** that quotation marks around property names are optional in ISL to make the code more readable. You only need to use them for properties with special names like 
+`"first name": $input.firstName`
+
 
 **Output JSON:**
 ```json
