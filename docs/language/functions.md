@@ -2,11 +2,59 @@
 title: Functions & Modifiers
 parent: Language Reference
 nav_order: 5
+description: "ISL functions and modifiers for extending functionality. Learn how to create custom functions, modifiers, and block statement extensions."
+excerpt: "ISL functions and modifiers for extending functionality. Learn how to create custom functions, modifiers, and block statement extensions."
 ---
 
 ISL supports two types of functions: `fun` as standard functions and `modifier` as modifiers.
 
+- `fun`ctions look and behave like any any normal function and are callable using `@.[source].[functionName]( parameters )` 
+  where `[source]` is `this` if calling a function in the local file or the [name of the import](#imports) if calling a function from an imported file.
+  ```isl
+  // declare the function
+  fun transformLineItems( $lines ){
+    // transform
+  }
+
+  // call then function
+  $lines = @.This.transformLineItems( $order.line_items );
+  ```
+- `modifier`s are special function that are called using the `| [name](parameters)` syntax. The value on the
+  left of the modifiers is considered the first parameter of the modifier and all the other parameters come after
+  {% raw %}
+  ```isl
+  modifier addTax( $amount ){
+    // math uses {{ }} 
+    return {{ $amount * 1.1 }};
+  }
+  
+  {
+    // call the modifier. $orderTotal is the $amount in the modifier
+    total: $orderTotal | addTax
+  }
+  ```
+
+  The above example could also use a modifier:
+  ```isl
+  // declare the modifier
+  modifier transformLineItems( $lines ){
+    // transform
+  }
+
+  // call then the modifier
+  $lines = $order.line_items | transformLineItems;
+  ```
+  {% endraw %}
+  
+  - Modifier are preferred if the function does a specific action on the first input parameter and always returns one value that could be used as a result or used for another modifier
+  - Modifiers are generally easier to read when they have no or few parameters and can be easily chained one after another making code very readable
+  - Modifiers don't require brackets `( )` if they are called without parameters
+  - Modifiers can also be called using a function syntax to avoid ambiguities 
+  `total: $orderTotal | @.This.addTax`
+
 **Note:** ISL has a preference for Camel Case function and modifier names vs snake*case `*`names:`getAmount()`not`get_amount`.
+
+
 
 ## Functions
 
@@ -31,7 +79,7 @@ Modifiers are special functions than can be _piped_ `|` one after another.
 You can use your own modifiers inline inside any expression. First parameter is the left-hand-value in front of the modifier.
 
 {% raw %}
-```
+```isl
 // math.isl file
 modifier gstAmount( $price ){
     {{ $price * 0.1 }};  // 10%
@@ -42,6 +90,7 @@ gst: $totalPrice | gstAmount;
 {% endraw %}
 
 ### Wildcard Modifiers
+**Note:** Wildcard modifier can only be registered from Java/Kotlin and not from other ISL files.
 
 In some scenarios we don't want to register a separate modifier for each situation we want to handle but want to register _wildcard_ modifiers
 that can capture a set of modifiers in one allowing a cleaner code and simpler modifier handling:
@@ -57,7 +106,7 @@ context.registerExtensionMethod("Modifier.encode.*", MyClass::encode);
 
 You now have access to the modifier using the `| encode.value` format:
 
-```
+```isl
 value: "my text" | encode.base64;
 value: "my text" | encode.url;
 value: "my text" | encode.urlQueryParam;
@@ -109,7 +158,7 @@ ISL Files can import other ISL Files using the `import Name from file` syntax:
 
 Import all functions from the other file.
 
-```
+```isl
 import Name from "file.isl";
 ```
 
@@ -117,7 +166,7 @@ You can then call them via `@.Name.FunctionName( $param1, $param2 ... )`.
 
 The default `run` function can be called via `@.Name.Run( ... )`. Importing a module automatically imports the declared modifiers:
 
-```
+```isl
 import Math from 'math.isl';
 
 // Modifiers need to be prefixed with the name of the import

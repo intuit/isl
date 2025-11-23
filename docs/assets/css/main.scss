@@ -11,10 +11,14 @@
 
 /* Reduce main content font size */
 .page__content {
-  font-size: 0.85em; /* Default is 1em (16px), reduced to ~13.6px */
+  font-size: 0.7em; /* Reduced from 0.85em to 0.8em (~12.8px) */
   
   p, li, dl {
     font-size: 1em; /* Inherit from parent .page__content */
+  }
+
+  p {
+    margin: 1.1em 0;
   }
   
   /* Keep headings proportional but slightly smaller */
@@ -34,11 +38,11 @@
     font-size: 1.1em; /* Default is 1.25em */
   }
   
-  /* Keep code blocks readable */
+  /* Keep code blocks readable - using Prism.js for syntax highlighting */
   pre, code {
-    font-size: 0.95em;
+    font-size: 1em; /* 1em relative to base */
   }
-
+  
   /* Adjust table text */
   table {
     font-size: 0.95em;
@@ -49,4 +53,81 @@
 .sidebar {
   font-size: 0.9em;
 }
+.sidebar__right {
+  font-size: 1.2em;
+}
+
+/* Fix Prism.js comment rendering - remove extra line after comments */
+.token.comment::after,
+span.comment::after {
+  content: none !important;
+  display: none !important;
+}
+
+.token.comment {
+  display: inline !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Ensure ISL syntax highlighting looks clean */
+code[class*="language-"],
+pre[class*="language-"] {
+  .token.comment {
+    line-height: inherit;
+  }
+}
+
+/* Increase main content area width */
+#main {
+  @include breakpoint($large) {
+    max-width: 100%;
+    min-width: 0; /* Remove min-width constraint */
+  }
+  
+  @include breakpoint($x-large) {
+    max-width: 1600px; /* Increased from default 1280px */
+  }
+}
+
+/* Adjust page wrapper to accommodate wider content */
+.page {
+  @include breakpoint($large) {
+    width: calc(100% - 300px); /* Sidebar width */
+    padding-right: 300px; /* Adjust for TOC if present */
+  }
+  
+  @include breakpoint($x-large) {
+    width: calc(100% - 300px);
+    padding-right: 350px; /* More breathing room for wider screens */
+  }
+}
+
+/* Make the main content wrapper wider */
+.page__inner-wrap {
+  @include breakpoint($x-large) {
+    max-width: 100%;
+  }
+}
+
+/* Adjust breadcrumbs width to match content */
+.breadcrumbs {
+  @include breakpoint($large) {
+    max-width: 100%;
+  }
+  
+  @include breakpoint($x-large) {
+    max-width: 1600px;
+  }
+}
+
+/* Ensure the page title and meta also align properly */
+.page__title,
+.page__meta,
+.page__lead {
+  @include breakpoint($x-large) {
+    max-width: 100%;
+  }
+}
+
 

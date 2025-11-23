@@ -13,7 +13,3 @@ components:
       enum:
         - received
         - created
-        - searchmatch
-        - resolutionmatch
-        - usermatch
-        - deleted

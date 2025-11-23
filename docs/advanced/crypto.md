@@ -2,6 +2,8 @@
 title: Cryptography
 parent: Advanced Topics
 nav_order: 2
+description: "ISL cryptography utilities for SHA256, HMAC signatures, and Base64 encoding. Create secure hashes and sign data in your transformations."
+excerpt: "ISL cryptography utilities for SHA256, HMAC signatures, and Base64 encoding. Create secure hashes and sign data in your transformations."
 ---
 
 ## Overview
@@ -22,13 +24,13 @@ nav_order: 2
   - `crypto.md5`
 
 ### Sha256 examples
-```
+```isl
 $r: "my sha test" | crypto.sha256 | to.hex;	
 // $r is "77f03ce7057b27586d97cc432ac033b628494e651c90131c63ee8b651a6f9e18"
 ```
 
 ### Sha512 examples
-```
+```isl
 $r: "my sha test" | crypto.sha512 | to.hex;	
 // $r is "5e3c77245fa1ceeafccc815f2e34c65b39e00c85bcb95556d5ff4913fc8544aa461b604db1f5e5dd2b2fe37f84236bf263694cdd5adf4040faa10e1c37addbbb"
 ```
@@ -47,7 +49,7 @@ $r: "my rsa test"  | crypto.rsasha256( $keystore,  $keystorePassword, $keystorea
 ```
 
 ### MD5 Example
-```
+```isl
 
 // This is Base64 encoded by default
 $md5_hash: "string_to_hash" | crypto.md5;

@@ -2,6 +2,8 @@
 title: Variables
 parent: Language Reference
 nav_order: 1
+description: "Learn how to declare and use variables in ISL. Variables can store values, have custom properties, and be used throughout your transformations."
+excerpt: "Learn how to declare and use variables in ISL. Variables can store values, have custom properties, and be used throughout your transformations."
 ---
 
 ## Variable declaration
