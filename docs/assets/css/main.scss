@@ -11,7 +11,7 @@
 
 /* Reduce main content font size */
 .page__content {
-  font-size: 0.85em; /* Default is 1em (16px), reduced to ~13.6px */
+  font-size: 0.8em; /* Reduced from 0.85em to 0.8em (~12.8px) */
   
   p, li, dl {
     font-size: 1em; /* Inherit from parent .page__content */
@@ -48,5 +48,37 @@
 /* Ensure sidebar navigation stays readable */
 .sidebar {
   font-size: 0.9em;
+}
+
+/* Increase main content area width */
+#main {
+  @include breakpoint($large) {
+    max-width: 100%;
+    min-width: 0; /* Remove min-width constraint */
+  }
+  
+  @include breakpoint($x-large) {
+    max-width: 1600px; /* Increased from default 1280px */
+  }
+}
+
+/* Adjust page wrapper to accommodate wider content */
+.page {
+  @include breakpoint($large) {
+    width: calc(100% - 300px); /* Sidebar width */
+    padding-right: 300px; /* Adjust for TOC if present */
+  }
+  
+  @include breakpoint($x-large) {
+    width: calc(100% - 300px);
+    padding-right: 350px; /* More breathing room for wider screens */
+  }
+}
+
+/* Make the main content wrapper wider */
+.page__inner-wrap {
+  @include breakpoint($x-large) {
+    max-width: 100%;
+  }
 }
 
