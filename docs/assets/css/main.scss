@@ -53,6 +53,9 @@
 .sidebar {
   font-size: 0.9em;
 }
+.sidebar__right {
+  font-size: 1.2em;
+}
 
 /* Fix Prism.js comment rendering - remove extra line after comments */
 .token.comment::after,

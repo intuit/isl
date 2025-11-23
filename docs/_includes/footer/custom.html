@@ -1,3 +1,43 @@
 <!-- Custom footer scripts -->
-<!-- Prism.js ISL syntax highlighting is loaded in head with defer -->
 
+<!-- Load Lunr.js library if not already loaded by theme -->
+<script>
+if (typeof lunr === 'undefined') {
+  console.log('Loading Lunr.js...');
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js';
+  script.onload = function() {
+    console.log('✓ Lunr.js loaded manually');
+  };
+  document.head.appendChild(script);
+}
+</script>
+
+<script>
+// Debug search functionality
+document.addEventListener('DOMContentLoaded', function() {
+  // Check if search variables are loaded
+  setTimeout(function() {
+    if (typeof store !== 'undefined') {
+      console.log('✓ Search store loaded with', store.length, 'items');
+      if (store.length > 0) {
+        console.log('First item:', store[0]);
+      }
+    } else {
+      console.error('✗ Search store not loaded');
+    }
+    
+    if (typeof idx !== 'undefined') {
+      console.log('✓ Lunr index loaded');
+    } else {
+      console.error('✗ Lunr index not loaded');
+    }
+    
+    if (typeof lunr !== 'undefined') {
+      console.log('✓ Lunr library loaded');
+    } else {
+      console.error('✗ Lunr library not loaded');
+    }
+  }, 1000);
+});
+</script>
