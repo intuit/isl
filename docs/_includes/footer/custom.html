@@ -8,8 +8,73 @@ if (typeof lunr === 'undefined') {
   script.src = 'https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js';
   script.onload = function() {
     console.log('✓ Lunr.js loaded manually');
+    initializeSearch();
   };
   document.head.appendChild(script);
+} else {
+  initializeSearch();
+}
+
+function initializeSearch() {
+  // Wait for search input to be available
+  var searchInput = document.querySelector('.search__input');
+  if (!searchInput) {
+    setTimeout(initializeSearch, 100);
+    return;
+  }
+
+  console.log('Initializing search...');
+  
+  searchInput.addEventListener('keyup', function(e) {
+    var searchTerm = e.target.value.trim();
+    
+    if (searchTerm.length < 2) {
+      return;
+    }
+    
+    console.log('Searching for:', searchTerm);
+    
+    if (typeof idx === 'undefined' || typeof store === 'undefined') {
+      console.error('Search index or store not available');
+      return;
+    }
+    
+    try {
+      var results = idx.search(searchTerm);
+      console.log('Found', results.length, 'results');
+      
+      // Display results
+      displaySearchResults(results, store);
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+  });
+}
+
+function displaySearchResults(results, store) {
+  var searchResults = document.querySelector('.search-results');
+  if (!searchResults) {
+    console.error('Search results container not found');
+    return;
+  }
+  
+  if (results.length === 0) {
+    searchResults.innerHTML = '<p>No results found</p>';
+    return;
+  }
+  
+  var resultsHtml = '<ul>';
+  results.forEach(function(result) {
+    var item = store[result.ref];
+    resultsHtml += '<li><a href="' + item.url + '"><h3>' + item.title + '</h3>';
+    if (item.excerpt) {
+      resultsHtml += '<p>' + item.excerpt.substring(0, 150) + '...</p>';
+    }
+    resultsHtml += '</a></li>';
+  });
+  resultsHtml += '</ul>';
+  
+  searchResults.innerHTML = resultsHtml;
 }
 </script>
 
