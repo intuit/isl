@@ -56,6 +56,16 @@ Get example ISL transformations.
 ./gradlew build
 ```
 
+## Project Structure
+
+This backend directory is self-contained for Railway deployment and includes:
+- `gradlew` and `gradlew.bat` - Gradle wrapper scripts
+- `gradle/wrapper/` - Gradle wrapper JAR and properties
+- `libs/` - ISL transform library JAR
+- `gradle.properties` - Gradle configuration
+
+These files are copies from the parent repository to enable Railway to build the project in isolation.
+
 ## Railway Deployment
 
 This app is configured to deploy on Railway. Push to GitHub and connect your repository in Railway.

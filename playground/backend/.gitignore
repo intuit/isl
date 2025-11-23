@@ -4,3 +4,6 @@ out/
 *.iml
 .idea/
 
+# Frontend build artifacts (generated during backend build)
+src/main/resources/static/
+

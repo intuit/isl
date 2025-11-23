@@ -27,8 +27,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     
-    // ISL - using the built JAR from the parent project
-    implementation(files("../../isl-transform/build/libs/isl-transform-2.4.20-SNAPSHOT.jar"))
+    // ISL - using the built JAR from the libs directory
+    implementation(files("libs/isl-transform-2.4.20-SNAPSHOT.jar"))
     
     // ISL Dependencies (required when using JAR file directly)
     implementation("org.antlr:antlr4-runtime:4.9.1")
@@ -62,5 +62,35 @@ tasks.withType<org.jetbrains.kotlin.gradle.tasks.KotlinCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
+}
+
+// Task to build frontend
+tasks.register<Exec>("buildFrontend") {
+    description = "Build the frontend React application"
+    group = "build"
+    
+    workingDir = file("../frontend")
+    
+    commandLine = if (System.getProperty("os.name").lowercase().contains("windows")) {
+        listOf("cmd", "/c", "npm install && npm run build")
+    } else {
+        listOf("sh", "-c", "npm install && npm run build")
+    }
+}
+
+// Task to copy frontend build to Spring Boot static resources
+tasks.register<Copy>("copyFrontend") {
+    description = "Copy frontend build to static resources"
+    group = "build"
+    
+    dependsOn("buildFrontend")
+    
+    from("../frontend/dist")
+    into("src/main/resources/static")
+}
+
+// Make the Spring Boot build depend on frontend build
+tasks.named("processResources") {
+    dependsOn("copyFrontend")
 }
 

@@ -28,7 +28,9 @@ Open **http://localhost:3000** and start transforming!
 ## 📚 Documentation
 
 - **[📖 Quick Start Guide](QUICKSTART.md)** - Get up and running in 5 minutes
-- **[🚀 Deployment Guide](DEPLOYMENT.md)** - Deploy to Railway + Vercel ($5/month)
+- **[🚀 Deployment Guide](DEPLOYMENT.md)** - Deploy to Railway (with options for Vercel)
+- **[⚡ Combined Deployment](COMBINED_DEPLOYMENT.md)** - Serve frontend + backend from one service
+- **[🔧 Frontend Environment Setup](frontend/ENV_CONFIG.md)** - Configure API URLs
 - **[📋 Build Summary](BUILD_SUMMARY.md)** - Complete technical overview
 - **[Backend README](backend/README.md)** - API documentation
 - **[Frontend README](frontend/README.md)** - UI documentation
