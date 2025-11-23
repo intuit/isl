@@ -42,3 +42,23 @@ Supported Expressions:
 - `| Math.log10` - calculates base-10 logarithm. E.g. `1000 | Math.log10` > `3.0`.
 - `| Math.ln` - calculates natural logarithm (base e). E.g. `2.718 | Math.ln` > `~1.0`.
 - `| Math.pow( exponent )` - raises number to the specified power. E.g. `2 | Math.pow(3)` > `8.0`.
+
+## Best Practices
+
+To get the most from math optimizations:
+
+1. **Use constants when possible:** `{{ 100 * 0.08 }}` is free at runtime
+2. **Avoid unnecessary variables:** Direct constants are faster than variable lookups.
+    
+    **❌ Using unnecessary variables**
+    ```isl
+    $gst: 0.1;
+    $total = {{ $tax * $gst }}
+    ```
+    
+    **✅ Good - Can be optimized**
+    ```isl
+    $total = {{ $tax * 0.1 }}
+    ```
+
+3. **Simplify expressions:** Simpler expressions optimize better

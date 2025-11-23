@@ -108,6 +108,7 @@ jacoco.exec
 *.swp
 *.swo
 *~
+isl-transform/output*.json
 
 # Kotlin
 .kotlin/

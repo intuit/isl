@@ -14,6 +14,8 @@ import com.intuit.isl.commands.modifiers.ConditionModifierValueCommand
 import com.intuit.isl.commands.modifiers.MapModifierValueCommand
 import com.intuit.isl.commands.modifiers.ReduceModifierValueCommand
 import com.intuit.isl.utils.parseSimpleJsonPath
+import com.intuit.isl.utils.ConvertUtils
+import com.intuit.isl.utils.getValueOrDefault
 import java.util.*
 
 /**
@@ -457,7 +459,75 @@ class ExecutionBuilder(
         val left = token.left.visit(this);
         val right = token.right.visit(this);
 
-        return decorate(MathExpressionCommand(token, left, right, token.operation));
+        // Optimization 1: Constant folding - if both operands are constants, compute at compile time
+        if (left is LiteralValueCommand && right is LiteralValueCommand) {
+            val leftValue = ConvertUtils.tryParseDecimal(left.token.value)?.getValueOrDefault();
+            val rightValue = ConvertUtils.tryParseDecimal(right.token.value)?.getValueOrDefault();
+            
+            if (leftValue != null && rightValue != null) {
+                val result = ChainedMathCommand.applyOperation(leftValue, rightValue, token.operation);
+                return decorate(ConstantMathCommand(token, result));
+            }
+        }
+
+        // Optimization 2: Try to flatten nested math expressions into a chain
+        val chain = tryFlattenMathExpression(token, left, right);
+        if (chain != null && chain.size > 2) {
+            return decorate(ChainedMathCommand(token, chain));
+        }
+
+        // Optimization 3: Use inlined version for simple operations (no lambda overhead)
+        return decorate(InlinedMathCommand(token, left, right, token.operation));
+    }
+
+    /**
+     * Attempt to flatten nested math expressions following standard order of operations
+     * Returns a list of operations that can be executed sequentially, or null if flattening isn't safe
+     */
+    private fun tryFlattenMathExpression(
+        token: MathExpressionToken,
+        left: IIslCommand,
+        right: IIslCommand
+    ): List<ChainedMathCommand.MathOperation>? {
+        val operations = mutableListOf<ChainedMathCommand.MathOperation>()
+        
+        // Check if we can safely flatten based on operator precedence
+        // Only flatten same-precedence operations to maintain correctness
+        val canFlatten = when (token.operation) {
+            "+", "-" -> true  // Addition and subtraction can be chained
+            "*", "/" -> true  // Multiplication and division can be chained
+            else -> false
+        }
+        
+        if (!canFlatten) return null
+        
+        // Try to extract left operand
+        when {
+            left is LiteralValueCommand -> {
+                val value = ConvertUtils.tryParseDecimal(left.token.value)?.getValueOrDefault()
+                if (value != null) {
+                    operations.add(ChainedMathCommand.MathOperation(null, "", value))
+                }
+            }
+            else -> {
+                operations.add(ChainedMathCommand.MathOperation(left, "", null))
+            }
+        }
+        
+        // Add current operation
+        when {
+            right is LiteralValueCommand -> {
+                val value = ConvertUtils.tryParseDecimal(right.token.value)?.getValueOrDefault()
+                if (value != null) {
+                    operations.add(ChainedMathCommand.MathOperation(null, token.operation, value))
+                }
+            }
+            else -> {
+                operations.add(ChainedMathCommand.MathOperation(right, token.operation, null))
+            }
+        }
+        
+        return if (operations.size >= 2) operations else null
     }
 
     // Functions & Modules
