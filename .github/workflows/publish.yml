@@ -48,13 +48,21 @@ jobs:
     
     - name: Setup PGP key for signing
       run: |
-        # Decode the base64-encoded PGP key
-        echo "${{ secrets.SIGNING_KEY }}" | base64 --decode > signing_key.asc
-        # Set it as environment variable for next step using GitHub Actions environment file
-        echo "SIGNING_KEY<<EOF" >> $GITHUB_ENV
-        cat signing_key.asc >> $GITHUB_ENV
-        echo "EOF" >> $GITHUB_ENV
-        rm -f signing_key.asc
+        # Write the PGP key to environment variable
+        # The key can be either base64-encoded or ASCII-armored
+        if echo "${{ secrets.SIGNING_KEY }}" | grep -q "BEGIN PGP"; then
+          # Key is already ASCII-armored
+          echo "SIGNING_KEY<<EOF" >> $GITHUB_ENV
+          echo "${{ secrets.SIGNING_KEY }}" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+        else
+          # Key is base64-encoded, decode it
+          echo "${{ secrets.SIGNING_KEY }}" | tr -d '\n\r' | base64 --decode > signing_key.asc
+          echo "SIGNING_KEY<<EOF" >> $GITHUB_ENV
+          cat signing_key.asc >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          rm -f signing_key.asc
+        fi
         echo $OSSRH_USERNAME
         echo $SIGNING_KEY_ID
         
