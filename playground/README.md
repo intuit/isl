@@ -23,6 +23,16 @@ cd playground/frontend && npm install && npm run dev
 
 Open **http://localhost:3000** and start transforming!
 
+### 🔗 Using URL Parameters
+
+You can also open the playground with pre-loaded code using URL parameters:
+
+```
+http://localhost:3000?isl_encoded=BASE64_ISL&input_encoded=BASE64_INPUT
+```
+
+This enables "Run in Playground" buttons in documentation. See [PLAYGROUND_URL_FEATURE.md](PLAYGROUND_URL_FEATURE.md) for details.
+
 ---
 
 ## 📚 Documentation
@@ -32,6 +42,7 @@ Open **http://localhost:3000** and start transforming!
 - **[⚡ Combined Deployment](COMBINED_DEPLOYMENT.md)** - Serve frontend + backend from one service
 - **[🔧 Frontend Environment Setup](frontend/ENV_CONFIG.md)** - Configure API URLs
 - **[📋 Build Summary](BUILD_SUMMARY.md)** - Complete technical overview
+- **[🎮 Playground URL Feature](PLAYGROUND_URL_FEATURE.md)** - "Run in Playground" buttons for docs
 - **[Backend README](backend/README.md)** - API documentation
 - **[Frontend README](frontend/README.md)** - UI documentation
 
@@ -46,6 +57,7 @@ Open **http://localhost:3000** and start transforming!
 - **Pre-loaded examples** to get started quickly
 - **Responsive design** for desktop and mobile
 - **Beautiful gradient UI** with VS Code Dark+ theme
+- **URL Parameters Support** - Load code via query strings for "Run in Playground" buttons
 
 ### 🔧 Backend
 - **Spring Boot 3.2 API** with Kotlin

@@ -1,0 +1,26 @@
+{%- comment -%}
+  Playground Button Include
+  Usage: {% include playground-button.html isl="..." input="..." url="..." %}
+  
+  Parameters:
+  - isl: The ISL code to load in the playground (required)
+  - input: The input JSON to load (optional, defaults to "{}")
+  - url: Custom playground URL (optional, defaults to https://isl-playground.up.railway.app)
+{%- endcomment -%}
+
+{%- if include.isl -%}
+{%- assign playground_url = include.url | default: "https://isl-playground.up.railway.app" -%}
+{%- assign input_json = include.input | default: "{}" -%}
+{%- assign isl_encoded = include.isl | base64_url_encode -%}
+{%- assign input_encoded = input_json | base64_url_encode -%}
+<div class="playground-button-container">
+  <a href="{{ playground_url }}?isl_encoded={{ isl_encoded }}&input_encoded={{ input_encoded }}" 
+     target="_blank"
+     rel="noopener noreferrer"
+     class="btn-playground"
+     title="Open this example in the ISL Playground">
+    ▶️ Run in Playground
+  </a>
+</div>
+{%- endif -%}
+

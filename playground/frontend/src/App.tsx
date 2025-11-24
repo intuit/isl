@@ -35,9 +35,75 @@ interface ValidationResponse {
   }>;
 }
 
+// Helper to decode base64 URL-safe strings
+const decodeBase64Url = (str: string): string => {
+  try {
+    // Convert URL-safe base64 to standard base64
+    const base64 = str.replace(/-/g, '+').replace(/_/g, '/');
+    // Add padding if needed
+    const padded = base64 + '==='.slice((base64.length + 3) % 4);
+    return decodeURIComponent(escape(atob(padded)));
+  } catch (err) {
+    console.error('Failed to decode base64:', err);
+    return '';
+  }
+};
+
+// Helper to check if ISL code needs wrapping in fun run($input) { }
+const needsFunWrapper = (code: string): boolean => {
+  // Remove comments and whitespace for checking
+  const cleanCode = code.replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').trim();
+  
+  // Check if code already has a fun declaration (fun run or any fun)
+  const hasFunDeclaration = /^\s*fun\s+\w+\s*\(/.test(cleanCode);
+  
+  return !hasFunDeclaration;
+};
+
+// Helper to wrap ISL code in fun run($input) { } if needed
+const ensureFunWrapper = (code: string): string => {
+  if (!needsFunWrapper(code)) {
+    return code;
+  }
+  
+  // Wrap the code in fun run($input) { }
+  return `fun run($input) {\n  return ${code.split('\n').map(line => '    ' + line).join('\n')}\n}`;
+};
+
+// Helper to load code from URL parameters
+const loadFromUrl = () => {
+  const params = new URLSearchParams(window.location.search);
+  
+  let islCode = 'fun run( $input )\n{\n    result: $input.message\n}';
+  let inputJson = '{\n  "message": "Hello, ISL!"\n}';
+  
+  // Support both encoded and plain text formats
+  const islParam = params.get('isl');
+  const inputParam = params.get('input');
+  const islEncodedParam = params.get('isl_encoded');
+  const inputEncodedParam = params.get('input_encoded');
+  
+  if (islEncodedParam) {
+    const decoded = decodeBase64Url(islEncodedParam);
+    if (decoded) islCode = ensureFunWrapper(decoded);
+  } else if (islParam) {
+    islCode = ensureFunWrapper(islParam);
+  }
+  
+  if (inputEncodedParam) {
+    const decoded = decodeBase64Url(inputEncodedParam);
+    if (decoded) inputJson = decoded;
+  } else if (inputParam) {
+    inputJson = inputParam;
+  }
+  
+  return { islCode, inputJson };
+};
+
 function App() {
-  const [islCode, setIslCode] = useState('fun run( $input )\n{\n    result: $input.message\n}');
-  const [inputJson, setInputJson] = useState('{\n  "message": "Hello, ISL!"\n}');
+  const urlData = loadFromUrl();
+  const [islCode, setIslCode] = useState(urlData.islCode);
+  const [inputJson, setInputJson] = useState(urlData.inputJson);
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -63,9 +129,16 @@ function App() {
     setValidationErrors([]);
     setValidationSuccess(false);
 
+    // Ensure the code has fun run wrapper, and update editor if it was added
+    let codeToRun = islCode;
+    if (needsFunWrapper(islCode)) {
+      codeToRun = ensureFunWrapper(islCode);
+      setIslCode(codeToRun); // Update the editor with the wrapped code
+    }
+
     try {
       const response = await axios.post<TransformResponse>(`${API_BASE_URL}/transform`, {
-        isl: islCode,
+        isl: codeToRun,
         input: inputJson,
       });
 
@@ -93,9 +166,16 @@ function App() {
     setValidationSuccess(false);
     setError('');
 
+    // Ensure the code has fun run wrapper, and update editor if it was added
+    let codeToValidate = islCode;
+    if (needsFunWrapper(islCode)) {
+      codeToValidate = ensureFunWrapper(islCode);
+      setIslCode(codeToValidate); // Update the editor with the wrapped code
+    }
+
     try {
       const response = await axios.post<ValidationResponse>(`${API_BASE_URL}/validate`, {
-        isl: islCode,
+        isl: codeToValidate,
       });
 
       if (response.data.valid) {
@@ -139,7 +219,7 @@ function App() {
   }, [handleRun, handleValidate]);
 
   const loadExample = (example: Example) => {
-    setIslCode(example.isl);
+    setIslCode(ensureFunWrapper(example.isl));
     setInputJson(example.input);
     setOutput('');
     setError('');
