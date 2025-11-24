@@ -34,10 +34,10 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    # - name: Update version
-    #   if: github.event.inputs.version != ''
-    #   run: |
-    #     sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' build.gradle.kts
+    - name: Update version
+      if: github.event.inputs.version != ''
+      run: |
+        sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' build.gradle.kts
         
     - name: Build artifacts
       run: ./gradlew build --no-daemon --stacktrace
@@ -45,14 +45,14 @@ jobs:
     - name: Run tests
       run: ./gradlew test --no-daemon --stacktrace
       
-    # - name: Publish to Maven Central
-    #   env:
-    #     OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-    #     OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-    #     SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
-    #     SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
-    #     SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-    #   run: ./gradlew publish --no-daemon --stacktrace
+    - name: Publish to Maven Central
+      env:
+        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        SIGNING_KEY_ID: ${{ secrets.SIGNING_KEY_ID }}
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      run: ./gradlew publish --no-daemon --stacktrace
       
     # - name: Publish to GitHub Packages
     #   env:
