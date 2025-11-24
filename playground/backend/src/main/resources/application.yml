@@ -1,0 +1,28 @@
+server:
+  port: 8080
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,text/javascript,application/javascript,application/json
+
+spring:
+  application:
+    name: isl-playground
+  jackson:
+    serialization:
+      indent-output: true
+  web:
+    resources:
+      cache:
+        cachecontrol:
+          max-age: 31536000  # 1 year for static assets
+      chain:
+        strategy:
+          content:
+            enabled: true  # Enable content-based cache busting
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+

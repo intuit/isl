@@ -54,7 +54,7 @@ Let's transform a product JSON into a simpler format.
     id: $input.id,
     name: $input.title,
     description: `${$input.title} by ${$input.vendor}`,
-    isActive: $input.status == 'active',
+    isActive: if( $input.status == 'active' ) true else false,
     tags: $input.tags | split(',') | map( $ | trim )
 }
 ```
@@ -92,7 +92,7 @@ public class QuickStart {
                 id: $input.id,
                 name: $input.title,
                 description: `${ $input.title } by ${ $input.vendor }`,
-                isActive: $input.status == 'active',
+                isActive: if( $input.status == 'active' ) true else false,
                 tags: $input.tags | split(',') | map( $ | trim )
             }
             """;
@@ -141,7 +141,7 @@ fun main() {
             id: ${'$'}input.id,
             name: ${'$'}input.title,
             description: `${'$'}{${'$'}input.title} by ${'$'}{${'$'}input.vendor}`,
-            isActive: ${'$'}input.status == 'active',
+            isActive: if ( ${'$'}input.status == 'active' ) true else false,
             tags: ${'$'}input.tags | split(',') | map( ${'$'} | trim )
         }
     """.trimIndent()

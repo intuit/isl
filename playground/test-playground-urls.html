@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ISL Playground URL Test</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #333;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #667eea;
+        }
+        pre {
+            background: #f8f8f8;
+            padding: 15px;
+            border-radius: 4px;
+            overflow-x: auto;
+            border: 1px solid #e0e0e0;
+        }
+        code {
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 14px;
+        }
+        .btn-playground {
+            display: inline-block;
+            padding: 10px 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+            cursor: pointer;
+            border: none;
+            font-size: 16px;
+        }
+        .btn-playground:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+        }
+        .url-display {
+            background: #e8f4f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            word-break: break-all;
+            font-size: 12px;
+            color: #555;
+        }
+        .note {
+            background: #fff8e1;
+            border-left: 4px solid #ffc107;
+            padding: 10px 15px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 ISL Playground URL Test</h1>
+    
+    <div class="note">
+        <strong>Note:</strong> Make sure the playground is running at <code>http://localhost:3000</code> before testing these buttons.
+        <br><br>
+        <strong>New Feature:</strong> The playground now automatically wraps code snippets in <code>fun run($input) { ... }</code> if they're missing it!
+    </div>
+
+    <div class="test-section">
+        <h2>Test 1: Simple Transformation</h2>
+        <p>A basic ISL transformation that maps input fields to output.</p>
+        
+        <h3>ISL Code:</h3>
+        <pre><code>{
+    id: $input.id,
+    name: $input.title,
+    description: `${$input.title} by ${$input.vendor}`,
+    isActive: $input.status == 'active'
+}</code></pre>
+
+        <h3>Input JSON:</h3>
+        <pre><code>{
+  "title": "IPod Nano - 8GB",
+  "id": 632910392,
+  "vendor": "Apple",
+  "status": "active"
+}</code></pre>
+
+        <button class="btn-playground" onclick="openTest1()">▶️ Run in Playground</button>
+        <div class="url-display" id="url1"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Array Processing</h2>
+        <p>Filter and transform array items using ISL modifiers.</p>
+        
+        <h3>ISL Code:</h3>
+        <pre><code>fun run($data) {
+    activeItems: foreach $item in $data.items | filter($item.active) {
+        id: $item.id,
+        name: $item.name | upperCase,
+        total: {{ $item.price * $item.quantity }}
+    }
+    endfor
+}</code></pre>
+
+        <h3>Input JSON:</h3>
+        <pre><code>{
+  "items": [
+    {"id": 1, "name": "apple", "price": 1.5, "quantity": 3, "active": true},
+    {"id": 2, "name": "banana", "price": 0.8, "quantity": 5, "active": false},
+    {"id": 3, "name": "orange", "price": 2.0, "quantity": 2, "active": true}
+  ]
+}</code></pre>
+
+        <button class="btn-playground" onclick="openTest2()">▶️ Run in Playground</button>
+        <div class="url-display" id="url2"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: String Manipulation</h2>
+        <p>Demonstrate various string modifiers.</p>
+        
+        <h3>ISL Code:</h3>
+        <pre><code>fun run($input) {
+    original: $input.text,
+    upper: $input.text | upperCase,
+    lower: $input.text | lowerCase,
+    trimmed: $input.text | trim,
+    reversed: $input.text | reverse,
+    length: $input.text | length
+}</code></pre>
+
+        <h3>Input JSON:</h3>
+        <pre><code>{
+  "text": "  Hello ISL World!  "
+}</code></pre>
+
+        <button class="btn-playground" onclick="openTest3()">▶️ Run in Playground</button>
+        <div class="url-display" id="url3"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Conditional Logic</h2>
+        <p>Using if/else statements for conditional transformations.</p>
+        
+        <h3>ISL Code:</h3>
+        <pre><code>fun run($user) {
+    status: if ($user.age >= 18) 
+        "adult" 
+    else 
+        "minor" 
+    endif,
+    canVote: $user.age >= 18,
+    category: if ($user.age < 13)
+        "child"
+    elseif ($user.age < 18)
+        "teenager"
+    else
+        "adult"
+    endif
+}</code></pre>
+
+        <h3>Input JSON:</h3>
+        <pre><code>{
+  "age": 25,
+  "name": "John"
+}</code></pre>
+
+        <button class="btn-playground" onclick="openTest4()">▶️ Run in Playground</button>
+        <div class="url-display" id="url4"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Auto-Wrap Feature (No fun run)</h2>
+        <p><strong>This example has NO <code>fun run($input)</code> wrapper</strong> - the playground will add it automatically!</p>
+        
+        <h3>ISL Code (without wrapper):</h3>
+        <pre><code>{
+    id: $input.id,
+    name: $input.name | upperCase,
+    email: $input.email | lowerCase,
+    fullName: `${$input.firstName} ${$input.lastName}`
+}</code></pre>
+
+        <h3>Input JSON:</h3>
+        <pre><code>{
+  "id": 123,
+  "name": "john doe",
+  "email": "JOHN@EXAMPLE.COM",
+  "firstName": "John",
+  "lastName": "Doe"
+}</code></pre>
+
+        <button class="btn-playground" onclick="openTest5()">▶️ Run in Playground (Auto-Wrap Demo)</button>
+        <div class="url-display" id="url5"></div>
+    </div>
+
+    <script>
+        // Helper function to encode to base64 URL-safe
+        function encodeBase64Url(str) {
+            try {
+                const base64 = btoa(unescape(encodeURIComponent(str)));
+                return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+            } catch (err) {
+                console.error('Failed to encode:', err);
+                return '';
+            }
+        }
+
+        // Generate playground URL
+        function generatePlaygroundUrl(isl, input) {
+            const params = new URLSearchParams();
+            params.set('isl_encoded', encodeBase64Url(isl));
+            params.set('input_encoded', encodeBase64Url(input));
+            return `http://localhost:3000?${params.toString()}`;
+        }
+
+        function openTest1() {
+            const isl = `{
+    id: $input.id,
+    name: $input.title,
+    description: \`\${$input.title} by \${$input.vendor}\`,
+    isActive: $input.status == 'active'
+}`;
+            const input = `{
+  "title": "IPod Nano - 8GB",
+  "id": 632910392,
+  "vendor": "Apple",
+  "status": "active"
+}`;
+            const url = generatePlaygroundUrl(isl, input);
+            document.getElementById('url1').textContent = url;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        function openTest2() {
+            const isl = `fun run($data) {
+    activeItems: foreach $item in $data.items | filter($item.active) {
+        id: $item.id,
+        name: $item.name | upperCase,
+        total: {{ $item.price * $item.quantity }}
+    }
+    endfor
+}`;
+            const input = `{
+  "items": [
+    {"id": 1, "name": "apple", "price": 1.5, "quantity": 3, "active": true},
+    {"id": 2, "name": "banana", "price": 0.8, "quantity": 5, "active": false},
+    {"id": 3, "name": "orange", "price": 2.0, "quantity": 2, "active": true}
+  ]
+}`;
+            const url = generatePlaygroundUrl(isl, input);
+            document.getElementById('url2').textContent = url;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        function openTest3() {
+            const isl = `fun run($input) {
+    original: $input.text,
+    upper: $input.text | upperCase,
+    lower: $input.text | lowerCase,
+    trimmed: $input.text | trim,
+    reversed: $input.text | reverse,
+    length: $input.text | length
+}`;
+            const input = `{
+  "text": "  Hello ISL World!  "
+}`;
+            const url = generatePlaygroundUrl(isl, input);
+            document.getElementById('url3').textContent = url;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        function openTest4() {
+            const isl = `fun run($user) {
+    status: if ($user.age >= 18) 
+        "adult" 
+    else 
+        "minor" 
+    endif,
+    canVote: $user.age >= 18,
+    category: if ($user.age < 13)
+        "child"
+    elseif ($user.age < 18)
+        "teenager"
+    else
+        "adult"
+    endif
+}`;
+            const input = `{
+  "age": 25,
+  "name": "John"
+}`;
+            const url = generatePlaygroundUrl(isl, input);
+            document.getElementById('url4').textContent = url;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+
+        function openTest5() {
+            // This code does NOT have fun run() wrapper - playground will add it!
+            const isl = `{
+    id: $input.id,
+    name: $input.name | upperCase,
+    email: $input.email | lowerCase,
+    fullName: \`\${$input.firstName} \${$input.lastName}\`
+}`;
+            const input = `{
+  "id": 123,
+  "name": "john doe",
+  "email": "JOHN@EXAMPLE.COM",
+  "firstName": "John",
+  "lastName": "Doe"
+}`;
+            const url = generatePlaygroundUrl(isl, input);
+            document.getElementById('url5').textContent = url;
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    </script>
+</body>
+</html>
+

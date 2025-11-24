@@ -1,0 +1,3 @@
+# Set Java version environment variable
+JAVA_VERSION=21
+

@@ -88,6 +88,8 @@ docs:
         url: /dev/release
       - title: "Contributing"
         url: /dev/contributing
+      - title: "Playground Integration"
+        url: /dev/playground-integration
 
   - title: More
     children:
