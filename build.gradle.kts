@@ -117,14 +117,16 @@ subprojects {
     }
     
     // Signing configuration for Maven Central
-    if (System.getenv("SIGNING_KEY_ID") != null || project.hasProperty("signing.keyId")) {
+    if (System.getenv("SIGNING_KEY") != null || project.hasProperty("signing.keyId")) {
         apply(plugin = "signing")
         extensions.configure<org.gradle.plugins.signing.SigningExtension> {
             if (System.getenv("SIGNING_KEY") != null) {
-                val signingKeyId = System.getenv("SIGNING_KEY_ID")
                 val signingKey = System.getenv("SIGNING_KEY")
                 val signingPassword = System.getenv("SIGNING_PASSWORD") ?: ""
-                useInMemoryPgpKeys(signingKeyId, signingKey, signingPassword)
+                println(">>>> KeyLength=" + signingKey.length + " > " + signingKey.substring(0, 10))
+                println(">>>> PassLength=" + signingPassword.length + " > " + signingPassword.substring(0, 2))
+                // Use 2-parameter version which only needs the key and password (no keyId)
+                useInMemoryPgpKeys(signingKey, signingPassword)
             }
             sign(extensions.getByType<PublishingExtension>().publications["maven"])
         }
