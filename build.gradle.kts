@@ -123,8 +123,6 @@ subprojects {
             if (System.getenv("SIGNING_KEY") != null) {
                 val signingKey = System.getenv("SIGNING_KEY")
                 val signingPassword = System.getenv("SIGNING_PASSWORD") ?: ""
-                println(">>>> KeyLength=" + signingKey.length + " > " + signingKey.substring(0, 10))
-                println(">>>> PassLength=" + signingPassword.length + " > " + signingPassword.substring(0, 2))
                 // Use 2-parameter version which only needs the key and password (no keyId)
                 useInMemoryPgpKeys(signingKey, signingPassword)
             }
