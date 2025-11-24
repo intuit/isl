@@ -26,6 +26,8 @@ ISL is a [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) scripting language des
 
 ⏩ Checkout the [QuickStart Guide](quickstart.md) for how to use ISL in 2 minutes.
 
+▶️ Try ISL [In the Playground](https://isl-playground.up.railway.app/).
+
 ‼️ Checkout the [Best Practices](best-practices.md) to understand how to run ISL efficiently.
 
 ## Example
