@@ -8,5 +8,6 @@ cmds = ["cd backend && ./gradlew clean build -x test"]
 
 [start]
 cmd = "cd backend && java -jar build/libs/isl-playground-1.0.0.jar"
+nixPkgs = ["openjdk"]
 
 # Test
