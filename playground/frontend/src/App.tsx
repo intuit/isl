@@ -60,7 +60,7 @@ const ensureFunWrapper = (code: string): string => {
   }
   
   // Wrap the code in fun run($input) { }
-  return `fun run($input) {\n  return ${code.split('\n').map(line => '    ' + line).join('\n')}\n}`;
+  return `fun run($input) {\n // Adjust code as required then return a result\n${code.split('\n').map(line => '    ' + line).join('\n')}\n}`;
 };
 
 // Helper to load code from URL parameters
