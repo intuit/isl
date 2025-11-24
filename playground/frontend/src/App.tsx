@@ -7,14 +7,6 @@ import type { editor } from 'monaco-editor';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://isl-playground.up.railway.app/api';
 
-interface Example {
-  name: string;
-  description: string;
-  isl: string;
-  input: string;
-  expectedOutput: string;
-}
-
 interface TransformResponse {
   success: boolean;
   output?: string;
@@ -114,22 +106,12 @@ function App() {
   const [output, setOutput] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [examples, setExamples] = useState<Example[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationSuccess, setValidationSuccess] = useState(false);
   
   // Ref to store Monaco editor instance
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const decorationsRef = useRef<string[]>([]);
-
-  const loadExamples = async () => {
-    try {
-      const response = await axios.get<Example[]>(`${API_BASE_URL}/examples`);
-      setExamples(response.data);
-    } catch (err) {
-      console.error('Failed to load examples:', err);
-    }
-  };
 
   // Function to clear error decorations
   const clearErrorDecorations = () => {
@@ -268,11 +250,6 @@ function App() {
       setLoading(false);
     }
   }, [islCode, loading]);
-
-  useEffect(() => {
-    // Load examples
-    loadExamples();
-  }, []);
 
   useEffect(() => {
     // Add keyboard shortcuts
