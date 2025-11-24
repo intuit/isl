@@ -1,6 +1,8 @@
 ---
 title: JSON DSL (Kotlin)
 nav_order: 10
+description: "Use ISL's JSON DSL for Kotlin to easily create JSON objects and arrays with a clean, type-safe syntax instead of verbose factory methods."
+excerpt: "Use ISL's JSON DSL for Kotlin to easily create JSON objects and arrays with a clean, type-safe syntax instead of verbose factory methods."
 ---
 
 When using ISL from Kotlin you can benefit from Kotlin's custom DSL capabilities and use the JSON DSL to easily create JSON Objects and Arrays without using the `JsonNodeFactory.instance.objectNode()` and other 

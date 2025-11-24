@@ -17,7 +17,7 @@ By default the `csv.parsemultiline` will assume first row is the `headers` and t
 Columns with no known header name are automatically created with name `ColX` with the `X` being the positional column name.
 
 Expression:
-```
+```isl
 // default parsing
 result1: "a,b,c\n1,2,3" | csv.parsemultiline
 // using custom headers
@@ -45,14 +45,14 @@ Evaluates to:
 **Available Options:**
 
 - `{ seek: [ "c1", "c2" ]}` - list of the values to look for in each line. The order does not matter. Not all values have to be listed. This is case sensitive.
-- `{ maxRows: value }` - stop searching after encountering a certain numebr of rows. Prevents scanning the entire csv if we know the row we are looking for is towards the beginning of the file.
+- `{ maxRows: value }` - stop searching after encountering a certain number of rows. Prevents scanning the entire csv if we know the row we are looking for is towards the beginning of the file.
 - `{ separator: "|" }` - use the `|` separator. Default value: `,`.
 - `{ escapeChar: "\\" }` - char used for escaping the separator. Default value: `\`. There is no way to completely disable the `escapeChar`.
 - `{ quoteChar: "\"" }` - char used for quotes. If null or an empty string are provided, it will ignore quote characters.
 - `{ skipLines: 3 }` - skip a number of lines. Default Value: `0`.
 
 Expression:
-```
+```isl
 result1 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["a", "b", "c"] })
 result2 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["3", "1"] })
 result3 : "a,b,c\n1,2,3" | csv.findRow( { seek: ["x", "y", "z"] })

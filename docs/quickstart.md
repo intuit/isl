@@ -1,13 +1,17 @@
 ---
 title: Quick Start
 nav_order: 2
+description: "Get up and running with ISL in just 5 minutes! Learn how to add ISL to your project and transform JSON data with simple, intuitive syntax."
+excerpt: "Get up and running with ISL in just 5 minutes! Learn how to add ISL to your project and transform JSON data with simple, intuitive syntax."
 ---
 
 Get up and running with ISL Transform in just 5 minutes!
 
 ## What is ISL?
 
-ISL is a JSON-to-JSON transformation language that makes data transformations simple and intuitive. If it looks like JSON, it's JSON!
+ISL is a JSON-to-JSON transformation language that makes data transformations simple and intuitive. 
+
+⌨️ **If it looks like a JSON it's a valid ISL :)**
 
 ## Step 1: Add ISL to Your Project
 
@@ -54,6 +58,10 @@ Let's transform a product JSON into a simpler format.
     tags: $input.tags | split(',') | map( $ | trim )
 }
 ```
+
+**Note** that quotation marks around property names are optional in ISL to make the code more readable. You only need to use them for properties with special names like 
+`"first name": $input.firstName`
+
 
 **Output JSON:**
 ```json
@@ -190,7 +198,7 @@ Now that you've got the basics, explore more features:
 4. **[Conditionals](./language/conditions.md)** - If/else, switch statements, and regex matching
 5. **[Math Operations](./language/math.md)** - Math expressions and functions
 6. **[Best Practices](./dev/best-practices.md)** - Performance optimization and patterns
-7. **[Examples](./examples/)** - Real-world transformation examples
+7. **[Examples](./examples/index.md)** - Real-world transformation examples
 
 ## 🚀 What Can ISL Do?
 
@@ -214,7 +222,7 @@ Now that you've got the basics, explore more features:
 ## 🆘 Need Help?
 
 - **Documentation**: Check the [full documentation](./index.md)
-- **Examples**: Browse [example transformations](./examples/)
+- **Examples**: Browse [example transformations](./examples/index.md)
 - **Support**: See [support options](./support.md)
 
 ---

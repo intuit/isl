@@ -2,6 +2,8 @@
 title: Dates & Times
 parent: Data Types
 nav_order: 2
+description: "ISL date and time processing utilities. Parse, format, and manipulate dates with ISO 8601 and Unix timestamps in UTC timezone."
+excerpt: "ISL date and time processing utilities. Parse, format, and manipulate dates with ISO 8601 and Unix timestamps in UTC timezone."
 ---
 
 **Note:** All dates in ISL assume UTC as the only timezone.
@@ -66,7 +68,7 @@ The simplest way to compare dates is to compare their numeric equivalent
 Date comparisons work in any `if` or `switch` statements.
 
 By default the date comparisons are done on the seconds version of the date.
-```
+```isl
 $d1 = "2021-12-03" | date.parse("yyyy-MM-dd");
 $d2 = "2021-12-04" | date.parse("yyyy-MM-dd");
 if ( $d1 < $d2 )
@@ -75,7 +77,7 @@ endif
 ```
 
 If you need to compare dates with precision of milliseconds you will need to convert the milliseconds first:
-```
+```isl
 $d1 = "2021-12-03" | date.parse("yyyy-MM-dd");
 $d2 = "2021-12-04" | date.parse("yyyy-MM-dd");
 if ( $d1 | to.epochmillis < $d2 | to.epochmillis )

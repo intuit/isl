@@ -1,6 +1,8 @@
 ---
 title: Command Line Interface
 nav_order: 4
+description: "ISL CLI is a powerful command-line tool for running ISL transformation scripts. Supports JSON/YAML input/output, variables, parameters, and multiple formats."
+excerpt: "ISL CLI is a powerful command-line tool for running ISL transformation scripts. Supports JSON/YAML input/output, variables, parameters, and multiple formats."
 ---
 
 The ISL CLI is a powerful command-line tool for running ISL transformation scripts. It supports JSON and YAML input/output, variables, parameters, and multiple output formats.
@@ -359,6 +361,7 @@ isl transform hello.isl -i input.json --pretty
 ### Example 2: Data Transformation with Filtering
 
 **process.isl:**
+{% raw %}
 ```isl
 fun run($data) {
     // Filter and transform active items
@@ -377,6 +380,7 @@ fun run($data) {
         | reduce({{ $acc + $it }})
 }
 ```
+{% endraw %}
 
 **data.json:**
 ```json
@@ -504,6 +508,7 @@ isl transform format.isl -i stage2.json -o final-output.json --pretty
 By default, ISL calls the `run` function. You can call other functions:
 
 **utils.isl:**
+{% raw %}
 ```isl
 fun processOrders($input) {
     orders: foreach $order in $input.orders
@@ -523,6 +528,7 @@ fun processCustomers($input) {
     endfor
 }
 ```
+{% endraw %}
 
 **Usage:**
 ```bash
