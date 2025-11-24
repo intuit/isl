@@ -1,7 +1,7 @@
 # https://nixpacks.com/docs/configuration/file
 
 [phases.setup]
-nixPkgs = ["jdk21_headless", "nodejs"]
+nixPkgs = ["openjdk21", "nodejs"]
 
 [phases.build]
 cmds = ["cd backend && ./gradlew clean build -x test"]
