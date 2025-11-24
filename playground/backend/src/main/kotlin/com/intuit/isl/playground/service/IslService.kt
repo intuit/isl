@@ -35,7 +35,9 @@ class IslService {
             val functionToRun = functionNames.firstOrNull { it in availableFunctions }
                 ?: availableFunctions.firstOrNull()
                 ?: "run" // fallback to "run" for compatibility
-            
+
+            println( "Script has functions=" + availableFunctions + " ISL will run on=" + functionToRun );
+
             // Execute the transformation
             val result = transformer.runTransformSync(functionToRun, context)
             

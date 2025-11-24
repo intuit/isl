@@ -22,17 +22,73 @@
   }
   
   /**
-   * Checks if a code block contains ISL code
+   * Checks if a code block is explicitly marked as ISL
    */
-  function isIslCode(codeElement) {
-    const text = codeElement.textContent || '';
+  function hasIslClass(codeElement, preElement) {
+    // Check code element classes
+    const codeClasses = codeElement.className || '';
+    if (codeClasses.includes('language-isl') || codeClasses.includes('highlighter-isl')) {
+      return true;
+    }
     
-    // Check for ISL-specific patterns
-    return text.includes('$input') ||
-           /fun\s+\w+\s*\(/.test(text) ||
-           /\|\s*\w+/.test(text) ||  // pipe modifiers
-           /foreach\s+\$/.test(text) ||
-           /@\./.test(text);  // function calls
+    // Check pre element classes
+    const preClasses = preElement.className || '';
+    if (preClasses.includes('language-isl') || preClasses.includes('highlighter-isl')) {
+      return true;
+    }
+    
+    return false;
+  }
+  
+  /**
+   * Checks if a code block contains ISL code patterns
+   */
+  function hasIslPatterns(text) {
+    // More specific ISL patterns to avoid false positives
+    const patterns = [
+      /\$input\./, // $input.property access
+      /fun\s+\w+\s*\([^)]*\$/, // function with $ parameter
+      /\|\s*(map|filter|split|trim|upper|lower|length|sum|first|last|flatten|distinct|sort|join|reverse)/, // ISL modifiers
+      /foreach\s+\$\w+\s+in/, // foreach loops
+      /@\.\w+\(/, // @ function calls
+      /result\s*:/, // common ISL result pattern
+    ];
+    
+    return patterns.some(pattern => pattern.test(text));
+  }
+  
+  /**
+   * Checks if a code block contains ISL code
+   * Now checks both explicit language markup AND content patterns
+   */
+  function isIslCode(codeElement, preElement) {
+    // First check: Is it explicitly marked as ISL?
+    if (hasIslClass(codeElement, preElement)) {
+      return true;
+    }
+    
+    // Second check: Does it have ISL patterns in the content?
+    const text = codeElement.textContent || '';
+    if (text.length > 10 && hasIslPatterns(text)) {
+      // Additional validation: if it looks like other languages, exclude it
+      // Exclude if it looks like shell/bash
+      if (text.trim().startsWith('#!') || /^(npm|cd|ls|mkdir|curl|git|echo|export)\s/.test(text)) {
+        return false;
+      }
+      // Exclude if it looks like pure JSON
+      if ((text.trim().startsWith('{') || text.trim().startsWith('[')) && 
+          !text.includes('$') && !text.includes('fun ')) {
+        return false;
+      }
+      // Exclude if it looks like Java/Kotlin
+      if (/\b(public|private|class|import|package|void)\b/.test(text)) {
+        return false;
+      }
+      
+      return true;
+    }
+    
+    return false;
   }
   
   /**
@@ -112,8 +168,8 @@
       const codeElement = preElement.querySelector('code');
       if (!codeElement) return;
       
-      // Check if this is ISL code
-      if (!isIslCode(codeElement)) return;
+      // Check if this is ISL code (pass both code and pre elements)
+      if (!isIslCode(codeElement, preElement)) return;
       
       const islCode = codeElement.textContent.trim();
       if (!islCode) return;
