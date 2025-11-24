@@ -103,7 +103,7 @@ tests:
         "externalId": "abcd",
         "type": "incorrect"
       }
-    expected: {"success":false,"issues":[{"type":"Rules","location":"$.type","expected":"enum","message":"$.type: does not have a value in the enumeration [\"received\", \"created\", \"searchmatch\", \"resolutionmatch\", \"usermatch\", \"deleted\"]"}]}
+    expected: {"success":false,"issues":[{"type":"Rules","location":"$.type","expected":"enum","message":"$.type: does not have a value in the enumeration [\"received\", \"created\"]"}]}
 
 
   - name: "Advanced Schema Validation via ISL "

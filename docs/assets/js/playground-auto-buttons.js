@@ -117,7 +117,7 @@
               labelChecks++;
               const labelText = labelElement.textContent || '';
               
-              if (/input\s*json/i.test(labelText)) {
+              if (/\w*input\w*/i.test(labelText)) {
                 return text;
               }
               
