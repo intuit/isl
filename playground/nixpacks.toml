@@ -1,7 +1,7 @@
 # https://nixpacks.com/docs/configuration/file
 
 [phases.setup]
-nixPkgs = ["openjdk21", "nodejs"]
+nixPkgs = ["openjdk", "nodejs"]
 
 [phases.build]
 cmds = ["cd backend && ./gradlew clean build -x test"]
@@ -9,3 +9,4 @@ cmds = ["cd backend && ./gradlew clean build -x test"]
 [start]
 cmd = "cd backend && java -jar build/libs/isl-playground-1.0.0.jar"
 
+# Test
