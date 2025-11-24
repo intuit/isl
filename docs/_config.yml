@@ -162,7 +162,3 @@ minimal_mistakes_skin: "default" # "air", "aqua", "contrast", "dark", "dirt", "n
 breadcrumbs: true
 breadcrumb_home_label: "Home"
 breadcrumb_separator: ">"
-
-# Custom head scripts
-head_scripts:
-  - /assets/js/playground-helper.js
