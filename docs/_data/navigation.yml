@@ -4,8 +4,8 @@ main:
     url: /
   - title: "Quick Start"
     url: /quickstart
-  - title: "Overview"
-    url: /overview
+  - title: "▶️ Playground"
+    url: https://isl-playground.up.railway.app/
   - title: "GitHub"
     url: https://github.com/intuit/isl
 
