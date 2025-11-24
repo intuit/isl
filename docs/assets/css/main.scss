@@ -183,7 +183,7 @@ pre[class*="language-"] {
 /* Copy Button Styles - Overlay on code blocks */
 .btn-copy {
   position: absolute;
-  top: 8px;
+  bottom: 10px;
   right: 8px;
   z-index: 10;
   display: inline-block;
@@ -224,11 +224,6 @@ pre[class*="language-"] {
     border-color: #ef4444;
     color: white !important;
   }
-}
-
-/* When both buttons are present (playground + copy), adjust positioning */
-pre:has(.btn-playground) .btn-copy {
-  right: 160px; /* Move copy button to the left of playground button */
 }
 
 /* Ensure pre blocks have relative positioning for absolute button */
