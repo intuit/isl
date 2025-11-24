@@ -8,13 +8,12 @@ The playground integration allows documentation examples to be opened directly i
 
 ## How It Works
 
-The system consists of three components:
+The system consists of two components:
 
 1. **Playground Frontend** (`playground/frontend/src/App.tsx`) - Modified to accept URL parameters
-2. **Jekyll Plugin** (`docs/_plugins/auto_playground_buttons.rb`) - Auto-adds buttons at build time
-3. **Jekyll Include** (`docs/_includes/playground-button.html`) - Generates pre-encoded URLs
+2. **JavaScript Auto-Injector** (`docs/assets/js/playground-auto-buttons.js`) - Automatically detects ISL code blocks and adds buttons at runtime
 
-**Key Feature:** All encoding and button injection happens at build time via Ruby plugin!
+**Key Feature:** Buttons are automatically added to all ISL code blocks - no manual work needed! Works on GitHub Pages since it's pure JavaScript.
 
 ## URL Parameters
 
@@ -35,9 +34,11 @@ https://isl-playground.up.railway.app?isl_encoded=ZnVuIHJ1bigkaW5wdXQpe...&input
 
 ## Adding Buttons to Documentation
 
-### Method 1: Using Jekyll Include (Recommended)
+### Automatic Detection (Default - No Work Required!)
 
-Add the include statement after your code block. The encoding happens automatically at build time:
+**The JavaScript auto-injector automatically adds buttons** - you don't need to do anything special!
+
+Just write your markdown documentation normally:
 
 ```markdown
 **ISL Code:**
@@ -48,35 +49,42 @@ Add the include statement after your code block. The encoding happens automatica
 }
 ```
 
-{% include playground-button.html 
-   isl="{
-    id: $input.id,
-    name: $input.name | upperCase
-}"
-   input="{
-  \"id\": 123,
-  \"name\": \"John Doe\"
-}" 
-%}
+**Input JSON:**
+```json
+{
+  "id": 123,
+  "name": "John Doe"
+}
+```
 ```
 
-**Parameters:**
-- `isl` (required) - The ISL code to load
-- `input` (optional) - The input JSON, defaults to `{}`
-- `url` (optional) - Custom playground URL, defaults to `https://isl-playground.up.railway.app`
+The auto-injector will:
+1. Detect the ISL code block (looks for `$input`, `fun`, `|` modifiers, etc.)
+2. Find the "Input JSON" code block above it (if present)
+3. Encode both to base64 URL-safe format
+4. Generate the playground URL
+5. Add a "▶️ Run in Playground" button after the ISL code
 
-**Example with custom URL for production:**
-```liquid
-{% include playground-button.html 
-   isl="{ result: $input.value }"
-   input="{\"value\": 42}"
-   url="https://your-playground.railway.app" 
-%}
-```
+### How ISL Detection Works
 
-### Method 2: Pre-encode Manually
+The auto-injector identifies ISL code by looking for these patterns:
+- `$input` variable references
+- `fun functionName(...)` function declarations
+- Pipe modifiers: `| upperCase`, `| map`, `| filter`, etc.
+- `foreach $` loop syntax
+- `@.functionCall` syntax
 
-If Jekyll isn't available, pre-encode your strings using any base64 encoder:
+### How Input JSON Detection Works
+
+The auto-injector searches **backward** from the ISL code block (up to 10 elements) looking for:
+1. A `<pre><code>` block containing JSON (starts with `{` or `[`)
+2. A preceding heading/label containing "Input JSON" (case-insensitive)
+
+If no input is found, it defaults to `{}`.
+
+### Manual Button Creation
+
+If you need to manually create a button (rare), use pre-encoded URLs:
 
 ```html
 <div class="playground-button-container">
@@ -99,6 +107,8 @@ If Jekyll isn't available, pre-encode your strings using any base64 encoder:
 
 ```markdown
 **Transform customer data:**
+
+**ISL Code:**
 ```isl
 {
     fullName: `${$input.firstName} ${$input.lastName}`,
@@ -106,23 +116,24 @@ If Jekyll isn't available, pre-encode your strings using any base64 encoder:
 }
 ```
 
-{% include playground-button.html 
-   isl="{
-    fullName: `${$input.firstName} ${$input.lastName}`,
-    email: $input.email | lowerCase
-}"
-   input="{
-  \"firstName\": \"John\",
-  \"lastName\": \"Doe\",
-  \"email\": \"JOHN@EXAMPLE.COM\"
-}" 
-%}
+**Input JSON:**
+```json
+{
+  "firstName": "John",
+  "lastName": "Doe",
+  "email": "JOHN@EXAMPLE.COM"
+}
 ```
+```
+
+✨ **Button will be auto-added!**
 
 ### Example 2: Array Operations
 
 ```markdown
 **Filter and map array items:**
+
+**ISL Code:**
 ```isl
 fun run($data) {
     activeItems: foreach $item in $data.items | filter($item.active) {
@@ -133,22 +144,19 @@ fun run($data) {
 }
 ```
 
-{% include playground-button.html 
-   isl="fun run($data) {
-    activeItems: foreach $item in $data.items | filter($item.active) {
-        id: $item.id,
-        name: $item.name | upperCase
-    }
-    endfor
-}"
-   input="{
-  \"items\": [
-    {\"id\": 1, \"name\": \"apple\", \"active\": true},
-    {\"id\": 2, \"name\": \"banana\", \"active\": false},
-    {\"id\": 3, \"name\": \"orange\", \"active\": true}
+**Input JSON:**
+```json
+{
+  "items": [
+    {"id": 1, "name": "apple", "active": true},
+    {"id": 2, "name": "banana", "active": false},
+    {"id": 3, "name": "orange", "active": true}
   ]
-}" 
-%}
+}
+```
+```
+
+✨ **Button will be auto-added!**
 ```
 
 ## Styling

@@ -27,8 +27,17 @@ class IslService {
             val context = OperationContext()
             context.setVariable("\$input", inputJson)
             
+            // Try to find an available function to execute
+            // Priority: run > main > transform > first available function
+            val functionNames = listOf("run", "main", "transform")
+            val availableFunctions = transformer.module.functions.map { it.name.lowercase() }
+            
+            val functionToRun = functionNames.firstOrNull { it in availableFunctions }
+                ?: availableFunctions.firstOrNull()
+                ?: "run" // fallback to "run" for compatibility
+            
             // Execute the transformation
-            val result = transformer.runTransformSync("run", context)
+            val result = transformer.runTransformSync(functionToRun, context)
             
             // Convert result to JSON string
             val output = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result)

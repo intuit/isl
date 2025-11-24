@@ -68,6 +68,19 @@ span.comment::after {
   display: inline !important;
   margin: 0 !important;
   padding: 0 !important;
+  text-decoration: none !important; /* Remove underline from comments */
+}
+
+/* Remove underline from all comment-related classes */
+.token.comment,
+.token.prolog,
+.token.doctype,
+.token.cdata,
+code .c,
+code .c1,
+code .cm,
+span.comment {
+  text-decoration: none !important;
 }
 
 /* Ensure ISL syntax highlighting looks clean */
@@ -75,6 +88,7 @@ code[class*="language-"],
 pre[class*="language-"] {
   .token.comment {
     line-height: inherit;
+    text-decoration: none !important;
   }
 }
 
@@ -131,25 +145,30 @@ pre[class*="language-"] {
 }
 
 
-/* Playground Button Styles */
+/* Playground Button Styles - Overlay on code blocks */
 .btn-playground {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 10;
   display: inline-block;
-  padding: 8px 16px;
-  margin: 8px 0;
+  padding: 6px 12px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white !important;
   text-decoration: none !important;
-  border-radius: 6px;
+  border-radius: 4px;
   font-weight: 600;
-  font-size: 0.9em;
+  font-size: 0.75em;
   transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   border: none;
   cursor: pointer;
+  opacity: 0.9;
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    opacity: 1;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 10px rgba(102, 126, 234, 0.5);
     text-decoration: none !important;
   }
   
@@ -158,15 +177,18 @@ pre[class*="language-"] {
   }
 }
 
-.playground-button-container {
-  margin: 8px 0 16px 0;
-  text-align: right;
+/* Ensure pre blocks have relative positioning for absolute button */
+pre {
+  position: relative;
+  
+  /* Add padding to top-right to prevent code from hiding behind button */
+  &:has(.btn-playground) {
+    padding-top: 2.5em !important;
+  }
 }
 
-/* Style for inline playground buttons after code blocks */
-pre + .playground-button-container,
-div.highlight + .playground-button-container {
-  margin-top: -8px;
-  margin-bottom: 16px;
+/* Remove old container styles - no longer needed */
+.playground-button-container {
+  display: none;
 }
 

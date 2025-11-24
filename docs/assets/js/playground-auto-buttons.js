@@ -85,10 +85,6 @@
     const inputEncoded = encodeBase64Url(inputJson);
     const url = `${PLAYGROUND_URL}?isl_encoded=${islEncoded}&input_encoded=${inputEncoded}`;
     
-    const container = document.createElement('div');
-    container.className = 'playground-button-container';
-    container.style.cssText = 'margin: 8px 0 16px 0; text-align: right;';
-    
     const button = document.createElement('a');
     button.href = url;
     button.target = '_blank';
@@ -96,31 +92,8 @@
     button.className = 'btn-playground';
     button.textContent = '▶️ Run in Playground';
     button.title = 'Open this example in the ISL Playground';
-    button.style.cssText = `
-      display: inline-block;
-      padding: 8px 16px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      color: white !important;
-      text-decoration: none !important;
-      border-radius: 6px;
-      font-weight: 600;
-      font-size: 0.9em;
-      transition: all 0.2s ease;
-      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
-    `;
     
-    button.addEventListener('mouseenter', function() {
-      this.style.transform = 'translateY(-2px)';
-      this.style.boxShadow = '0 4px 12px rgba(102, 126, 234, 0.4)';
-    });
-    
-    button.addEventListener('mouseleave', function() {
-      this.style.transform = '';
-      this.style.boxShadow = '0 2px 8px rgba(102, 126, 234, 0.3)';
-    });
-    
-    container.appendChild(button);
-    return container;
+    return button;
   }
   
   /**
@@ -132,8 +105,7 @@
     
     allPreElements.forEach(function(preElement) {
       // Skip if button already exists
-      if (preElement.nextElementSibling && 
-          preElement.nextElementSibling.classList.contains('playground-button-container')) {
+      if (preElement.querySelector('.btn-playground')) {
         return;
       }
       
@@ -149,9 +121,12 @@
       // Find input JSON
       const inputJson = findInputJson(preElement);
       
-      // Create and insert button
+      // Make pre element positioned so button can be absolute
+      preElement.style.position = 'relative';
+      
+      // Create and insert button as overlay
       const button = createButton(islCode, inputJson);
-      preElement.parentNode.insertBefore(button, preElement.nextSibling);
+      preElement.appendChild(button);
       buttonsAdded++;
     });
     
@@ -173,4 +148,5 @@
     encodeBase64Url: encodeBase64Url
   };
 })();
+
 
