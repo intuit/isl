@@ -15,9 +15,10 @@ body {
 }
 
 .app {
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
 }
 
 .header {
@@ -56,13 +57,68 @@ body {
   opacity: 0.95;
 }
 
-.examples-bar {
+.status-bar {
   background-color: #252526;
-  padding: 1rem 2rem;
+  padding: 0.75rem 2rem;
+  border-bottom: 1px solid #3e3e42;
+  min-height: 50px;
   display: flex;
   align-items: center;
-  gap: 1rem;
-  border-bottom: 1px solid #3e3e42;
+  justify-content: center;
+}
+
+.status-message {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 1.5rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  font-family: monospace;
+  max-width: 90%;
+}
+
+.status-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+  margin-top: 0.1rem; /* Slight adjustment for better alignment with wrapped text */
+}
+
+.status-text {
+  flex: 1;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  white-space: pre-wrap; /* Preserve line breaks and wrap text */
+  line-height: 1.4;
+}
+
+.status-error {
+  background-color: #3f1f1f;
+  border: 1px solid #f87171;
+  color: #fca5a5;
+}
+
+.status-warning {
+  background-color: #3f2f1f;
+  border: 1px solid #fb923c;
+  color: #fdba74;
+}
+
+.status-success {
+  background-color: #1f3f2f;
+  border: 1px solid #4ade80;
+  color: #86efac;
+}
+
+.status-ready {
+  background-color: #1a2942;
+  border: 1px solid #3c8dd5;
+  color: #93c5fd;
+}
+
+.examples-bar {
+  display: none; /* Hidden - replaced by status bar */
 }
 
 .examples-bar label {
@@ -92,6 +148,7 @@ body {
   gap: 0;
   overflow: hidden;
   min-height: 0; /* Important for flex children */
+  height: 100%; /* Ensure it fills available space */
 }
 
 .editor-panel {
@@ -236,10 +293,11 @@ button:disabled {
 
 .footer {
   background-color: #252526;
-  padding: 1.5rem;
+  padding: 1rem;
   text-align: center;
   border-top: 1px solid #3e3e42;
   color: #888;
+  flex-shrink: 0;
 }
 
 .footer a {
@@ -250,6 +308,18 @@ button:disabled {
 
 .footer a:hover {
   text-decoration: underline;
+}
+
+/* Monaco Editor Error Highlighting */
+.error-line {
+  background-color: rgba(255, 0, 0, 0.15) !important;
+  border-left: 3px solid #ff0000 !important;
+}
+
+.error-glyph {
+  background-color: #ff0000 !important;
+  width: 5px !important;
+  margin-left: 3px !important;
 }
 
 @media (max-width: 1200px) {

@@ -1,10 +1,11 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import Editor from '@monaco-editor/react';
 import axios from 'axios';
 import './App.css';
 import { registerIslLanguage } from './isl-language';
+import type { editor } from 'monaco-editor';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://isl-playground.up.railway.app/api';
 
 interface Example {
   name: string;
@@ -100,6 +101,12 @@ const loadFromUrl = () => {
   return { islCode, inputJson };
 };
 
+// Helper to format error messages - split at "at Position" for better readability
+const formatErrorMessage = (message: string): string => {
+  // Split at "at Position" and add line break
+  return message.replace(/(\s+at Position)/gi, '\n$1');
+};
+
 function App() {
   const urlData = loadFromUrl();
   const [islCode, setIslCode] = useState(urlData.islCode);
@@ -110,6 +117,10 @@ function App() {
   const [examples, setExamples] = useState<Example[]>([]);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationSuccess, setValidationSuccess] = useState(false);
+  
+  // Ref to store Monaco editor instance
+  const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
+  const decorationsRef = useRef<string[]>([]);
 
   const loadExamples = async () => {
     try {
@@ -120,6 +131,52 @@ function App() {
     }
   };
 
+  // Function to clear error decorations
+  const clearErrorDecorations = () => {
+    if (editorRef.current && decorationsRef.current.length > 0) {
+      decorationsRef.current = editorRef.current.deltaDecorations(decorationsRef.current, []);
+    }
+  };
+
+  // Function to highlight error in editor
+  const highlightError = (line?: number, column?: number) => {
+    if (!editorRef.current || !line) return;
+    
+    // Clear previous decorations
+    clearErrorDecorations();
+    
+    // Create new decoration for error line
+    const decorations: editor.IModelDeltaDecoration[] = [
+      {
+        range: {
+          startLineNumber: line,
+          startColumn: column || 1,
+          endLineNumber: line,
+          endColumn: column ? column + 1 : 1000, // Highlight to end of line if no column
+        },
+        options: {
+          isWholeLine: !column, // Highlight whole line if no specific column
+          className: 'error-line',
+          glyphMarginClassName: 'error-glyph',
+          overviewRuler: {
+            color: '#ff0000',
+            position: 4, // Right side
+          },
+          minimap: {
+            color: '#ff0000',
+            position: 2, // Inline
+          },
+        },
+      },
+    ];
+    
+    // Apply decorations
+    decorationsRef.current = editorRef.current.deltaDecorations([], decorations);
+    
+    // Scroll to error line
+    editorRef.current.revealLineInCenter(line);
+  };
+
   const handleRun = useCallback(async () => {
     if (loading) return;
     
@@ -128,6 +185,7 @@ function App() {
     setOutput('');
     setValidationErrors([]);
     setValidationSuccess(false);
+    clearErrorDecorations(); // Clear previous error highlights
 
     // Ensure the code has fun run wrapper, and update editor if it was added
     let codeToRun = islCode;
@@ -149,7 +207,12 @@ function App() {
         const errorMsg = err.line && err.column
           ? `${err.type} at line ${err.line}, column ${err.column}: ${err.message}`
           : `${err.type}: ${err.message}`;
-        setError(errorMsg);
+        setError(formatErrorMessage(errorMsg));
+        
+        // Highlight error in editor
+        if (err.line) {
+          highlightError(err.line, err.column);
+        }
       }
     } catch (err) {
       setError(`Request failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -165,6 +228,7 @@ function App() {
     setValidationErrors([]);
     setValidationSuccess(false);
     setError('');
+    clearErrorDecorations(); // Clear previous error highlights
 
     // Ensure the code has fun run wrapper, and update editor if it was added
     let codeToValidate = islCode;
@@ -189,6 +253,14 @@ function App() {
             : err.message;
         });
         setValidationErrors(errors);
+        
+        // Highlight first error in editor
+        if (response.data.errors.length > 0) {
+          const firstError = response.data.errors[0];
+          if (firstError.line) {
+            highlightError(firstError.line, firstError.column);
+          }
+        }
       }
     } catch (err) {
       setError(`Validation request failed: ${err instanceof Error ? err.message : 'Unknown error'}`);
@@ -218,15 +290,6 @@ function App() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleRun, handleValidate]);
 
-  const loadExample = (example: Example) => {
-    setIslCode(ensureFunWrapper(example.isl));
-    setInputJson(example.input);
-    setOutput('');
-    setError('');
-    setValidationErrors([]);
-    setValidationSuccess(false);
-  };
-
   return (
     <div className="app">
       <header className="header">
@@ -239,19 +302,39 @@ function App() {
         </div>
       </header>
 
-      <div className="examples-bar">
-        <label>Examples:</label>
-        <select onChange={(e) => {
-          const example = examples.find(ex => ex.name === e.target.value);
-          if (example) loadExample(example);
-        }}>
-          <option value="">Select an example...</option>
-          {examples.map((ex) => (
-            <option key={ex.name} value={ex.name}>
-              {ex.name}
-            </option>
-          ))}
-        </select>
+      <div className="status-bar">
+        {error && (
+          <div className="status-message status-error">
+            <span className="status-icon">❌</span>
+            <span className="status-text">{error}</span>
+          </div>
+        )}
+        {validationErrors.length > 0 && (
+          <div className="status-message status-warning">
+            <span className="status-icon">⚠️</span>
+            <span className="status-text">
+              {validationErrors.length} validation error{validationErrors.length > 1 ? 's' : ''}: {validationErrors[0]}
+            </span>
+          </div>
+        )}
+        {validationSuccess && !error && validationErrors.length === 0 && (
+          <div className="status-message status-success">
+            <span className="status-icon">✓</span>
+            <span className="status-text">Code validated successfully</span>
+          </div>
+        )}
+        {!error && !validationSuccess && validationErrors.length === 0 && output && (
+          <div className="status-message status-success">
+            <span className="status-icon">✓</span>
+            <span className="status-text">Transformation completed successfully</span>
+          </div>
+        )}
+        {!error && !validationSuccess && validationErrors.length === 0 && !output && (
+          <div className="status-message status-ready">
+            <span className="status-icon">✓</span>
+            <span className="status-text">Ready to run</span>
+          </div>
+        )}
       </div>
 
       <div className="editor-container">
@@ -305,7 +388,13 @@ function App() {
               language="isl"
               theme="isl-dark"
               value={islCode}
-              onChange={(value) => setIslCode(value || '')}
+              onChange={(value) => {
+                setIslCode(value || '');
+                clearErrorDecorations(); // Clear errors when user types
+              }}
+              onMount={(editor) => {
+                editorRef.current = editor;
+              }}
               beforeMount={(monaco) => {
                 // Register ISL language before mounting the editor
                 // @ts-ignore - Monaco types incompatibility
@@ -320,34 +409,12 @@ function App() {
               }}
             />
           </div>
-          {validationSuccess && (
-            <div className="success-box">
-              <h4>✓ Validation Successful!</h4>
-              <p>ISL code is valid and ready to run.</p>
-            </div>
-          )}
-          {validationErrors.length > 0 && (
-            <div className="error-box validation-errors">
-              <h4>Validation Errors:</h4>
-              <ul>
-                {validationErrors.map((err, idx) => (
-                  <li key={idx}>{err}</li>
-                ))}
-              </ul>
-            </div>
-          )}
         </div>
 
         <div className="editor-panel">
           <div className="panel-header">
             <h3>Output</h3>
           </div>
-          {error ? (
-            <div className="error-box">
-              <h4>Error:</h4>
-              <pre>{error}</pre>
-            </div>
-          ) : (
             <div className="editor-wrapper">
               <Editor
                 height="100%"
@@ -364,7 +431,6 @@ function App() {
                 }}
               />
             </div>
-          )}
         </div>
       </div>
 
