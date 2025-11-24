@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Simplified ISL logo for favicon -->
+  <rect width="32" height="32" fill="#2563eb" rx="4"/>
+  
+  <!-- Left curly brace { -->
+  <path d="M 8 7 Q 6 7 6 9 L 6 12 Q 6 14 4 14 Q 6 14 6 16 L 6 19 Q 6 21 8 21" 
+        stroke="white" 
+        stroke-width="2" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Arrow > -->
+  <path d="M 13 12 L 18 14 L 13 16 Z" 
+        fill="white"/>
+  
+  <!-- Right curly brace } -->
+  <path d="M 24 7 Q 26 7 26 9 L 26 12 Q 26 14 28 14 Q 26 14 26 16 L 26 19 Q 26 21 24 21" 
+        stroke="white" 
+        stroke-width="2" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Simplified ISL text (smaller) -->
+  <text x="16" 
+        y="28" 
+        font-family="sans-serif" 
+        font-size="6" 
+        font-weight="700" 
+        fill="white" 
+        text-anchor="middle" 
+        letter-spacing="0.5">ISL</text>
+</svg>

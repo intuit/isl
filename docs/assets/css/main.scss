@@ -69,6 +69,7 @@ span.comment::after {
   margin: 0 !important;
   padding: 0 !important;
   text-decoration: none !important; /* Remove underline from comments */
+  border-bottom: 0;
 }
 
 /* Remove underline from all comment-related classes */
@@ -81,6 +82,7 @@ code .c1,
 code .cm,
 span.comment {
   text-decoration: none !important;
+  border-bottom: 0;
 }
 
 /* Ensure ISL syntax highlighting looks clean */
@@ -89,6 +91,7 @@ pre[class*="language-"] {
   .token.comment {
     line-height: inherit;
     text-decoration: none !important;
+    border-bottom: 0;
   }
 }
 
@@ -158,7 +161,7 @@ pre[class*="language-"] {
   text-decoration: none !important;
   border-radius: 4px;
   font-weight: 600;
-  font-size: 0.75em;
+  font-size: 1em;
   transition: all 0.2s ease;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
   border: none;

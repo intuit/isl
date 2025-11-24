@@ -1,11 +1,11 @@
 # Main navigation
 main:
   - title: "Home"
-    url: /isl/
+    url: /
   - title: "Quick Start"
-    url: /isl/quickstart
+    url: /quickstart
   - title: "Overview"
-    url: /isl/overview
+    url: /overview
   - title: "GitHub"
     url: https://github.com/intuit/isl
 
@@ -14,91 +14,91 @@ docs:
   - title: Getting Started
     children:
       - title: "Home"
-        url: /isl/
+        url: /
       - title: "Quick Start"
-        url: /isl/quickstart
+        url: /quickstart
       - title: "Overview"
-        url: /isl/overview
+        url: /overview
       - title: "Java/Kotlin Integration"
-        url: /isl/java.start
+        url: /java.start
       - title: "Command Line Interface"
-        url: /isl/cli
+        url: /cli
       - title: "Teach your AI Tool ISL"
-        url: /isl/ai
+        url: /ai
         
   - title: Language Reference
     children:
       - title: "Variables"
-        url: /isl/language/variables
+        url: /language/variables
       - title: "Objects"
-        url: /isl/language/objects
+        url: /language/objects
       - title: "Conditions"
-        url: /isl/language/conditions
+        url: /language/conditions
       - title: "Loops"
-        url: /isl/language/loops
+        url: /language/loops
       - title: "Functions & Modifiers"
-        url: /isl/language/functions
+        url: /language/functions
       - title: "Built-in Modifiers"
-        url: /isl/language/modifiers
+        url: /language/modifiers
       - title: "Math Expressions"
-        url: /isl/language/math
+        url: /language/math
       - title: "Named Types"
-        url: /isl/language/namedtypes
+        url: /language/namedtypes
 
   - title: Data Types
     children:
       - title: "Type System"
-        url: /isl/language/types
+        url: /language/types
       - title: "Strings"
-        url: /isl/types/strings
+        url: /types/strings
       - title: "Dates & Times"
-        url: /isl/types/dates
+        url: /types/dates
       - title: "CSV"
-        url: /isl/types/csv
+        url: /types/csv
       - title: "XML"
-        url: /isl/types/xml
+        url: /types/xml
 
   - title: Examples
     children:
       - title: "Transformations"
-        url: /isl/examples/index
+        url: /examples/index
       - title: "Date Examples"
-        url: /isl/examples/dates
+        url: /examples/dates
       - title: "Object Examples"
-        url: /isl/examples/objects
+        url: /examples/objects
       - title: "Signature Examples"
-        url: /isl/examples/signatures
+        url: /examples/signatures
 
   - title: Advanced Topics
     children:
       - title: "Pagination"
-        url: /isl/advanced/pagination
+        url: /advanced/pagination
       - title: "Cryptography"
-        url: /isl/advanced/crypto
+        url: /advanced/crypto
 
   - title: Developer Guide
     children:
       - title: "Best Practices"
-        url: /isl/dev/best-practices
+        url: /dev/best-practices
       - title: "Hosting & Embedding"
-        url: /isl/dev/hosting
+        url: /dev/hosting
       - title: "Performance Benchmarks"
-        url: /isl/dev/benchmark-report
+        url: /dev/benchmark-report
       - title: "Release Process"
-        url: /isl/dev/release
+        url: /dev/release
       - title: "Contributing"
-        url: /isl/dev/contributing
+        url: /dev/contributing
       - title: "Playground Integration"
-        url: /isl/dev/playground-integration
+        url: /dev/playground-integration
 
   - title: More
     children:
       - title: "JSON DSL (Kotlin)"
-        url: /isl/dsl
+        url: /dsl
       - title: "Changelog"
-        url: /isl/changelog
+        url: /changelog
       - title: "Roadmap"
-        url: /isl/roadmap
+        url: /roadmap
       - title: "Support"
-        url: /isl/support
+        url: /support
 

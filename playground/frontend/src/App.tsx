@@ -259,20 +259,22 @@ function App() {
           <div className="panel-header">
             <h3>Input JSON</h3>
           </div>
-          <Editor
-            height="400px"
-            language="json"
-            theme="vs-dark"
-            value={inputJson}
-            onChange={(value) => setInputJson(value || '')}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-            }}
-          />
+          <div className="editor-wrapper">
+            <Editor
+              height="100%"
+              language="json"
+              theme="vs-dark"
+              value={inputJson}
+              onChange={(value) => setInputJson(value || '')}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
+            />
+          </div>
         </div>
 
         <div className="editor-panel">
@@ -297,25 +299,27 @@ function App() {
               </button>
             </div>
           </div>
-          <Editor
-            height="400px"
-            language="isl"
-            theme="isl-dark"
-            value={islCode}
-            onChange={(value) => setIslCode(value || '')}
-            beforeMount={(monaco) => {
-              // Register ISL language before mounting the editor
-              // @ts-ignore - Monaco types incompatibility
-              registerIslLanguage(monaco);
-            }}
-            options={{
-              minimap: { enabled: false },
-              fontSize: 14,
-              lineNumbers: 'on',
-              scrollBeyondLastLine: false,
-              automaticLayout: true,
-            }}
-          />
+          <div className="editor-wrapper">
+            <Editor
+              height="100%"
+              language="isl"
+              theme="isl-dark"
+              value={islCode}
+              onChange={(value) => setIslCode(value || '')}
+              beforeMount={(monaco) => {
+                // Register ISL language before mounting the editor
+                // @ts-ignore - Monaco types incompatibility
+                registerIslLanguage(monaco);
+              }}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+              }}
+            />
+          </div>
           {validationSuccess && (
             <div className="success-box">
               <h4>✓ Validation Successful!</h4>
@@ -344,20 +348,22 @@ function App() {
               <pre>{error}</pre>
             </div>
           ) : (
-            <Editor
-              height="400px"
-              language="json"
-              theme="vs-dark"
-              value={output}
-              options={{
-                minimap: { enabled: false },
-                fontSize: 14,
-                lineNumbers: 'on',
-                scrollBeyondLastLine: false,
-                automaticLayout: true,
-                readOnly: true,
-              }}
-            />
+            <div className="editor-wrapper">
+              <Editor
+                height="100%"
+                language="json"
+                theme="vs-dark"
+                value={output}
+                options={{
+                  minimap: { enabled: false },
+                  fontSize: 14,
+                  lineNumbers: 'on',
+                  scrollBeyondLastLine: false,
+                  automaticLayout: true,
+                  readOnly: true,
+                }}
+              />
+            </div>
           )}
         </div>
       </div>

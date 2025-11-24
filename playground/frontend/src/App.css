@@ -91,6 +91,7 @@ body {
   grid-template-columns: repeat(3, 1fr);
   gap: 0;
   overflow: hidden;
+  min-height: 0; /* Important for flex children */
 }
 
 .editor-panel {
@@ -98,10 +99,19 @@ body {
   flex-direction: column;
   background-color: #1e1e1e;
   border-right: 1px solid #3e3e42;
+  min-height: 0; /* Important for flex children */
+  overflow: hidden;
 }
 
 .editor-panel:last-child {
   border-right: none;
+}
+
+/* Wrapper for the Monaco editor to fill remaining space */
+.editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-header {
