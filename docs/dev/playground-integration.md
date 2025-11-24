@@ -11,10 +11,10 @@ The playground integration allows documentation examples to be opened directly i
 The system consists of three components:
 
 1. **Playground Frontend** (`playground/frontend/src/App.tsx`) - Modified to accept URL parameters
-2. **Jekyll Base64 Filter** (`docs/_plugins/base64_filter.rb`) - Encodes code at build time
+2. **Jekyll Plugin** (`docs/_plugins/auto_playground_buttons.rb`) - Auto-adds buttons at build time
 3. **Jekyll Include** (`docs/_includes/playground-button.html`) - Generates pre-encoded URLs
 
-**Key Feature:** All encoding happens at build time, so there's no JavaScript escaping issues!
+**Key Feature:** All encoding and button injection happens at build time via Ruby plugin!
 
 ## URL Parameters
 
@@ -165,23 +165,18 @@ Current styling features:
 
 ### Playground URL
 
-The default playground URL is `https://isl-playground.up.railway.app`. To change this for local development:
+The default playground URL is `https://isl-playground.up.railway.app`. To change this:
 
-1. Edit `docs/assets/js/playground-helper.js`
-2. Update the `PLAYGROUND_BASE_URL` constant:
+1. Edit `docs/_plugins/auto_playground_buttons.rb`
+2. Update the `playground_url` constant:
 
-```javascript
-const PLAYGROUND_BASE_URL = 'http://localhost:3000';
+```ruby
+playground_url = 'https://your-new-url.com'
 ```
 
 ### Jekyll Configuration
 
-The JavaScript helper is automatically loaded via `_config.yml`:
-
-```yaml
-head_scripts:
-  - /assets/js/playground-helper.js
-```
+The Jekyll plugin runs automatically during site build. No additional configuration needed in `_config.yml`.
 
 ## Browser Compatibility
 
@@ -211,18 +206,18 @@ To test the integration:
 ## Troubleshooting
 
 ### Button doesn't appear
-- Check that `playground-helper.js` is loaded
-- Verify the Jekyll include file exists
-- Check browser console for JavaScript errors
+- Check that code block has `isl` language tag
+- Verify Jekyll build completed successfully  
+- Check build logs for plugin errors
 
 ### Code doesn't load in playground
-- Verify URL encoding is correct
+- Verify URL encoding is correct (check generated HTML)
 - Check for special characters that need escaping
 - Test with simpler code first
 
 ### Wrong playground URL
-- Update `PLAYGROUND_BASE_URL` in `playground-helper.js`
-- Clear browser cache
+- Update `playground_url` in `auto_playground_buttons.rb`
+- Rebuild the site
 - Verify the playground is running
 
 ## Best Practices
