@@ -1,0 +1,63 @@
+# Git
+.git
+.gitignore
+.github
+
+# IDE
+.idea
+.vscode
+*.iml
+*.swp
+*.swo
+
+# Build artifacts (we'll rebuild inside Docker)
+**/build/
+**/dist/
+**/node_modules/
+**/target/
+
+# Keep only what's needed for playground
+!playground/
+
+# Documentation (not needed for runtime)
+docs/
+*.md
+!playground/**/*.md
+
+# Test files
+**/test/
+**/*test*/
+**/*.test.*
+
+# CI/CD
+.github/
+codecov.yml
+
+# Other modules (not needed for playground)
+isl-cmd/
+isl-validation/
+plugin/
+
+# Keep isl-transform as it's needed
+!isl-transform/
+
+# Gradle cache
+.gradle/
+**/build/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Frontend dev files
+playground/frontend/.env
+playground/frontend/.env.*
+playground/frontend/coverage/
+
+# Backend dev files
+playground/backend/.env
+playground/backend/logs/
+
