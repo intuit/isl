@@ -5,7 +5,10 @@ import { IslExecutor } from './executor';
 import { IslCompletionProvider } from './completion';
 import { IslHoverProvider } from './hover';
 import { IslDefinitionProvider } from './definition';
-import { IslCodeLensProvider, runIslFunction } from './codelens';
+import { IslCodeLensProvider, runIslFunction, showUsages, testFunction } from './codelens';
+import { IslSignatureHelpProvider } from './signature';
+import { IslInlayHintsProvider } from './inlayhints';
+import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject } from './codeactions';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('ISL Language Support is now active');
@@ -67,6 +70,34 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerDefinitionProvider(documentSelector, definitionProvider)
     );
 
+    // Register signature help provider
+    const signatureHelpProvider = new IslSignatureHelpProvider();
+    context.subscriptions.push(
+        vscode.languages.registerSignatureHelpProvider(
+            documentSelector,
+            signatureHelpProvider,
+            '(', ',', ' '
+        )
+    );
+
+    // Register inlay hints provider
+    const inlayHintsProvider = new IslInlayHintsProvider();
+    context.subscriptions.push(
+        vscode.languages.registerInlayHintsProvider(documentSelector, inlayHintsProvider)
+    );
+
+    // Register code action provider
+    const codeActionProvider = new IslCodeActionProvider();
+    context.subscriptions.push(
+        vscode.languages.registerCodeActionsProvider(
+            documentSelector,
+            codeActionProvider,
+            {
+                providedCodeActionKinds: IslCodeActionProvider.providedCodeActionKinds
+            }
+        )
+    );
+
     // Register CodeLens provider for "Run" buttons
     const codeLensProvider = new IslCodeLensProvider();
     context.subscriptions.push(
@@ -113,30 +144,88 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('isl.runFunction', async (uri: vscode.Uri, functionName: string, params: string) => {
             await runIslFunction(uri, functionName, params, context);
-        })
+        }),
+
+        vscode.commands.registerCommand('isl.showUsages', async (uri: vscode.Uri, functionName: string, functionType: string) => {
+            await showUsages(uri, functionName, functionType);
+        }),
+
+        vscode.commands.registerCommand('isl.testFunction', async (uri: vscode.Uri, functionName: string, params: string) => {
+            await testFunction(uri, functionName, params, context);
+        }),
+
+        // Refactoring commands
+        vscode.commands.registerCommand('isl.refactor.extractVariable', extractVariable),
+        vscode.commands.registerCommand('isl.refactor.extractFunction', extractFunction),
+        vscode.commands.registerCommand('isl.refactor.toTemplateString', convertToTemplateString),
+
+        // Improvement commands
+        vscode.commands.registerCommand('isl.improvement.useCoalesceOperator', useCoalesceOperator),
+        vscode.commands.registerCommand('isl.improvement.useMathSum', useMathSum),
+        vscode.commands.registerCommand('isl.improvement.formatChain', formatChain),
+        vscode.commands.registerCommand('isl.improvement.formatObject', formatObject)
     );
 
-    // Status bar item
+    // Enhanced status bar item
     const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
-    statusBarItem.text = '$(check) ISL';
-    statusBarItem.tooltip = 'ISL Language Support Active';
-    statusBarItem.command = 'isl.showDocumentation';
     context.subscriptions.push(statusBarItem);
 
-    // Show status bar item when ISL file is active
-    context.subscriptions.push(
-        vscode.window.onDidChangeActiveTextEditor(editor => {
-            if (editor && editor.document.languageId === 'isl') {
-                statusBarItem.show();
+    // Update status bar
+    function updateStatusBar() {
+        const editor = vscode.window.activeTextEditor;
+        if (editor && editor.document.languageId === 'isl') {
+            const document = editor.document;
+            const text = document.getText();
+            
+            // Count functions and modifiers
+            const functionCount = (text.match(/^\s*(fun|modifier)\s+/gm) || []).length;
+            
+            // Get diagnostics count
+            const diagnostics = vscode.languages.getDiagnostics(document.uri);
+            const errorCount = diagnostics.filter(d => d.severity === vscode.DiagnosticSeverity.Error).length;
+            const warningCount = diagnostics.filter(d => d.severity === vscode.DiagnosticSeverity.Warning).length;
+            
+            // Build status text
+            let statusText = '$(check) ISL';
+            if (functionCount > 0) {
+                statusText += ` | ${functionCount} ${functionCount === 1 ? 'function' : 'functions'}`;
+            }
+            
+            if (errorCount > 0) {
+                statusText += ` | $(error) ${errorCount}`;
+            } else if (warningCount > 0) {
+                statusText += ` | $(warning) ${warningCount}`;
             } else {
-                statusBarItem.hide();
+                statusText += ` | $(pass) Valid`;
+            }
+            
+            statusBarItem.text = statusText;
+            statusBarItem.tooltip = `ISL Language Support\n${functionCount} functions\n${errorCount} errors, ${warningCount} warnings`;
+            statusBarItem.command = 'isl.showDocumentation';
+            statusBarItem.show();
+        } else {
+            statusBarItem.hide();
+        }
+    }
+
+    // Update status bar on various events
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(updateStatusBar),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            if (e.document.languageId === 'isl') {
+                updateStatusBar();
+            }
+        }),
+        vscode.languages.onDidChangeDiagnostics(e => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && e.uris.some(uri => uri.toString() === editor.document.uri.toString())) {
+                updateStatusBar();
             }
         })
     );
 
-    if (vscode.window.activeTextEditor?.document.languageId === 'isl') {
-        statusBarItem.show();
-    }
+    // Initial status bar update
+    updateStatusBar();
 }
 
 export function deactivate() {

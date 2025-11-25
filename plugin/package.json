@@ -77,6 +77,11 @@
           "default": false,
           "description": "Use tabs instead of spaces"
         },
+        "isl.formatting.alignProperties": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align object property colons"
+        },
         "isl.linting.enabled": {
           "type": "boolean",
           "default": true,

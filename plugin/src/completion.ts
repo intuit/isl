@@ -298,7 +298,8 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             if (!variables.has(varName)) {
                 const item = new vscode.CompletionItem('$' + varName, vscode.CompletionItemKind.Variable);
                 item.detail = 'Variable';
-                item.insertText = varName; // Don't include $ since user already typed it
+                item.insertText = '$' + varName; // Include $ in the insert text
+                item.filterText = varName; // Filter without $ for better matching
                 variables.set(varName, item);
             }
         }
@@ -307,7 +308,8 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         if (!variables.has('input')) {
             const inputItem = new vscode.CompletionItem('$input', vscode.CompletionItemKind.Variable);
             inputItem.detail = 'Input parameter';
-            inputItem.insertText = 'input';
+            inputItem.insertText = '$input';
+            inputItem.filterText = 'input';
             variables.set('input', inputItem);
         }
 

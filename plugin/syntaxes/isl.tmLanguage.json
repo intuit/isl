@@ -204,25 +204,18 @@
               "match": "\\\\."
             }
           ]
-        },
-        {
-          "name": "string.regexp.isl",
-          "begin": "/(?![/*])",
-          "end": "/",
-          "patterns": [
-            {
-              "name": "constant.character.escape.isl",
-              "match": "\\\\."
-            }
-          ]
         }
       ]
     },
     "numbers": {
       "patterns": [
         {
-          "name": "constant.numeric.isl",
-          "match": "\\b-?[0-9]+(\\.[0-9]+)?\\b"
+          "name": "constant.numeric.decimal.isl",
+          "match": "\\b([0-9]+\\.[0-9]+)\\b"
+        },
+        {
+          "name": "constant.numeric.integer.isl",
+          "match": "\\b([0-9]+)\\b"
         }
       ]
     },
@@ -310,22 +303,18 @@
       "patterns": [
         {
           "name": "meta.modifier.namespace.isl",
-          "match": "(\\|)\\s*(to|date|Math|xml|csv|regex|encode|decode)(\\.)(\\w+)(?:\\(([^)]*)\\))?",
+          "match": "(\\|)\\s*((to|date|Math|xml|csv|regex|encode|decode|crypto|join)(\\.)(\\w+))",
           "captures": {
-            "1": { "name": "keyword.operator.pipe.isl punctuation.separator.pipe.isl" },
-            "2": { "name": "support.class.modifier.namespace.isl" },
-            "3": { "name": "punctuation.accessor.isl" },
-            "4": { "name": "entity.name.function.modifier.isl" },
-            "5": { "name": "variable.parameter.modifier.isl" }
+            "1": { "name": "keyword.control.flow.pipe.isl" },
+            "2": { "name": "entity.name.function.isl" }
           }
         },
         {
           "name": "meta.modifier.isl",
-          "match": "(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*)(?:\\(([^)]*)\\))?",
+          "match": "(\\|)\\s*([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
-            "1": { "name": "keyword.operator.pipe.isl punctuation.separator.pipe.isl" },
-            "2": { "name": "entity.name.function.modifier.isl" },
-            "3": { "name": "variable.parameter.modifier.isl" }
+            "1": { "name": "keyword.control.flow.pipe.isl" },
+            "2": { "name": "entity.name.function.isl" }
           }
         }
       ]

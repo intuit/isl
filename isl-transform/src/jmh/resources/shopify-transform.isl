@@ -9,7 +9,7 @@ fun convertAddress( $addr ) {
     $zip = $addr.zip | trim;
     $country = $addr.country_code | trim | upperCase;
     $formatted = `${$street}, ${$city}, ${$state} ${$zip}` | trim;
-    
+
     return { street: $street, city: $city, state: $state, zipCode: $zip, country: $country, formatted: $formatted };
 }
 
@@ -21,8 +21,8 @@ fun convertCustomer( $cust ) {
     $orders = $cust.orders_count | to.number;
     $spent = $cust.total_spent | to.decimal | precision(2);
     $addr = @.This.convertAddress( $cust.default_address );
-    
-    return { id: $cust.id | to.string, fullName: `${$firstName} ${$lastName}` | trim, firstName: $firstName, lastName: $lastName, email: $email, phone: $cust.phone | trim, totalOrders: $orders, lifetimeValue: $spent, address: $addr };
+
+    return { id: $cust.id | to.string, fullName: `$firstName ${$lastName}` | trim, firstName: $firstName, lastName: $lastName, email: $email, phone: $cust.phone | trim, totalOrders: $orders, lifetimeValue: $spent, address: $addr };
 }
 
 // Helper function: Process and enrich line item
@@ -36,8 +36,10 @@ fun processLineItem( $item ) {
     $lineTotal = {{ $price * $qty }} | Math.clamp(0, 999999) | precision(2);
     $weightKg = {{ $weight / 1000 }} | precision(3);
     $productCode = `${$sku}-${$item.product_id | to.string}` | upperCase;
-    
-    return { itemId: $item.id | to.string, sku: $sku, productCode: $productCode, name: $name, vendor: $vendor, quantity: $qty, unitPrice: $price, lineTotal: $lineTotal, weight: $weight, weightKg: $weightKg, variantTitle: $item.variant_title | trim };
+
+    return $item | to.string;
+
+    // return { itemId: $item.id | to.string, sku: `$sku $test` | trim, productCode: $productCode, name: $name, vendor: $vendor, quantity: $qty, unitPrice: $price, lineTotal: $lineTotal, weight: $weight, weightKg: $weightKg, variantTitle: $item.variant_title | trim };
 }
 
 // Main entry point
@@ -46,13 +48,21 @@ fun run( $input ) {
     $orderId = $input.id | to.string;
     $orderNum = $input.order_number | to.string | padStart(8, "0");
     $orderName = $input.name | trim;
-    
+
     // Convert customer with enrichment
     $customer = @.This.convertCustomer( $input.customer );
-    
+
+
+
+    $obj.x = 10;
+    $obj.a.d = 2;
+    $obj.a.b.c = 1;
+    $obj.y.z = 20;
+    $obj.a.b.e = 3;
+
     // Process all line items with enrichment using map with implicit $ iterator
     $processedItems = $input.line_items | map( @.This.processLineItem( $ ) );
-    
+
     // Calculate order statistics using map/reduce with implicit $ iterator
     $totalItems = $input.line_items | length | to.number;
     $quantities = $input.line_items | map( $.quantity | to.number );
@@ -63,7 +73,7 @@ fun run( $input ) {
     $premiumCount = $input.line_items | filter( $.price | to.decimal >= 100 ) | length | to.number;
     $vendors = $input.line_items | map( $.vendor | trim | titleCase ) | unique | sort;
     $vendorCount = $vendors | length | to.number;
-    
+
     // Financial calculations
     $subtotal = $input.subtotal_price | to.decimal | precision(2);
     $shippingCost = $input.total_shipping_price_set.shop_money.amount | to.decimal | precision(2);
@@ -71,26 +81,26 @@ fun run( $input ) {
     $discounts = $input.total_discounts | to.decimal | precision(2);
     $total = $input.total_price | to.decimal | precision(2);
     $finalTotal = {{ $total - $discounts }} | Math.clamp(0, 999999) | precision(2);
-    
+
     // Determine shipping method and status with conditionals
     $fulfillmentStatus = $input.fulfillment_status | trim | upperCase;
     $shippingStatus = if( $fulfillmentStatus == "FULFILLED" ) "DELIVERED" else "PENDING";
     $shippingSpeed = if( $shippingCost >= 20 ) "EXPRESS" else "STANDARD";
-    
+
     // Build shipping information
     $shippingAddr = @.This.convertAddress( $input.shipping_address );
-    
+
     // Process note attributes using map with implicit $ iterator
     $noteKeys = $input.note_attributes | map( $.name | trim );
     $noteValues = $input.note_attributes | map( $.value | trim );
-    
+
     // Extract and process tags using map
     $tags = $input.tags | split(",") | map( $ | trim | upperCase );
-    
+
     // Status flags with conditionals
     $isPaid = if( $input.financial_status | trim | lowerCase == "paid" ) true else false;
     $isFulfilled = if( $fulfillmentStatus == "FULFILLED" ) true else false;
-    
+
     // Build final result with all transformations
     orderId: $orderId;
     orderNumber: $orderNum;
@@ -135,3 +145,5 @@ fun run( $input ) {
     isFulfilled: $isFulfilled;
     summary: `Order ${$orderNum} - ${$customer.fullName} - ${$finalTotal} ${$input.currency | trim | upperCase} - ${$totalItems} items` | trim;
 }
+
+

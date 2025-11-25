@@ -176,6 +176,172 @@
       "${1:\\$date} | to.string(\"${2:yyyy-MM-dd HH:mm:ss}\")"
     ],
     "description": "Format date"
+  },
+  "ISL Transform Object Keys": {
+    "prefix": "transformkeys",
+    "body": [
+      "foreach \\$key in ${1:\\$object} | keys",
+      "\t`\\${\\$key}`: ${1:\\$object}[\\$key]$0",
+      "endfor"
+    ],
+    "description": "Transform all keys of an object"
+  },
+  "ISL Safe Navigation": {
+    "prefix": "safe",
+    "body": [
+      "${1:\\$value} ?? ${2:defaultValue}"
+    ],
+    "description": "Null coalescing operator"
+  },
+  "ISL Array to Object": {
+    "prefix": "arrtoobj",
+    "body": [
+      "${1:\\$array} | map({",
+      "\t`\\${${2:\\$item.key}}`: ${3:\\$item.value}",
+      "})"
+    ],
+    "description": "Convert array to object"
+  },
+  "ISL Conditional Field": {
+    "prefix": "condfield",
+    "body": [
+      "if (${1:condition})",
+      "\t${2:fieldName}: ${3:value}",
+      "endif"
+    ],
+    "description": "Conditional object field"
+  },
+  "ISL Error Handling": {
+    "prefix": "errorhandle",
+    "body": [
+      "${1:\\$value} | default(${2:fallbackValue})"
+    ],
+    "description": "Provide default value on error"
+  },
+  "ISL Spread Object": {
+    "prefix": "spread",
+    "body": [
+      "{",
+      "\t...${1:\\$object},",
+      "\t${2:newField}: ${3:value}",
+      "}"
+    ],
+    "description": "Spread operator to merge objects"
+  },
+  "ISL Filter and Map": {
+    "prefix": "filtermap",
+    "body": [
+      "${1:\\$array}",
+      "\t| filter(${2:condition})",
+      "\t| map(${3:expression})"
+    ],
+    "description": "Filter then map array"
+  },
+  "ISL Reduce Sum": {
+    "prefix": "reducesum",
+    "body": [
+      "${1:\\$array} | reduce({{ \\$acc + \\$it }}, 0)"
+    ],
+    "description": "Reduce array to sum"
+  },
+  "ISL Template String": {
+    "prefix": "template",
+    "body": [
+      "`${${1:expression}}`"
+    ],
+    "description": "Template string with interpolation"
+  },
+  "ISL Multi-line String": {
+    "prefix": "multiline",
+    "body": [
+      "`${1:line1}",
+      "${2:line2}",
+      "${3:line3}`"
+    ],
+    "description": "Multi-line template string"
+  },
+  "ISL Nested Object": {
+    "prefix": "nested",
+    "body": [
+      "{",
+      "\t${1:field1}: {",
+      "\t\t${2:nested}: ${3:value}",
+      "\t}",
+      "}"
+    ],
+    "description": "Nested object structure"
+  },
+  "ISL Array Destructure": {
+    "prefix": "destruct",
+    "body": [
+      "\\$${1:first} = ${2:\\$array} | first;",
+      "\\$${3:last} = ${2:\\$array} | last;"
+    ],
+    "description": "Destructure array"
+  },
+  "ISL Chain Modifiers": {
+    "prefix": "chain",
+    "body": [
+      "${1:\\$value}",
+      "\t| ${2:modifier1}",
+      "\t| ${3:modifier2}",
+      "\t| ${4:modifier3}"
+    ],
+    "description": "Chain multiple modifiers"
+  },
+  "ISL Fallback Chain": {
+    "prefix": "fallback",
+    "body": [
+      "${1:\\$primary} ?? ${2:\\$secondary} ?? ${3:default}"
+    ],
+    "description": "Multiple fallback values"
+  },
+  "ISL Custom Object Key": {
+    "prefix": "dynamickey",
+    "body": [
+      "{",
+      "\t`\\${${1:expression}}`: ${2:value}",
+      "}"
+    ],
+    "description": "Object with dynamic key"
+  },
+  "ISL Validate and Transform": {
+    "prefix": "validate",
+    "body": [
+      "if (${1:\\$input.field} | isNotEmpty)",
+      "\t${2:result}: ${1:\\$input.field} | ${3:transform}",
+      "else",
+      "\t${2:result}: ${4:defaultValue}",
+      "endif"
+    ],
+    "description": "Validate before transforming"
+  },
+  "ISL Date Range": {
+    "prefix": "daterange",
+    "body": [
+      "\\$start = ${1:\\$date};",
+      "\\$end = ${1:\\$date} | date.add(${2:7}, \"${3:DAYS}\");"
+    ],
+    "description": "Create date range"
+  },
+  "ISL Group By": {
+    "prefix": "groupby",
+    "body": [
+      "foreach \\$item in ${1:\\$array}",
+      "\t\\$key = \\$item.${2:groupField};",
+      "\t\\$grouped[\\$key] = (\\$grouped[\\$key] ?? []) | push(\\$item);",
+      "endfor"
+    ],
+    "description": "Group array by field"
+  },
+  "ISL Batch Process": {
+    "prefix": "batch",
+    "body": [
+      "parallel foreach \\$item in ${1:\\$array}",
+      "\t@.This.${2:processFunction}(\\$item)",
+      "endfor"
+    ],
+    "description": "Parallel batch processing"
   }
 }
 

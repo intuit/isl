@@ -15,6 +15,7 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
 
         // Find all function declarations
         const functionPattern = /^\s*(fun|modifier)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)/;
+        const functions: { name: string, type: string, line: number, params: string }[] = [];
 
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
@@ -25,20 +26,74 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
                 const funcName = match[2];
                 const params = match[3].trim();
 
-                const range = new vscode.Range(i, 0, i, line.length);
+                functions.push({ name: funcName, type: funcType, line: i, params });
+            }
+        }
 
-                // Add "Run" button
-                const runCommand: vscode.Command = {
-                    title: `▶ Run ${funcName}`,
-                    command: 'isl.runFunction',
-                    arguments: [document.uri, funcName, params]
+        // Add CodeLens for each function
+        for (const func of functions) {
+            const range = new vscode.Range(func.line, 0, func.line, lines[func.line].length);
+            
+            // Count usages
+            const usageCount = this.countUsages(text, func.name, func.type);
+            
+            // Add "Run" button
+            const runCommand: vscode.Command = {
+                title: `▶ Run`,
+                command: 'isl.runFunction',
+                arguments: [document.uri, func.name, func.params]
+            };
+            codeLenses.push(new vscode.CodeLens(range, runCommand));
+            
+            // Add usage count
+            if (usageCount > 0) {
+                const usageCommand: vscode.Command = {
+                    title: `📊 ${usageCount} ${usageCount === 1 ? 'usage' : 'usages'}`,
+                    command: 'isl.showUsages',
+                    arguments: [document.uri, func.name, func.type]
                 };
-
-                codeLenses.push(new vscode.CodeLens(range, runCommand));
+                codeLenses.push(new vscode.CodeLens(range, usageCommand));
+            } else if (func.name !== 'run') {
+                // Show "No usages" for functions other than 'run'
+                const noUsageCommand: vscode.Command = {
+                    title: `⚠️ No usages found`,
+                    command: '',
+                    tooltip: 'This function is not being called anywhere'
+                };
+                codeLenses.push(new vscode.CodeLens(range, noUsageCommand));
+            }
+            
+            // Add test button if not a run function
+            if (func.name !== 'run') {
+                const testCommand: vscode.Command = {
+                    title: `🧪 Test`,
+                    command: 'isl.testFunction',
+                    arguments: [document.uri, func.name, func.params],
+                    tooltip: `Test ${func.name} with sample data`
+                };
+                codeLenses.push(new vscode.CodeLens(range, testCommand));
             }
         }
 
         return codeLenses;
+    }
+    
+    private countUsages(text: string, functionName: string, functionType: string): number {
+        let count = 0;
+        
+        if (functionType === 'fun') {
+            // Count @.This.functionName() calls
+            const functionCallPattern = new RegExp(`@\\.This\\.${functionName}\\s*\\(`, 'g');
+            const matches = text.match(functionCallPattern);
+            count += matches ? matches.length : 0;
+        } else if (functionType === 'modifier') {
+            // Count | functionName usages
+            const modifierPattern = new RegExp(`\\|\\s*${functionName}(?:\\s*\\(|\\s|$)`, 'g');
+            const matches = text.match(modifierPattern);
+            count += matches ? matches.length : 0;
+        }
+        
+        return count;
     }
 
     public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): vscode.CodeLens | Thenable<vscode.CodeLens> {
@@ -239,4 +294,44 @@ function createSampleInput(paramNames: string[]): string {
     }
 
     return JSON.stringify(inputObj, null, 2);
+}
+
+export async function showUsages(uri: vscode.Uri, functionName: string, functionType: string) {
+    const document = await vscode.workspace.openTextDocument(uri);
+    const text = document.getText();
+    const locations: vscode.Location[] = [];
+    
+    const lines = text.split('\n');
+    
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        let match;
+        
+        if (functionType === 'fun') {
+            const pattern = new RegExp(`@\\.This\\.${functionName}\\s*\\(`, 'g');
+            while ((match = pattern.exec(line)) !== null) {
+                const startPos = new vscode.Position(i, match.index);
+                const endPos = new vscode.Position(i, match.index + match[0].length);
+                locations.push(new vscode.Location(uri, new vscode.Range(startPos, endPos)));
+            }
+        } else if (functionType === 'modifier') {
+            const pattern = new RegExp(`\\|\\s*${functionName}(?:\\s*\\(|\\s|$)`, 'g');
+            while ((match = pattern.exec(line)) !== null) {
+                const startPos = new vscode.Position(i, match.index);
+                const endPos = new vscode.Position(i, match.index + match[0].length);
+                locations.push(new vscode.Location(uri, new vscode.Range(startPos, endPos)));
+            }
+        }
+    }
+    
+    if (locations.length > 0) {
+        vscode.commands.executeCommand('editor.action.showReferences', uri, locations[0].range.start, locations);
+    } else {
+        vscode.window.showInformationMessage(`No usages found for ${functionName}`);
+    }
+}
+
+export async function testFunction(uri: vscode.Uri, functionName: string, params: string, context: vscode.ExtensionContext) {
+    // Same as runFunction but with test data
+    await runIslFunction(uri, functionName, params, context);
 }

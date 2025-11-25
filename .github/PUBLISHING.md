@@ -3,6 +3,8 @@
 This document explains how to publish ISL artifacts to Maven Central and GitHub Packages.
 
 ## Prerequisites
+https://intuit-teams.slack.com/archives/C044PJN2NDR/p1749599979127989?thread_ts=1749145553.673049&cid=C044PJN2NDR
+
 
 ### 1. Maven Central (Sonatype OSSRH) Setup
 
@@ -16,14 +18,29 @@ To publish to Maven Central, you need:
 
 ```bash
 # Generate key
-gpg --gen-key
+gpg --full-generate-key
+# Choose RSA (option 1), key size 3072 or 4096, and set a strong passphrase
 
-# List keys to get the key ID (last 8 characters of the fingerprint)
-gpg --list-keys
+# List keys to get the key ID
+gpg --list-secret-keys --keyid-format=long
 
-# Export the key (replace KEY_ID with your key ID)
-gpg --export-secret-keys KEY_ID | base64
+# Export the ASCII-armored secret key (replace KEY_ID with your key ID)
+gpg --export-secret-keys --armor KEY_ID
 ```
+
+**For Windows (PowerShell):**
+```powershell
+# Generate key
+gpg --full-generate-key
+
+# List keys
+gpg --list-secret-keys --keyid-format=long
+
+# Export and copy to clipboard
+gpg --export-secret-keys --armor YOUR_KEY_ID | Set-Clipboard
+```
+
+**Note:** You can use the ASCII-armored key directly in the `SIGNING_KEY` secret (starts with `-----BEGIN PGP PRIVATE KEY BLOCK-----`). Base64 encoding is optional.
 
 ### 2. GitHub Repository Secrets
 
@@ -32,8 +49,7 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 #### Maven Central Secrets:
 - `OSSRH_USERNAME`: Your Sonatype JIRA username
 - `OSSRH_PASSWORD`: Your Sonatype JIRA password
-- `SIGNING_KEY_ID`: Your GPG key ID (last 8 characters)
-- `SIGNING_KEY`: Your base64-encoded GPG private key
+- `SIGNING_KEY`: Your ASCII-armored GPG private key (or base64-encoded)
 - `SIGNING_PASSWORD`: Your GPG key passphrase
 
 #### GitHub Packages:
@@ -166,6 +182,17 @@ signing.secretKeyRingFile=/path/to/.gnupg/secring.gpg
 **Note:** Never commit credentials to version control!
 
 ## Troubleshooting
+
+### Issue: "Could not read PGP secret key" or "checksum mismatch"
+**Solution:** 
+1. Use the ASCII-armored format directly (recommended):
+   ```bash
+   gpg --export-secret-keys --armor YOUR_KEY_ID
+   ```
+   Copy the entire output (including BEGIN/END markers) into the `SIGNING_KEY` secret
+2. Ensure `SIGNING_PASSWORD` matches your GPG key passphrase
+3. Verify the key exports correctly before adding to GitHub secrets
+4. If using base64 encoding, ensure no extra whitespace or line breaks are introduced
 
 ### Issue: "Could not find signing key"
 **Solution:** Ensure GPG key is properly exported and base64 encoded. Check `SIGNING_KEY` secret.
