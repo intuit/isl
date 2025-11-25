@@ -127,6 +127,9 @@ subprojects {
                 useInMemoryPgpKeys(signingKey, signingPassword)
             }
             sign(extensions.getByType<PublishingExtension>().publications["maven"])
+            
+            // Configure signing to be required only when publishing
+            setRequired({ gradle.taskGraph.hasTask("publish") || gradle.taskGraph.hasTask("publishToMavenLocal") })
         }
     }
 }

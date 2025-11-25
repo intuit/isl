@@ -64,12 +64,22 @@ jobs:
           rm -f signing_key.asc
         fi
       
+    - name: Verify OSSRH credentials
+      env:
+        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+      run: |
+        if [ -z "$OSSRH_USERNAME" ]; then
+          echo "❌ OSSRH_USERNAME is not set!"
+          exit 1
+        fi
+        echo "✓ OSSRH credentials are configured"
+        
     - name: Publish to Maven Central
       env:
         OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
         SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace
+      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace --info
       
     # - name: Publish to GitHub Packages
     #   env:
