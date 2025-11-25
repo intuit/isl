@@ -56,7 +56,7 @@ tasks.jacocoTestReport {
     classDirectories.setFrom(
         files(classDirectories.files.map {
             fileTree(it) {
-                exclude("com/intuit/idx/isl/**")
+                exclude("com/intuit/isl/**")
             }
         })
     )

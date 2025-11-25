@@ -9,22 +9,18 @@ When building deep object structures the recommendation is to build them in a st
 Old:
 ```isl
 $t = {
-    headers: $qboAddress.headers,
-    headers.entity_namespace: $eventNamespace,
-    headers.entity_type: $eventName,
-    headers.intuit_realmid: $realmId,
-    headers.intuit_tid: $headers.intuitTid,
-    headers.entity_version: $eventVersion,
-    headers.provider_id: `mailchimp_$eventName` | lowerCase,
-    headers.connection_id: if ( $realmId ) `$realmId-com.mailchimp` endif,
+    headers: $address.headers,
+    headers.namespace: $eventNamespace,
+    headers.type: $eventName,
+    headers.version: $eventVersion,
 
-    payload.data.id.externalId :  $qboAddress.payload.id.entityId | append('-', $qboAddress.payload.id.accountId),
-    payload.data: @.This.transformAddress($qboAddress.payload),
-    payload.data.externalIds: @.This.transformExternalIds($qboAddress.payload),
-    payload.data.deletedAt: if ($qboAddress.payload.active == false) @.This.transformDate() endif,
+    payload.data: @.This.transformAddress($address.payload),
+    payload.data.id :  $address.payload.id | concat('-' ) | concat( $address.payload.customerId ),
+    payload.data.otherIds: @.This.transformExternalIds($address.payload),
+    payload.data.deletedAt: if ($address.payload.active == false) @.This.transformDate() endif,
 
     transform.status: if ( $realmId ) "VALID" else "INVALID" endif,
-    transform.failureReasons: if ( !$realmId ) "Missing $payload.id.accountId due to which connection_id could not be created." endif | to.array
+    transform.failureReasons: if ( !$realmId ) "Missing $payload.id.accountId due to which entity could not be created." endif | to.array
 }
 ```
 
@@ -32,30 +28,27 @@ New:
 ```isl
 $t = {
     headers: {
-        ...$qboAddress.headers,  // spread existing headers into the new headers
-        entity_namespace: $eventNamespace,
-        entity_type: $eventName,
-        intuit_realmid: $realmId,
-        intuit_tid: $headers.intuitTid,
-        entity_version: $eventVersion,
-        provider_id: `mailchimp_$eventName` | lowerCase,
-        connection_id: if ( $realmId ) `$realmId-com.mailchimp` endif,
+        ...$source.headers,  // spread existing headers into the new headers
+        namespace: $eventNamespace,
+        type: $eventName,
+        version: $eventVersion,
+        eventName: `source_$eventName` | lowerCase,
     },
 
     payload: {
         data: {
-            id: {
-                externalId: `${ $qboAddress.payload.id.entityId }-${ $qboAddress.payload.id.accountId }`,
-            },
-            ... @.This.transformAddress($qboAddress.payload),   // spread the result into the data
-            externalIds: @.This.transformExternalIds($qboAddress.payload),
-            deletedAt: if ($qboAddress.payload.active == false) @.This.transformDate() endif,
+            id: `${ $address.payload.id }-${ $address.payload.customerId }`,
+
+            ... @.This.transformAddress($address.payload),   // spread the result into the data
+
+            otherIds: @.This.transformExternalIds($address.payload),
+            deletedAt: if ($address.payload.active == false) @.This.transformDate() endif,
         },
     },
 
     transform: {
         status: if ( $realmId ) "VALID" else "INVALID" endif,
-        failureReasons: if ( !$realmId ) "Missing $payload.id.accountId due to which connection_id could not be created." endif | to.array
+        failureReasons: if ( !$realmId ) "Missing $payload.id.accountId due to which entity could not be created." endif | to.array
     }
 }
 ```

@@ -1,6 +1,8 @@
 ---
 title: Java/Kotlin Integration
 nav_order: 4
+description: "Learn how to embed ISL in your Java/Kotlin project. Add ISL transformation capabilities to your JVM application with simple Maven or Gradle integration."
+excerpt: "Learn how to embed ISL in your Java/Kotlin project. Add ISL transformation capabilities to your JVM application with simple Maven or Gradle integration."
 ---
 
 This guide shows you how to embed ISL in your Java/Kotlin project.
@@ -204,8 +206,6 @@ val islScript = """
         grandTotal: ${"$"}orders | reduce({{ ${"$"}acc + (${"$"}it.quantity * ${"$"}it.price) }})
     }
 """.trimIndent()
-```
-{% endraw %}
 
 val compiler = TransformCompiler()
 val transformer = compiler.compileIsl("orders", islScript)
@@ -215,6 +215,8 @@ context.setVariable("${"$"}orders", JsonConvert.convert(ordersData))
 
 val result = transformer.runTransformSync("run", context)
 ```
+
+{% endraw %}
 
 ## Async Execution
 
@@ -255,15 +257,13 @@ try {
 
 ## Next Steps
 
-- Explore the [Language Documentation](./docs/language/)
-- Learn about [Modifiers](./docs/language/modifiers.md)
-- See [Advanced Examples](./docs/examples/)
-- Check out [Custom Functions](./docs/language/functions.md)
+- Explore the [Language Documentation](./index.md)
+- Learn about [Modifiers](./language/modifiers.md)
+- See [Examples](./examples/index.md)
+- Check out [Custom Functions](./language/functions.md)
 
 ## Resources
 
-- [Full Documentation](./docs/)
-- [API JavaDoc](https://intuit.github.io/isl/)
 - [GitHub Repository](https://github.com/intuit/isl)
 - [Issue Tracker](https://github.com/intuit/isl/issues)
 

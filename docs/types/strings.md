@@ -2,6 +2,8 @@
 title: Strings
 parent: Data Types
 nav_order: 1
+description: "ISL string type with support for interpolation, concatenation, and built-in modifiers for uppercase, lowercase, trim, and more."
+excerpt: "ISL string type with support for interpolation, concatenation, and built-in modifiers for uppercase, lowercase, trim, and more."
 ---
 
 The most basic type of ISL is the `string` type which is the default type for all properties and variables.
@@ -13,7 +15,7 @@ See complete list of [String Modifiers](../language/modifiers.md#string-processi
 ## String Interpolation
 String interpolation is done using the classical backtick ``` ` text ` ``` and  `$` prefix for the interpolated values.
 
-```
+```isl
 $value: `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `.
 ```
 
@@ -29,7 +31,7 @@ $value: `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `
 ### Dynamic String Interpolation
 Use the *merge* modifier to run string interpolation on a dynamically constructed string. For example,
 
-```
+```isl
     $who = "world"
     $aModifier = "uppercase"
     $message = "Hello ${$who |" | concat($aModifier) | concat("}!")

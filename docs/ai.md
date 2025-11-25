@@ -5,9 +5,9 @@ nav_order: 5
 
 This is a condensed guide to help AI tools learn ISL.
 
-To teach your AI tool (Cursor, Windsurt, ... ) about ISL give it this prompt:
+To teach your AI tool (Cursor, Windsurf, ... ) about ISL give it this prompt:
 ```
-Go to this url https://intuit.github.io/isl/ai/ and learn about the ISL languange.
+Go to this url https://intuit.github.io/isl/ai/ and learn about the ISL language.
 ```
 
 
@@ -59,7 +59,7 @@ $zip: $user.address.zip; // null
 $user.["user-id"]: 456;
 
 // you can also set properties by creating child objects
-// this syntax is prefered to the dot notation as it's easier to read
+// this syntax is preferred to the dot notation as it's easier to read
 $user = {
     name: "George",
     address: {
@@ -349,7 +349,7 @@ fun getShippingStatus($status) {
 ```
 can be replaced with
 ```isl
-modifer shippingStatus( $status ) {
+modifier shippingStatus( $status ) {
     ...
 }
 ```
@@ -427,12 +427,12 @@ E.g.
 **Interpolation rules:**
 - Simple variable that is ONLY one level deep and has no `.` in it:
     - `$input` is a simple variable that needs no wrapper around e.g. `` `Name is $input` ``
-    - `$input.name` is a deep varible that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.name }` ``
-    - `$input.invoice.name` is also a deep varible that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.invoice.name }` ``
+    - `$input.name` is a deep variable that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.name }` ``
+    - `$input.invoice.name` is also a deep variable that NEEDS `${ ... }` wrappers around e.g. `` `Name is ${ $input.invoice.name }` ``
 {% raw %}
 - Math expressions: `` `Total is {{ $price * 1.1 }}` ``
 {% endraw %}
-- If you need to enter a literaly `$` dollar sign in an interpolated string for example to represent the dollar currency you need to escape that with `\` example: `\$${ $item.price }`
+- If you need to enter a literal `$` dollar sign in an interpolated string for example to represent the dollar currency you need to escape that with `\` example: `\$${ $item.price }`
 - If you just want the value of a property without combining it with extra text or other properties you don't need to interpolate it. e.g. `{ employeeId: $emp.id }`
 - There's no need to write comments in the generated code explaining your decision to interpolate or not.
 
@@ -453,12 +453,13 @@ fun run( $input ){
 
 // helper modifiers
 ```
-Please respect this and genearte code using this structure.
+Please respect this and generate code using this structure.
 
 Few more rules to generate clean ISL:
+{% raw %}
 - It's generally nice to leave spaces inside the brackets `(  )` when calling functions or modifiers, especially if inside it there are brackets like this `| map( {{ $it.quantity * $it.unitPrice }} )`
-- If you think the user is learning or a beginner in ISL you can write helpful comments and add links to the docs to explain how syntax works but don't exagerate and don't duplicate
-
+- If you think the user is learning or a beginner in ISL you can write helpful comments and add links to the docs to explain how syntax works but don't exaggerate and don't duplicate
+{% endraw %}
 
 ### Advanced Topics
 

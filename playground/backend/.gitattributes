@@ -1,0 +1,4 @@
+# Ensure gradlew has Unix line endings (required for Railway/Linux)
+gradlew text eol=lf
+*.sh text eol=lf
+

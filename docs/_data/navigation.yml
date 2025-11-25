@@ -4,8 +4,8 @@ main:
     url: /
   - title: "Quick Start"
     url: /quickstart
-  - title: "Overview"
-    url: /overview
+  - title: "▶️ Playground"
+    url: https://isl-playground.up.railway.app/
   - title: "GitHub"
     url: https://github.com/intuit/isl
 
@@ -60,6 +60,8 @@ docs:
 
   - title: Examples
     children:
+      - title: "Transformations"
+        url: /examples/index
       - title: "Date Examples"
         url: /examples/dates
       - title: "Object Examples"
@@ -81,11 +83,13 @@ docs:
       - title: "Hosting & Embedding"
         url: /dev/hosting
       - title: "Performance Benchmarks"
-        url: /dev/jolt-vs-isl-benchmark-report
+        url: /dev/benchmark-report
       - title: "Release Process"
         url: /dev/release
       - title: "Contributing"
         url: /dev/contributing
+      - title: "Playground Integration"
+        url: /dev/playground-integration
 
   - title: More
     children:

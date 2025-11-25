@@ -1,0 +1,150 @@
+<!-- Custom footer scripts -->
+
+<!-- Prism.js for syntax highlighting -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+<!-- Load additional language components -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-kotlin.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-yaml.min.js"></script>
+<!-- Load custom ISL language definition -->
+<script src="{{ '/assets/js/prism-isl.js' | relative_url }}"></script>
+<!-- Load copy code button script -->
+<script src="{{ '/assets/js/copy-code-button.js' | relative_url }}"></script>
+<!-- Load playground auto-buttons script -->
+<script src="{{ '/assets/js/playground-auto-buttons.js' | relative_url }}"></script>
+
+<!-- Load Lunr.js library if not already loaded by theme -->
+<script>
+if (typeof lunr === 'undefined') {
+  var script = document.createElement('script');
+  script.src = 'https://cdn.jsdelivr.net/npm/lunr@2.3.9/lunr.min.js';
+  script.onload = function() {
+    initializeSearch();
+  };
+  document.head.appendChild(script);
+} else {
+  initializeSearch();
+}
+
+function initializeSearch() {
+  // Wait for search input to be available
+  var searchInput = document.querySelector('.search-input');
+  if (!searchInput) {
+    setTimeout(initializeSearch, 100);
+    return;
+  }
+  
+  searchInput.addEventListener('keyup', function(e) {
+    var searchTerm = e.target.value.trim();
+    
+    if (searchTerm.length < 2) {
+      return;
+    }
+    
+    if (typeof idx === 'undefined' || typeof store === 'undefined') {
+      return;
+    }
+    
+    try {
+      // Enhanced search with wildcards and fuzzy matching
+      var results = performEnhancedSearch(searchTerm);
+      
+      // Display results
+      displaySearchResults(results, store);
+    } catch (error) {
+      // Silent error handling
+    }
+  });
+}
+
+function performEnhancedSearch(searchTerm) {
+  // Split search term into individual words
+  var terms = searchTerm.toLowerCase().split(/\s+/);
+  
+  // Try multiple search strategies and combine results
+  var allResults = {};
+  
+  // Strategy 1: Exact match
+  try {
+    var exactResults = idx.search(searchTerm);
+    exactResults.forEach(function(result) {
+      allResults[result.ref] = {
+        ref: result.ref,
+        score: result.score * 3 // Boost exact matches
+      };
+    });
+  } catch (e) {}
+  
+  // Strategy 2: Wildcard search (for partial word matching)
+  terms.forEach(function(term) {
+    if (term.length >= 2) {
+      try {
+        // Add wildcard to end of each term for prefix matching
+        var wildcardResults = idx.search(term + '*');
+        wildcardResults.forEach(function(result) {
+          if (allResults[result.ref]) {
+            allResults[result.ref].score += result.score * 2;
+          } else {
+            allResults[result.ref] = {
+              ref: result.ref,
+              score: result.score * 2
+            };
+          }
+        });
+      } catch (e) {}
+      
+      // Strategy 3: Fuzzy search (allows 1 character difference)
+      try {
+        var fuzzyResults = idx.search(term + '~1');
+        fuzzyResults.forEach(function(result) {
+          if (allResults[result.ref]) {
+            allResults[result.ref].score += result.score;
+          } else {
+            allResults[result.ref] = {
+              ref: result.ref,
+              score: result.score
+            };
+          }
+        });
+      } catch (e) {}
+    }
+  });
+  
+  // Convert to array and sort by score
+  var results = Object.keys(allResults).map(function(key) {
+    return allResults[key];
+  }).sort(function(a, b) {
+    return b.score - a.score;
+  });
+  
+  // Limit to top 20 results
+  return results.slice(0, 20);
+}
+
+function displaySearchResults(results, store) {
+  var searchResults = document.querySelector('.results');
+  if (!searchResults) {
+    return;
+  }
+  
+  if (results.length === 0) {
+    searchResults.innerHTML = '<p>No results found</p>';
+    return;
+  }
+  
+  var resultsHtml = '<ul>';
+  results.forEach(function(result) {
+    var item = store[result.ref];
+    resultsHtml += '<li><a href="' + item.url + '"><h3>' + item.title + '</h3>';
+    if (item.excerpt) {
+      resultsHtml += '<p>' + item.excerpt.substring(0, 150) + '...</p>';
+    }
+    resultsHtml += '</a></li>';
+  });
+  resultsHtml += '</ul>';
+  
+  searchResults.innerHTML = resultsHtml;
+}
+</script>

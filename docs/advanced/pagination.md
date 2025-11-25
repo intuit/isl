@@ -2,6 +2,8 @@
 title: Pagination
 parent: Advanced Topics
 nav_order: 1
+description: "ISL pagination strategies for processing data page-by-page. Supports page-based and cursor-based pagination for API calls."
+excerpt: "ISL pagination strategies for processing data page-by-page. Supports page-based and cursor-based pagination for API calls."
 ---
 
 ISL pagination can be executed on demand, allowing the developer to process data in a page by page basis
@@ -15,7 +17,7 @@ from a specific point in time in case of an error during processing of a page of
 
 
 ## Page by Page Pagination
-```
+```isl
 fun run(){
     // $Page will be the iterator
     @.Pagination.Page( $Page, { startIndex: 0, pageSize: 100  } ){
@@ -45,7 +47,7 @@ fun run(){
 Pagination(s) can also be embedded into each other, for example eBay requires a Pagination.Date pagination that embeds a Pagination.Page 
 to paginate inside the date range.
 
-```
+```isl
 fun run(){
     // $Date - date period pagination cursor: 1d -> 1 day
     @.Pagination.Date( $date, { startDate: $startDate, duration: 'P1D' }){
@@ -91,7 +93,7 @@ The `$Page` iterator will provide a set of properties:
 - `$Page.hasMorePages` - flag that needs to be set to `true` to force the pagination loop to continue.
   When processing arrays you can simply set `$Page.hasMorePages = $array | isNotEmpty;` to continue the pagination.
 
-```
+```isl
 @.Pagination.Page( $page, { startIndex: 1, pageSize: 3 } ){
 	// add the page index to the array
 	$result = $result | push( $page.page );
@@ -102,7 +104,7 @@ The `$Page` iterator will provide a set of properties:
 result: $result;
 ```
 Result:
-```
+```json
 { "result": [1, 2, 3, 4, 5] }
 ```
 
@@ -137,7 +139,7 @@ The `$Date` iterator will provide a set of properties:
 - `$Date.endDate` - end Date of the current range.
 - `$Date.page` - the zero based index of the current page
 
-```
+```isl
 // increment every day
 @.Pagination.Date( $date, { startDate: "2021-12-03" | date.parse, endDate: "2021-12-06" | date.parse, duration: "P1D" } ){
 	$start = $start | push ( $date.startDate | to.string("dd-MM-yy") );
@@ -149,7 +151,7 @@ result: {
 }
 ```
 Result:
-```
+```json
 {
 	"result": {
 		"start": ["03-12-21", "04-12-21", "05-12-21"],

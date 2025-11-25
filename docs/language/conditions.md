@@ -2,6 +2,8 @@
 title: Conditions
 parent: Language Reference
 nav_order: 3
+description: "ISL conditions including if/else statements, switch/case expressions, and the coalesce operator. Supports regex and complex conditional logic."
+excerpt: "ISL conditions including if/else statements, switch/case expressions, and the coalesce operator. Supports regex and complex conditional logic."
 ---
 
 ISL conditions can be expressed as a statement, an expression that returns a value or as a coalesce operator.
@@ -41,25 +43,25 @@ If anything along the way is null, the result will be false.
 ISL supports the coalesce operator `left ?? right`  that returns the first valid value:
 
 E.g.
-```
+```isl
 $var1: null;
 $var2: "abc":
 result: $var1 ?? $var2;
 ```
 Evaluates to: 
-```
+```json
 { "result": "abc" }
 ```
 
 Coalesce operators can be also be chained:
 E.g.
-```
+```isl
 $var1: null;
 $var2: "":
 result: $var1 ?? $var2 ?? '123';
 ```
 Evaluates to: 
-```
+```json
 { "result": "123" }
 ```
 
@@ -67,7 +69,7 @@ Evaluates to:
 ## If/Else Statements
 ISL support complex `if/else` conditions with support for `and/or`, `(` and `)` for expression groups and `!` (not) operators:
 
-```
+```isl
 if (condition and/or conditions)
     statements
 else
@@ -78,7 +80,7 @@ endif
 
 ### If Expressions
 An If statement can be assigned as an expression to a property or variable:
-```
+```isl
 prop: if ( true ) "123" else "456" endif;
 $var: if ( true ) "123" else "456" endif;
 ```
@@ -86,7 +88,7 @@ $var: if ( true ) "123" else "456" endif;
 If the condition is evaluated to _false-ish_ and there is no `else` 
 branch then the property will not be created at all:
 
-```
+```isl
 $result: {
 	prop: if ( false ) "123" endif;
 }
@@ -99,14 +101,14 @@ If the `if` evaluates to false, the previous value in the modifier chain is pass
 
 In order to keep the visual format clean the `| if ( condition ) modifier` does not currently support an `else` branch.
 
-```
+```isl
 $text: " a b c ";
 result1: $text | if ( $text contains "d" ) trim;	// result: " a b c "
 result2: $text | if ( $text contains "c" ) trim;	// result: "a b c"
 ```
 
 If modifiers can also be applied on the value of the previous modifier or value in the chain using the `$` variable which represents the value of the previous modifier in the chain.
-```
+```isl
 val: [ 1, 2, 3 ]
 	| if ( $ !contains 4 ) push( 4 )	// will add 4
 	| if ( $ !contains 4 ) push( 4 )	// won't add a second 4
@@ -115,7 +117,7 @@ val: [ 1, 2, 3 ]
 ```
 
 `if` modifiers can be chained:
-```
+```isl
 $val: 4;
 items: [ 1, 2, 3 ]
 	| if ( $val ) push( $val )
@@ -130,7 +132,7 @@ Result: `{ "items": [ 1, 2, 3, 4, 7, 8, 10 ] }`
 
 ## Switch/Case Statements
 Switch case using value conditions or Regular Expressions:
-```
+```isl
 switch ( $value ) 
     123 -> result1;
     234 -> result2;
@@ -140,7 +142,7 @@ endswitch
 
 ### Case Conditions
 The case conditions can be done against a value and can contain a condition operator ( `==`, `!=`, `<=`, `=>`, `<`, `>`, ...)
-```
+```isl
 switch ( $result )
     1 -> result1                    // $result == 1
     < 10 -> result2;                // $result was < 10
@@ -156,7 +158,7 @@ endswitch
 
 ### RegEx Conditions
 The case conditions can also be done using a Regular Expression `/regex/`:
-```
+```isl
 switch ( $httpStatus ) 
     /^2\d\d/ -> result200;  // 2xx result
     /^4\d\d/ -> result400;  // 4xx result

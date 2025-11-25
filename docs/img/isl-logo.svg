@@ -1,0 +1,32 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+  <!-- Background (optional, can be removed for transparency) -->
+  <rect width="200" height="200" fill="none"/>
+  
+  <!-- Left curly brace { -->
+  <path d="M 55 40 Q 45 40 45 50 L 45 70 Q 45 80 35 80 Q 45 80 45 90 L 45 110 Q 45 120 55 120" 
+        stroke="#2563eb" 
+        stroke-width="10" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- Arrow > (filled triangle) -->
+  <path d="M 85 65 L 120 80 L 85 95 L 90 80 Z" 
+        fill="#2563eb"/>
+  
+  <!-- Right curly brace } -->
+  <path d="M 145 40 Q 155 40 155 50 L 155 70 Q 155 80 165 80 Q 155 80 155 90 L 155 110 Q 155 120 145 120" 
+        stroke="#2563eb" 
+        stroke-width="10" 
+        fill="none" 
+        stroke-linecap="round"/>
+  
+  <!-- ISL Text -->
+  <text x="100" 
+        y="155" 
+        font-family="'Inter', 'Segoe UI', 'Roboto', system-ui, -apple-system, sans-serif" 
+        font-size="36" 
+        font-weight="700" 
+        fill="#2563eb" 
+        text-anchor="middle" 
+        letter-spacing="2">ISL</text>
+</svg>

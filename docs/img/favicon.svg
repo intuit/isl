@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="25 30 150 100" width="200" height="200">
+      <!-- Background (optional, can be removed for transparency) -->
+      <rect x="25" y="30" width="150" height="100" fill="none"/>
+      
+      <!-- Left curly brace { -->
+      <path d="M 55 40 Q 45 40 45 50 L 45 70 Q 45 80 35 80 Q 45 80 45 90 L 45 110 Q 45 120 55 120" 
+            stroke="#2563eb" 
+            stroke-width="10" 
+            fill="none" 
+            stroke-linecap="round"/>
+      
+      <!-- Arrow > (filled triangle) -->
+      <path d="M 85 65 L 120 80 L 85 95 L 90 80 Z" 
+            fill="#2563eb"/>
+      
+      <!-- Right curly brace } -->
+      <path d="M 145 40 Q 155 40 155 50 L 155 70 Q 155 80 165 80 Q 155 80 155 90 L 155 110 Q 155 120 145 120" 
+            stroke="#2563eb" 
+            stroke-width="10" 
+            fill="none" 
+            stroke-linecap="round"/>
+    </svg>
+    

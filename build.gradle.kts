@@ -117,15 +117,19 @@ subprojects {
     }
     
     // Signing configuration for Maven Central
-    if (System.getenv("SIGNING_KEY_ID") != null || project.hasProperty("signing.keyId")) {
+    if (System.getenv("SIGNING_KEY") != null || project.hasProperty("signing.keyId")) {
         apply(plugin = "signing")
         extensions.configure<org.gradle.plugins.signing.SigningExtension> {
             if (System.getenv("SIGNING_KEY") != null) {
                 val signingKey = System.getenv("SIGNING_KEY")
-                val signingPassword = System.getenv("SIGNING_PASSWORD")
+                val signingPassword = System.getenv("SIGNING_PASSWORD") ?: ""
+                // Use 2-parameter version which only needs the key and password (no keyId)
                 useInMemoryPgpKeys(signingKey, signingPassword)
             }
             sign(extensions.getByType<PublishingExtension>().publications["maven"])
+            
+            // Configure signing to be required only when publishing
+            setRequired({ gradle.taskGraph.hasTask("publish") || gradle.taskGraph.hasTask("publishToMavenLocal") })
         }
     }
 }

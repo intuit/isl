@@ -1,0 +1,2 @@
+web: java -jar build/libs/isl-playground-1.0.0.jar
+

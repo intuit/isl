@@ -1,8 +1,9 @@
 ---
 title: ISL
 nav_order: 1
-description: "ISL - Intuitive Scripting Language for JSON transformations"
+description: "ISL is a low-code interpreted scripting language for easy JSON-to-JSON transformations. Simple, intuitive syntax with powerful features for data acquisition and transformation."
 permalink: /
+excerpt: "ISL is a low-code interpreted scripting language for easy JSON-to-JSON transformations. Simple, intuitive syntax with powerful features for data acquisition and transformation."
 ---
 
 <div align="center">
@@ -25,6 +26,8 @@ ISL is a [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) scripting language des
 
 ⏩ Checkout the [QuickStart Guide](quickstart.md) for how to use ISL in 2 minutes.
 
+▶️ Try ISL [In the Playground](https://isl-playground.up.railway.app/).
+
 ‼️ Checkout the [Best Practices](best-practices.md) to understand how to run ISL efficiently.
 
 ## Example
@@ -35,44 +38,67 @@ Given Input JSON:
 
 ```json
 {
-  "title": "IPod Nano - 8GB",
-  "body_html": "It's the small iPod with a big idea: Video.",
-  "id": 632910392,
-  "images": [
-    {
-      "id": 850703190,
-      "src": "http://example.com/burton.jpg"
-    }
-  ],
-  "options": {
-    "name": "Color",
-    "values": ["Pink", "Red", "Green", "Black"]
-  },
-  "status": "active",
-  "tags": "Emotive, Flash Memory, MP3, Music",
-  "updated_at": 1645004735,
-  "vendor": "Apple"
+    "title": "IPod Nano - 8GB",
+    "body_html": "It's the small iPod with a big idea: Video.",
+    "id": 632910392,
+    "images": [
+        {
+            "id": 850703190,
+            "src": "http://example.com/burton.jpg"
+        }
+      ],
+    "options": {
+        "name": "Color",
+        "values": ["Pink", "Red", "Green", "Black"]
+    },
+    "status": "active",
+    "tags": "Emotive, Flash Memory, MP3, Music",
+    "updated_at": 1645004735,
+    "vendor": "Apple"
 }
 ```
 
 And Transformation:
-![ISL Transformation](./img/simple_transform.png)
+```isl
+fun transform( $input ){
+    return {
+      // Simple JSON Path Selectors
+      id: $input.id,
+      // piped modifiers using `|`
+      name: $input.title | trim,
+      // easy string building using interpolation ` ... `
+      short_description: `${ $input.title } by ${ $input.vendor }`,
+      // child object building
+      primary_image: {
+          id: $input.images[0].id,
+          url: $input.images[0].src
+      },
+      // conditional properties
+      is_active: if( $input.status == "active" ) true else false,
+      option_name: $input.options.name,
+      // array to csv
+      option_values: $input.options.values | join(','),
+      // date processing
+      updated: $input.updated_at | date.fromEpochSeconds | to.string("yyyy-MM-dd HH:mm")
+    }
+}
+```
 
 Will output:
 
 ```json
 {
-  "id": 632910392,
-  "name": "IPod Nano - 8GB",
-  "short_description": "IPod Nano - 8GB by Apple",
-  "primary_image": {
-    "id": 850703190,
-    "url": "http://example.com/burton.jpg"
-  },
-  "is_active": true,
-  "option_name": "Color",
-  "option_values": "Pink,Red,Green,Black",
-  "updated": "2022-02-47 09:45"
+    "id": 632910392,
+    "name": "IPod Nano - 8GB",
+    "short_description": "IPod Nano - 8GB by Apple",
+    "primary_image": {
+        "id": 850703190,
+        "url": "http://example.com/burton.jpg"
+    },
+    "is_active": true,
+    "option_name": "Color",
+    "option_values": "Pink,Red,Green,Black",
+    "updated": "2022-02-47 09:45"
 }
 ```
 
@@ -88,15 +114,14 @@ Will output:
   - [Reduce](./language/modifiers.md#reduce) `$total: [ 1, 2, 3, 4 ] | reduce( {{ $acc + $it }} )`.
 {% endraw %}
   - [Map](./language/modifiers.md#map) `item: [ 1, 2, 3, 4 ] | map( { id : $ } )`.
-- Easily Extensible with
+- Easily Extensible (from Java/Kotlin or ISL) with
   - [functions](./language/functions.md): `@.Service.Function( ... )`.
   - [modifiers](./language/functions.md#modifiers): `| calculate_tax( ... )`.
   - [wildcard modifiers](./language/functions.md#modifiers): `| encode.base64( ... )`.
   - [block statement extensions](./language/functions.md#blockstatement-functions) similar [to pagination support](./advanced/pagination.md) `@.Pagination.Page() { ... block ... }`.
-- Pagination Strategies for [Page](./advanced/pagination.md#page) and [Cursor](./advanced/pagination.md#cursor).
+- Pagination Strategies for [Page](./advanced/pagination.md#page), [Cursor](./advanced/pagination.md#cursor) or [Date Ranges](./advanced/pagination.md#date).
 - Utilities for dealing with [Time & Dates](./types/dates.md#timedate-processing), [Signatures & Hashing](./advanced/crypto.md#cryptography).
-- Support for [parsing XML](./types/xml.md#xml-processing) and [outputting XML](./types/xml.md#xml-output),
-  [parsing CSV](./types/csv.md#csv-processing).
+- Support for [parsing XML](./types/xml.md#xml-processing) and [outputting XML](./types/xml.md#xml-output), [parsing CSV](./types/csv.md#csv-processing) or yaml.
 - Support for advanced String Interpolation `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `.
 - Support for [`find`, `match` and `replace` using Regular Expressions](./language/modifiers.md#regex-processing).
 
@@ -124,7 +149,6 @@ val value = node {
 
 
 val jsonNode = value.node;  // access the internal JsonNode that was generated
-
 ```
 
 
