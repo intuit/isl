@@ -59,8 +59,13 @@ const ensureFunWrapper = (code: string): string => {
     return code;
   }
   
+  let cleanCode = (code ?? '').trim();
+
+  if(cleanCode.startsWith("{") || cleanCode.startsWith("["))
+    cleanCode = "return " + cleanCode;
+
   // Wrap the code in fun run($input) { }
-  return `fun run($input) {\n // Adjust code as required then return a result\n${code.split('\n').map(line => '    ' + line).join('\n')}\n}`;
+  return `fun run($input) {\n // Adjust code as required then return a result\n${cleanCode.split('\n').map(line => '    ' + line).join('\n')}\n}`;
 };
 
 // Helper to load code from URL parameters

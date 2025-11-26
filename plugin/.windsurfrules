@@ -1,0 +1,280 @@
+# ISL Language Rules for Windsurf AI
+
+## Language: ISL (Intuitive Scripting Language)
+A declarative language for JSON-to-JSON transformations with a clean, readable syntax.
+This langunage applies to .isl files.
+
+## Core Concepts
+
+### Variables
+- Prefix with `$`: `$user`, `$price`, `$items`
+- Access nested: `$user.address.street`
+- Case-sensitive: `$userId` ≠ `$UserId`
+
+### Functions
+```isl
+fun functionName($param1, $param2) {
+    // logic here
+    return $result;
+}
+
+// Call with @.This prefix
+$value: @.This.functionName($arg1, $arg2);
+```
+
+### Modifiers (Pipe Operations)
+```isl
+// Chain transformations with |
+$result: $input 
+    | trim 
+    | upperCase 
+    | replace("old", "new");
+
+// With parameters
+$ids: $items | map($.id) | filter($ > 100);
+```
+
+### Math Expressions
+```isl
+// MUST wrap in {{ }}
+$total: {{ $price * $quantity * 1.1 }};
+$average: {{ ($sum / $count) }};
+```
+
+### String Interpolation
+```isl
+// Use backticks
+$greeting: `Hello ${$user.name}!`;
+$message: `Total: \${{ $price * $qty }}`;  // Escape $ for literal
+```
+
+## Syntax Rules (STRICT)
+
+1. **Every transformation needs `fun run($input)`** - main entry point
+2. **Math operations MUST be in `{{ }}`** - no exceptions
+3. **No parentheses around modifiers in conditions**:
+   ```isl
+   // ❌ WRONG
+   if (($text | length) > 5) ... endif
+   
+   // ✅ CORRECT
+   if ($text | length > 5) ... endif
+   ```
+
+4. **Return statement always needs a value**:
+   ```isl
+   // ❌ WRONG
+   return;
+   
+   // ✅ CORRECT
+   return {};
+   return $value;
+   ```
+
+5. **String interpolation depth rules**:
+   ```isl
+   // Simple variable (no dots)
+   `Hello $name`
+   
+   // Nested path (has dots) - needs ${}
+   `Hello ${$user.name}`
+   
+   // Math expression
+   `Total: {{ $a + $b }}`
+   ```
+
+## Standard File Structure
+
+```isl
+// 1. Main entry point (REQUIRED)
+fun run($input) {
+    // Your transformation here
+    id: $input.id | to.string;
+    name: `${$input.firstName} ${$input.lastName}`;
+    total: {{ $input.price * $input.quantity }};
+}
+
+// 2. Helper functions
+fun helperFunction($param) {
+    return $result;
+}
+
+// 3. Custom modifiers
+modifier customModifier($value, $param) {
+    return $transformed;
+}
+```
+
+## Common Built-in Modifiers
+
+### String Operations
+`trim`, `upperCase`, `lowerCase`, `capitalize`, `split(delimiter)`, `replace(old, new)`, `subString(start, end)`, `length`
+
+### Array Operations
+`map(expression)`, `filter(condition)`, `reduce(expression)`, `sort`, `reverse`, `unique`, `first`, `last`, `at(index)`, `length`, `isEmpty`, `push(item)`, `pop`
+
+### Type Conversions
+`to.string`, `to.number`, `to.decimal`, `to.boolean`, `to.array`, `to.json`, `to.xml(rootName)`
+
+### Date/Time
+`date.parse(format)`, `date.add(value, unit)`, `date.part(part)`, `to.string(format)`, `to.number` (epoch seconds)
+
+### Math
+`round`, `absolute`, `negate`, `precision(decimals)`, `round.up(decimals)`, `round.down(decimals)`
+
+### Object Operations
+`keys`, `kv` (key-value pairs), `select(path)`, `delete(prop)`, `getProperty(name)`
+
+## Control Flow
+
+### If/Else
+```isl
+// As statement
+if ($status == "active")
+    // do something
+else
+    // do something else
+endif
+
+// As expression
+$result: if ($paid) "success" else "pending" endif;
+```
+
+### Switch/Case
+```isl
+$result: switch ($code)
+    200 -> "OK";
+    404 -> "Not Found";
+    /^5\d\d/ -> "Server Error";
+    < 300 -> "Success";
+    else -> "Unknown";
+endswitch
+```
+
+### Foreach Loop
+```isl
+$transformed: foreach $item in $input.items
+    {
+        id: $item.id,
+        doubled: {{ $item.value * 2 }}
+    }
+endfor
+
+// With filter
+foreach $item in $items | filter($.price > 100)
+    // process expensive items
+endfor
+```
+
+### While Loop
+```isl
+$i: 0;
+while ($i < 10)
+    $i: {{ $i + 1 }};
+endwhile
+```
+
+## Operators
+
+### Comparison
+`==`, `!=`, `<`, `>`, `<=`, `>=`
+
+### Logical
+`and`, `or`, `!`
+
+### String
+`contains`, `startsWith`, `endsWith` (case-sensitive), `matches` (regex)
+
+### Other
+`in` (array membership), `is` (type check), `??` (coalesce - first non-null)
+
+## Best Practices
+
+1. **Use modifiers for simple transformations**
+   ```isl
+   // ✅ Good
+   $price: $input.amount | to.decimal | precision(2);
+   ```
+
+2. **Use functions for complex logic**
+   ```isl
+   // ✅ Good
+   fun calculateShipping($order) {
+       $baseRate: 5.99;
+       $weight: $order.totalWeight;
+       return if ($weight > 50) {{ $baseRate * 1.5 }} else $baseRate endif;
+   }
+   ```
+
+3. **Break down complex transformations**
+   ```isl
+   // ✅ Good - readable
+   fun run($input) {
+       customer: @.This.transformCustomer($input.customer);
+       items: $input.items | map(@.This.transformItem($));
+       shipping: @.This.calculateShipping($input);
+   }
+   ```
+
+4. **Use spread operator for object merging**
+   ```isl
+   {
+       ...$baseObject,
+       additionalField: "value"
+   }
+   ```
+
+5. **Proper spacing improves readability**
+   ```isl
+   // ✅ Good
+   $result: $items | map( $.id ) | filter( $ > 100 );
+   
+   // ❌ Avoid
+   $result:$items|map($.id)|filter($>100);
+   ```
+
+## Common Patterns
+
+### Transform nested arrays
+```isl
+items: $input.orders | map({
+    orderId: $.id,
+    items: $.lineItems | map({
+        productId: $.product.id,
+        quantity: $.qty
+    })
+})
+```
+
+### Conditional object properties
+```isl
+{
+    id: $input.id,
+    name: $input.name,
+    // Include email only if present
+    ...if ($input.email) { email: $input.email } else {} endif
+}
+```
+
+### Error handling with coalesce
+```isl
+displayName: $user.preferredName ?? $user.firstName ?? "Guest";
+amount: $transaction.amount | to.decimal ?? 0.0;
+```
+
+## What NOT to Do
+
+❌ Don't use JavaScript/Python/Java syntax
+❌ Don't use arrow functions `=>`
+❌ Don't use method chaining `.map().filter()`
+❌ Don't forget `{{ }}` around math
+❌ Don't use `return;` without value
+❌ Don't access properties after modifiers: `($items | last).id`
+❌ Don't put parentheses around modified values in conditions
+
+## Documentation
+- Critical that you ALSO read this guide: https://intuit.github.io/isl/ai/ this has more detailed guidelines.
+- Full Docs: https://intuit.github.io/isl/
+- Modifiers: https://intuit.github.io/isl/language/modifiers/
+- CLI: https://intuit.github.io/isl/cli/
+

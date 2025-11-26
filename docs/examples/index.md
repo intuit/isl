@@ -6,8 +6,6 @@ description: "Common ISL transformation patterns for JSON data manipulation incl
 excerpt: "Common ISL transformation patterns for JSON data manipulation including field mapping, array transformations, nested objects, and more."
 ---
 
-# ISL Transformation Examples
-
 This guide demonstrates common JSON transformation patterns using ISL. Each example shows how to handle typical data transformation scenarios.
 
 ## Table of Contents
@@ -29,7 +27,7 @@ This guide demonstrates common JSON transformation patterns using ISL. Each exam
 
 **Use Case:** Copy and rename fields from input to output
 
-**Documentation:** [Variables](/isl/language/variables/) | [Objects](/isl/language/objects/)
+**Documentation:** [Variables](/isl/language/variables/), [Objects](/isl/language/objects/)
 
 **Input:**
 ```json
@@ -64,7 +62,7 @@ This guide demonstrates common JSON transformation patterns using ISL. Each exam
 
 **Use Case:** Rename multiple fields and reorganize structure
 
-**Documentation:** [Objects](/isl/language/objects/) | [Variables](/isl/language/variables/)
+**Documentation:** [Objects](/isl/language/objects/), [Variables](/isl/language/variables/)
 
 **Input:**
 ```json
@@ -106,7 +104,7 @@ This guide demonstrates common JSON transformation patterns using ISL. Each exam
 
 **Use Case:** Transform each item in an array
 
-**Documentation:** [Loops](/isl/language/loops/) | [Built-in Modifiers](/isl/language/modifiers/)
+**Documentation:** [Loops](/isl/language/loops/), [Built-in Modifiers](/isl/language/modifiers/)
 
 **Input:**
 ```json
@@ -159,7 +157,7 @@ or using `|map ( )`
 
 **Use Case:** Flatten nested structure into flat object
 
-**Documentation:** [Objects](/isl/language/objects/) | [Variables](/isl/language/variables/)
+**Documentation:** [Objects](/isl/language/objects/), [Variables](/isl/language/variables/)
 
 **Input:**
 ```json
@@ -203,7 +201,7 @@ or using `|map ( )`
 
 **Use Case:** Create nested structure from flat data
 
-**Documentation:** [Objects](/isl/language/objects/) | [Variables](/isl/language/variables/)
+**Documentation:** [Objects](/isl/language/objects/), [Variables](/isl/language/variables/)
 
 **Input:**
 ```json
@@ -252,7 +250,7 @@ or using `|map ( )`
 
 **Use Case:** Include fields based on conditions
 
-**Documentation:** [Conditions](/isl/language/conditions/) | [Objects](/isl/language/objects/)
+**Documentation:** [Conditions](/isl/language/conditions/), [Objects](/isl/language/objects/)
 
 **Input:**
 ```json
@@ -290,7 +288,7 @@ or using `|map ( )`
 
 **Use Case:** Convert array of key-value pairs to object
 
-**Documentation:** [Functions](/isl/language/functions/) | [Built-in Modifiers](/isl/language/modifiers/) | [Loops](/isl/language/loops/)
+**Documentation:** [Functions](/isl/language/functions/), [Built-in Modifiers](/isl/language/modifiers/), [Loops](/isl/language/loops/)
 
 **Input:**
 ```json
@@ -306,12 +304,15 @@ or using `|map ( )`
 **ISL Transformation:**
 ```isl
 fun run($input) {
-  $result: $input | to.object;  // convert any [{key/value}] to object
+  $result: $input.attributes | to.object;  // convert any [{key/value}] to object
   
-  // alternatively use the foreach
-  foreach $attr in $input.attributes
-    $result.`$attr.key`: $attr.value;
-  endfor
+  // alternatively use the foreach - not as efficient
+  // foreach $attr in $input.attributes
+  //  $result = {
+  //      ...$result,
+  //      `${ $attr.key }`: $attr.value
+  //  }
+  // endfor
   
   return $result;
 }
@@ -332,7 +333,7 @@ fun run($input) {
 
 **Use Case:** Convert object to a Key/Value array
 
-**Documentation:** [Functions](/isl/language/functions/) | [Built-in Modifiers](/isl/language/modifiers/)
+**Documentation:** [Functions](/isl/language/functions/), [Built-in Modifiers](/isl/language/modifiers/)
 
 **Input:**
 ```json
@@ -381,7 +382,7 @@ fun run($input) {
 
 **Use Case:** Filter array and transform matching items
 
-**Documentation:** [Loops](/isl/language/loops/) | [Built-in Modifiers](/isl/language/modifiers/) | [Conditions](/isl/language/conditions/)
+**Documentation:** [Loops](/isl/language/loops/), [Built-in Modifiers](/isl/language/modifiers/), [Conditions](/isl/language/conditions/)
 
 **Input:**
 ```json
@@ -422,7 +423,7 @@ fun run($input) {
 
 **Use Case:** Combine data from multiple input sources
 
-**Documentation:** [Objects](/isl/language/objects/) | [Variables](/isl/language/variables/)
+**Documentation:** [Objects](/isl/language/objects/), [Variables](/isl/language/variables/)
 
 **Input:**
 ```json
@@ -507,7 +508,7 @@ fun run($input) {
 
 **Use Case:** Real-world transformation of an order from external API format to internal format
 
-**Documentation:** [Loops](/isl/language/loops/) | [Math Expressions](/isl/language/math/) | [Dates & Times](/isl/types/dates/) | [Built-in Modifiers](/isl/language/modifiers/)
+**Documentation:** [Loops](/isl/language/loops/), [Math Expressions](/isl/language/math/), [Dates & Times](/isl/types/dates/), [Built-in Modifiers](/isl/language/modifiers/)
 
 **Input:**
 ```json
@@ -598,7 +599,7 @@ fun run($input) {
 
 ## Date Processing
 
-**Documentation:** [Dates & Times](/isl/types/dates/) | [Built-in Modifiers](/isl/language/modifiers/)
+**Documentation:** [Dates & Times](/isl/types/dates/), [Built-in Modifiers](/isl/language/modifiers/)
 
 ### Parsing Dates with Multiple Formats
 
@@ -741,7 +742,7 @@ fun run($input) {
 
 **Use Case:** Convert dates from one format to another
 
-**Documentation:** [Dates & Times](/isl/types/dates/) | [Built-in Modifiers](/isl/language/modifiers/)
+**Documentation:** [Dates & Times](/isl/types/dates/), [Built-in Modifiers](/isl/language/modifiers/)
 
 **Input:**
 ```json

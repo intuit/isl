@@ -1,0 +1,142 @@
+{
+  "functions": [
+    {
+      "name": "sendEmail",
+      "description": "Sends an email using the custom email service",
+      "parameters": [
+        {
+          "name": "to",
+          "type": "String",
+          "description": "Email recipient address"
+        },
+        {
+          "name": "subject",
+          "type": "String",
+          "description": "Email subject line"
+        },
+        {
+          "name": "body",
+          "type": "String",
+          "description": "Email body content"
+        },
+        {
+          "name": "attachments",
+          "type": "Array",
+          "optional": true,
+          "description": "Optional array of attachment file paths"
+        }
+      ],
+      "returns": {
+        "type": "Object",
+        "description": "Result object with success status and message ID"
+      },
+      "examples": [
+        "$result: @.This.sendEmail($user.email, \"Welcome\", `Hello ${$user.name}!`);"
+      ]
+    },
+    {
+      "name": "fetchFromDatabase",
+      "description": "Fetches data from the custom database",
+      "parameters": [
+        {
+          "name": "query",
+          "type": "String",
+          "description": "SQL query or query object"
+        },
+        {
+          "name": "params",
+          "type": "Array",
+          "optional": true,
+          "description": "Query parameters for prepared statements"
+        }
+      ],
+      "returns": {
+        "type": "Array",
+        "description": "Array of result rows"
+      },
+      "examples": [
+        "$users: @.This.fetchFromDatabase(\"SELECT * FROM users WHERE active = ?\", [true]);",
+        "$orders: @.This.fetchFromDatabase(\"SELECT * FROM orders WHERE user_id = ?\", [$userId]);"
+      ]
+    }
+  ],
+  "modifiers": [
+    {
+      "name": "formatPhone",
+      "description": "Formats a phone number to a standard format",
+      "parameters": [
+        {
+          "name": "format",
+          "type": "String",
+          "optional": true,
+          "defaultValue": "US",
+          "description": "Phone format style (US, INTERNATIONAL, E164)"
+        }
+      ],
+      "returns": {
+        "type": "String",
+        "description": "Formatted phone number"
+      },
+      "examples": [
+        "$phone: $user.phone | formatPhone;",
+        "$phone: $user.phone | formatPhone(\"INTERNATIONAL\");"
+      ]
+    },
+    {
+      "name": "encrypt",
+      "description": "Encrypts a string using the configured encryption algorithm",
+      "parameters": [
+        {
+          "name": "algorithm",
+          "type": "String",
+          "optional": true,
+          "defaultValue": "AES256",
+          "description": "Encryption algorithm to use"
+        }
+      ],
+      "returns": {
+        "type": "String",
+        "description": "Encrypted string in base64 format"
+      },
+      "examples": [
+        "$encrypted: $sensitiveData | encrypt;",
+        "$encrypted: $data | encrypt(\"RSA\");"
+      ]
+    },
+    {
+      "name": "validateSSN",
+      "description": "Validates a Social Security Number format",
+      "parameters": [],
+      "returns": {
+        "type": "Boolean",
+        "description": "True if SSN is valid, false otherwise"
+      },
+      "examples": [
+        "if ($input.ssn | validateSSN)\n    $valid: true\nendif"
+      ]
+    },
+    {
+      "name": "toSlug",
+      "description": "Converts a string to a URL-friendly slug",
+      "parameters": [
+        {
+          "name": "separator",
+          "type": "String",
+          "optional": true,
+          "defaultValue": "-",
+          "description": "Character to use as separator"
+        }
+      ],
+      "returns": {
+        "type": "String",
+        "description": "URL-friendly slug string"
+      },
+      "examples": [
+        "$slug: $article.title | toSlug;",
+        "$slug: \"Hello World!\" | toSlug; // Returns: hello-world",
+        "$slug: \"Product Name\" | toSlug(\"_\"); // Returns: product_name"
+      ]
+    }
+  ]
+}
+

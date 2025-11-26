@@ -5,4 +5,8 @@ nav_order: 101
 
 What's upcoming for ISL:
 
-- [WIP] Improved Transformation Performance.
+- Support for variable level dynamic properties 
+    ```isl
+    $input.`$key` = $value
+    ```
+- Improved Transformation Performance.
