@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
+import { IslExtensionsManager } from './extensions';
 
 export class IslHoverProvider implements vscode.HoverProvider {
     
-    provideHover(
+    constructor(private extensionsManager: IslExtensionsManager) {}
+    
+    async provideHover(
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken
-    ): vscode.Hover | undefined {
+    ): Promise<vscode.Hover | undefined> {
         const range = document.getWordRangeAtPosition(position);
         if (!range) {
             return undefined;
@@ -15,18 +18,149 @@ export class IslHoverProvider implements vscode.HoverProvider {
         const word = document.getText(range);
         const line = document.lineAt(position.line).text;
 
+        // Load custom extensions
+        const extensions = await this.extensionsManager.getExtensionsForDocument(document);
+
         // Check what kind of token we're hovering over
         if (this.isKeyword(word)) {
             return this.getKeywordHover(word);
         } else if (line.includes('@.' + word)) {
             return this.getServiceHover(word);
         } else if (this.isModifier(word, line)) {
+            // Check if it's a custom modifier first
+            if (extensions.modifiers.has(word)) {
+                return this.getCustomModifierHover(extensions.modifiers.get(word)!);
+            }
             return this.getModifierHover(word, line);
         } else if (line.includes('$' + word)) {
             return this.getVariableHover(word, document);
+        } else if (line.includes('@.This.' + word) || line.match(new RegExp(`@\\.${word}\\s*\\(`))) {
+            // Check if it's a custom function
+            if (extensions.functions.has(word)) {
+                return this.getCustomFunctionHover(extensions.functions.get(word)!);
+            }
         }
 
         return undefined;
+    }
+
+    private getCustomFunctionHover(func: import('./extensions').IslFunctionDefinition): vscode.Hover {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        
+        // Build signature
+        const params = func.parameters.map(p => {
+            let result = `${p.name}`;
+            if (p.type) {
+                result += `: ${p.type}`;
+            }
+            if (p.optional) {
+                result += '?';
+            }
+            return result;
+        }).join(', ');
+        
+        const returnType = func.returns?.type ? `: ${func.returns.type}` : '';
+        md.appendMarkdown(`**\`${func.name}(${params})${returnType}\`** *(custom function)*\n\n`);
+        
+        if (func.description) {
+            md.appendMarkdown(`${func.description}\n\n`);
+        }
+        
+        if (func.parameters.length > 0) {
+            md.appendMarkdown('**Parameters:**\n');
+            for (const param of func.parameters) {
+                const optional = param.optional ? ' (optional)' : '';
+                const type = param.type ? `: ${param.type}` : '';
+                const desc = param.description ? ` - ${param.description}` : '';
+                md.appendMarkdown(`- \`${param.name}${type}\`${optional}${desc}\n`);
+            }
+            md.appendMarkdown('\n');
+        }
+        
+        if (func.returns) {
+            md.appendMarkdown('**Returns:**');
+            if (func.returns.type) {
+                md.appendMarkdown(` \`${func.returns.type}\``);
+            }
+            if (func.returns.description) {
+                md.appendMarkdown(` - ${func.returns.description}`);
+            }
+            md.appendMarkdown('\n\n');
+        }
+        
+        if (func.examples && func.examples.length > 0) {
+            md.appendMarkdown('**Examples:**\n');
+            for (const example of func.examples) {
+                md.appendMarkdown('```isl\n' + example + '\n```\n');
+            }
+        }
+        
+        md.appendMarkdown('\n---\n*Defined in .islextensions*');
+        
+        return new vscode.Hover(md);
+    }
+
+    private getCustomModifierHover(mod: import('./extensions').IslModifierDefinition): vscode.Hover {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        
+        // Build signature
+        if (mod.parameters.length > 0) {
+            const params = mod.parameters.map(p => {
+                let result = `${p.name}`;
+                if (p.type) {
+                    result += `: ${p.type}`;
+                }
+                if (p.optional) {
+                    result += '?';
+                }
+                return result;
+            }).join(', ');
+            
+            const returnType = mod.returns?.type ? `: ${mod.returns.type}` : '';
+            md.appendMarkdown(`**\`${mod.name}(${params})${returnType}\`** *(custom modifier)*\n\n`);
+        } else {
+            md.appendMarkdown(`**\`${mod.name}\`** *(custom modifier)*\n\n`);
+        }
+        
+        if (mod.description) {
+            md.appendMarkdown(`${mod.description}\n\n`);
+        }
+        
+        if (mod.parameters.length > 0) {
+            md.appendMarkdown('**Parameters:**\n');
+            for (const param of mod.parameters) {
+                const optional = param.optional ? ' (optional)' : '';
+                const type = param.type ? `: ${param.type}` : '';
+                const desc = param.description ? ` - ${param.description}` : '';
+                const defaultVal = param.defaultValue ? ` (default: ${param.defaultValue})` : '';
+                md.appendMarkdown(`- \`${param.name}${type}\`${optional}${defaultVal}${desc}\n`);
+            }
+            md.appendMarkdown('\n');
+        }
+        
+        if (mod.returns) {
+            md.appendMarkdown('**Returns:**');
+            if (mod.returns.type) {
+                md.appendMarkdown(` \`${mod.returns.type}\``);
+            }
+            if (mod.returns.description) {
+                md.appendMarkdown(` - ${mod.returns.description}`);
+            }
+            md.appendMarkdown('\n\n');
+        }
+        
+        if (mod.examples && mod.examples.length > 0) {
+            md.appendMarkdown('**Examples:**\n');
+            for (const example of mod.examples) {
+                md.appendMarkdown('```isl\n' + example + '\n```\n');
+            }
+        }
+        
+        md.appendMarkdown('\n---\n*Defined in .islextensions*');
+        
+        return new vscode.Hover(md);
     }
 
     private isKeyword(word: string): boolean {

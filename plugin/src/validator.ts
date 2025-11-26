@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { IslExtensionsManager } from './extensions';
 
 export class IslValidator {
     private diagnosticCollection: vscode.DiagnosticCollection;
@@ -114,7 +115,7 @@ export class IslValidator {
         'Pagination.Cursor', 'Pagination.Page', 'Pagination.Date', 'Pagination.Offset', 'Pagination.Keyset'
     ]);
 
-    constructor() {
+    constructor(private extensionsManager: IslExtensionsManager) {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('isl');
     }
 
@@ -141,6 +142,9 @@ export class IslValidator {
         const diagnostics: vscode.Diagnostic[] = [];
         const text = document.getText();
         const lines = text.split('\n');
+
+        // Load custom extensions
+        const extensions = await this.extensionsManager.getExtensionsForDocument(document);
 
         // Basic syntax validation
         for (let i = 0; i < lines.length; i++) {
@@ -170,8 +174,8 @@ export class IslValidator {
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions);
-            this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers);
+            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions);
+            this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers, extensions);
             this.checkVariableUsage(line, i, diagnostics, document, declaredVariables);
             this.checkPaginationPropertyAccess(line, i, diagnostics, document, paginationVariables);
             this.checkLongObjectDeclaration(line, i, diagnostics, document);
@@ -746,7 +750,7 @@ export class IslValidator {
         return variables;
     }
 
-    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>) {
+    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -761,8 +765,8 @@ export class IslValidator {
         while ((match = functionCallPattern.exec(codeOnlyLine)) !== null) {
             const funcName = match[1];
             
-            // Skip if it's a built-in function or user-defined function
-            if (this.builtInFunctions.has(funcName) || userDefinedFunctions.has(funcName)) {
+            // Skip if it's a built-in function, user-defined function, or custom extension function
+            if (this.builtInFunctions.has(funcName) || userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
                 continue;
             }
 
@@ -788,7 +792,7 @@ export class IslValidator {
         }
     }
 
-    private checkModifierUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedModifiers: Set<string>) {
+    private checkModifierUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedModifiers: Set<string>, extensions: import('./extensions').IslExtensions) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -803,8 +807,8 @@ export class IslValidator {
         while ((match = modifierPattern.exec(codeOnlyLine)) !== null) {
             const modifierName = match[1];
             
-            // Check if it's a user-defined modifier
-            if (userDefinedModifiers.has(modifierName)) {
+            // Check if it's a user-defined modifier or custom extension modifier
+            if (userDefinedModifiers.has(modifierName) || extensions.modifiers.has(modifierName)) {
                 continue;
             }
             

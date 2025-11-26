@@ -2,6 +2,29 @@
 
 All notable changes to the ISL Language Support extension will be documented in this file.
 
+## [1.1.0] - TBD
+
+### Added
+- **Custom Extensions Support**: Define project-specific functions and modifiers
+  - `.islextensions` file support in workspace root
+  - JSON-based definition format for functions and modifiers
+  - Full parameter and return type documentation
+  - IntelliSense/autocomplete integration for custom definitions
+  - Hover documentation for custom functions and modifiers
+  - Validation recognizes custom extensions (no warnings)
+  - Auto-reload when `.islextensions` file changes
+  - File watcher for automatic extension updates
+  - Comprehensive documentation and examples
+  - Support for optional parameters and default values
+  - Usage examples in hover tooltips
+  - See [ISL Extensions Documentation](docs/EXTENSIONS.md) for details
+
+### Improved
+- Enhanced completion provider to support custom extensions
+- Enhanced hover provider with detailed custom extension documentation
+- Enhanced validator to recognize custom functions and modifiers
+- Better extensibility architecture for future enhancements
+
 ## [1.0.0] - 2025-11-26
 
 ### Added

@@ -116,3 +116,7 @@ jacoco.exec
 
 # Outputs from tests
 output-*.json
+
+# Test files for extensions
+.islextensions
+test-extensions.isl

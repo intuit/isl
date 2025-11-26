@@ -95,6 +95,14 @@ Will output:
 - String interpolation: `${variable}`, `{{math}}`, `@.Function()`
 - Modifiers, operators, control flow, and more
 
+### 🔧 Custom Extensions Support
+**NEW!** Define your own project-specific functions and modifiers:
+- Create a `.islextensions` file in your workspace root
+- Define custom functions and modifiers with full type information
+- Get IntelliSense, hover documentation, and validation for your extensions
+- Auto-reload when definitions change
+- [Learn more about ISL Extensions](docs/EXTENSIONS.md)
+
 ### 💡 IntelliSense & Code Completion
 Smart completion for:
 - **Keywords**: `fun`, `foreach`, `if`, `switch`, etc.
@@ -154,6 +162,42 @@ Hover over any element for:
 1. Install the extension
 2. Open or create a `.isl` file
 3. Start coding with full language support!
+
+### Defining Custom Extensions
+
+Want IntelliSense for your project-specific functions and modifiers?
+
+1. Create a `.islextensions` file in your workspace root
+2. Define your custom functions and modifiers in JSON format
+3. Enjoy full IDE support for your extensions!
+
+**Example `.islextensions`:**
+```json
+{
+  "functions": [
+    {
+      "name": "sendEmail",
+      "description": "Sends an email via custom service",
+      "parameters": [
+        {"name": "to", "type": "String"},
+        {"name": "subject", "type": "String"},
+        {"name": "body", "type": "String"}
+      ]
+    }
+  ],
+  "modifiers": [
+    {
+      "name": "formatPhone",
+      "description": "Formats phone numbers",
+      "parameters": [
+        {"name": "format", "type": "String", "optional": true}
+      ]
+    }
+  ]
+}
+```
+
+See [ISL Extensions Documentation](docs/EXTENSIONS.md) for complete details.
 
 ### Example
 
@@ -222,6 +266,8 @@ Ask your AI to:
 - [ISL GitHub Repository](https://github.com/intuit/isl)
 - [Language Reference](https://intuit.github.io/isl/dsl/)
 - [Quick Start Guide](https://intuit.github.io/isl/quickstart/)
+- [ISL Extensions Guide](docs/EXTENSIONS.md) - Define custom functions and modifiers
+- [Example `.islextensions` file](.islextensions.example)
 
 ## Release Notes
 

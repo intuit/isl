@@ -10,6 +10,7 @@ import { IslSignatureHelpProvider } from './signature';
 import { IslInlayHintsProvider } from './inlayhints';
 import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject } from './codeactions';
 import { IslDocumentHighlightProvider } from './highlights';
+import { IslExtensionsManager } from './extensions';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('ISL Language Support is now active');
@@ -19,6 +20,10 @@ export function activate(context: vscode.ExtensionContext) {
         { scheme: 'untitled', language: 'isl' }
     ];
 
+    // Initialize extensions manager
+    const extensionsManager = new IslExtensionsManager();
+    context.subscriptions.push(extensionsManager);
+
     // Register formatter
     const formatter = new IslDocumentFormatter();
     context.subscriptions.push(
@@ -27,7 +32,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // Register validator
-    const validator = new IslValidator();
+    const validator = new IslValidator(extensionsManager);
     context.subscriptions.push(validator);
 
     // Validate on open, save, and change
@@ -57,16 +62,27 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     // Register completion provider
-    const completionProvider = new IslCompletionProvider();
+    const completionProvider = new IslCompletionProvider(extensionsManager);
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(documentSelector, completionProvider, '$', '@', '.', '|')
     );
 
     // Register hover provider
-    const hoverProvider = new IslHoverProvider();
+    const hoverProvider = new IslHoverProvider(extensionsManager);
     context.subscriptions.push(
         vscode.languages.registerHoverProvider(documentSelector, hoverProvider)
     );
+
+    // Watch for extensions file changes and revalidate
+    extensionsManager.onDidChange((uri) => {
+        // Revalidate all open ISL documents
+        vscode.workspace.textDocuments.forEach(doc => {
+            if (doc.languageId === 'isl') {
+                validator.validate(doc);
+            }
+        });
+        vscode.window.showInformationMessage('ISL extensions reloaded');
+    });
 
     // Register definition provider
     const definitionProvider = new IslDefinitionProvider();

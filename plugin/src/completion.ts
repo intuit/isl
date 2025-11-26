@@ -1,14 +1,20 @@
 import * as vscode from 'vscode';
+import { IslExtensionsManager, IslFunctionDefinition, IslModifierDefinition } from './extensions';
 
 export class IslCompletionProvider implements vscode.CompletionItemProvider {
     
-    provideCompletionItems(
+    constructor(private extensionsManager: IslExtensionsManager) {}
+    
+    async provideCompletionItems(
         document: vscode.TextDocument,
         position: vscode.Position,
         token: vscode.CancellationToken,
         context: vscode.CompletionContext
-    ): vscode.CompletionItem[] | vscode.CompletionList {
+    ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
         const linePrefix = document.lineAt(position).text.substr(0, position.character);
+        
+        // Load custom extensions
+        const extensions = await this.extensionsManager.getExtensionsForDocument(document);
         
         // Check for pagination cursor property access: $cursor.
         const paginationPropertyMatch = linePrefix.match(/\$([a-zA-Z_][a-zA-Z0-9_]*)\.(\w*)$/);
@@ -20,15 +26,15 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             }
         }
         
-        // Check for @.This. - show functions from current file
+        // Check for @.This. - show functions from current file + custom extensions
         if (linePrefix.match(/@\.This\.[\w]*$/)) {
-            return this.getFunctionsFromDocument(document);
+            return this.getFunctionsFromDocument(document, extensions);
         }
         // Provide different completions based on context
         else if (linePrefix.endsWith('@.')) {
             return this.getServiceCompletions();
         } else if (linePrefix.match(/\|\s*[\w.]*$/)) {
-            return this.getModifierCompletions();
+            return this.getModifierCompletions(extensions);
         } else if (linePrefix.match(/\$\w*$/)) {
             return this.getVariableCompletions(document);
         } else {
@@ -36,7 +42,7 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         }
     }
 
-    private getFunctionsFromDocument(document: vscode.TextDocument): vscode.CompletionItem[] {
+    private getFunctionsFromDocument(document: vscode.TextDocument, extensions: import('./extensions').IslExtensions): vscode.CompletionItem[] {
         const functions: vscode.CompletionItem[] = [];
         const text = document.getText();
         const lines = text.split('\n');
@@ -82,7 +88,89 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             }
         }
         
+        // Add custom functions from extensions
+        for (const [name, funcDef] of extensions.functions) {
+            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Function);
+            item.detail = this.formatFunctionSignature(funcDef);
+            
+            // Create snippet with parameters
+            const paramSnippets = funcDef.parameters.map((param, idx) => {
+                return `\${${idx + 1}:${param.name}}`;
+            });
+            
+            if (paramSnippets.length > 0) {
+                item.insertText = new vscode.SnippetString(`${name}(${paramSnippets.join(', ')})`);
+            } else {
+                item.insertText = new vscode.SnippetString(`${name}()`);
+            }
+            
+            // Add documentation
+            item.documentation = this.formatFunctionDocumentation(funcDef);
+            
+            // Mark as custom extension
+            item.tags = [vscode.CompletionItemTag.Deprecated]; // Using this as a visual indicator
+            
+            functions.push(item);
+        }
+        
         return functions;
+    }
+
+    private formatFunctionSignature(func: IslFunctionDefinition): string {
+        const params = func.parameters.map(p => {
+            let result = `${p.name}`;
+            if (p.type) {
+                result += `: ${p.type}`;
+            }
+            if (p.optional) {
+                result += '?';
+            }
+            return result;
+        }).join(', ');
+        
+        return `function ${func.name}(${params})${func.returns?.type ? ': ' + func.returns.type : ''} (custom)`;
+    }
+
+    private formatFunctionDocumentation(func: IslFunctionDefinition): vscode.MarkdownString {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        
+        if (func.description) {
+            md.appendMarkdown(`${func.description}\n\n`);
+        }
+        
+        if (func.parameters.length > 0) {
+            md.appendMarkdown('**Parameters:**\n');
+            for (const param of func.parameters) {
+                const optional = param.optional ? ' (optional)' : '';
+                const type = param.type ? `: ${param.type}` : '';
+                const desc = param.description ? ` - ${param.description}` : '';
+                md.appendMarkdown(`- \`${param.name}${type}\`${optional}${desc}\n`);
+            }
+            md.appendMarkdown('\n');
+        }
+        
+        if (func.returns) {
+            md.appendMarkdown('**Returns:**');
+            if (func.returns.type) {
+                md.appendMarkdown(` \`${func.returns.type}\``);
+            }
+            if (func.returns.description) {
+                md.appendMarkdown(` - ${func.returns.description}`);
+            }
+            md.appendMarkdown('\n\n');
+        }
+        
+        if (func.examples && func.examples.length > 0) {
+            md.appendMarkdown('**Examples:**\n');
+            for (const example of func.examples) {
+                md.appendMarkdown('```isl\n' + example + '\n```\n');
+            }
+        }
+        
+        md.appendMarkdown('\n*Custom function from .islextensions*');
+        
+        return md;
     }
 
     private getDocumentationForFunction(lines: string[], functionLineIndex: number): string | undefined {
@@ -198,7 +286,7 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         });
     }
 
-    private getModifierCompletions(): vscode.CompletionItem[] {
+    private getModifierCompletions(extensions: import('./extensions').IslExtensions): vscode.CompletionItem[] {
         const modifiers = [
             // Type conversions
             { label: 'to.string', detail: 'Convert to string', insertText: 'to.string', kind: vscode.CompletionItemKind.Method, docs: 'Converts value to string.\n\nFor dates: `to.string(format)`' },
@@ -351,7 +439,7 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             { label: 'endsWith', detail: 'Check if ends with', insertText: 'endsWith("${1:suffix}")', kind: vscode.CompletionItemKind.Method },
         ];
 
-        return modifiers.map(m => {
+        const completionItems = modifiers.map(m => {
             const item = new vscode.CompletionItem(m.label, m.kind);
             item.detail = m.detail;
             item.insertText = new vscode.SnippetString(m.insertText);
@@ -360,6 +448,95 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             }
             return item;
         });
+
+        // Add custom modifiers from extensions
+        for (const [name, modDef] of extensions.modifiers) {
+            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Method);
+            item.detail = this.formatModifierSignature(modDef);
+            
+            // Create snippet with parameters
+            const paramSnippets = modDef.parameters.map((param, idx) => {
+                if (param.defaultValue) {
+                    return `\${${idx + 1}:${param.defaultValue}}`;
+                }
+                return `\${${idx + 1}:${param.name}}`;
+            });
+            
+            if (paramSnippets.length > 0) {
+                item.insertText = new vscode.SnippetString(`${name}(${paramSnippets.join(', ')})`);
+            } else {
+                item.insertText = new vscode.SnippetString(name);
+            }
+            
+            // Add documentation
+            item.documentation = this.formatModifierDocumentation(modDef);
+            
+            completionItems.push(item);
+        }
+
+        return completionItems;
+    }
+
+    private formatModifierSignature(mod: IslModifierDefinition): string {
+        if (mod.parameters.length === 0) {
+            return `modifier ${mod.name} (custom)`;
+        }
+        
+        const params = mod.parameters.map(p => {
+            let result = `${p.name}`;
+            if (p.type) {
+                result += `: ${p.type}`;
+            }
+            if (p.optional) {
+                result += '?';
+            }
+            return result;
+        }).join(', ');
+        
+        return `modifier ${mod.name}(${params})${mod.returns?.type ? ': ' + mod.returns.type : ''} (custom)`;
+    }
+
+    private formatModifierDocumentation(mod: IslModifierDefinition): vscode.MarkdownString {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        
+        if (mod.description) {
+            md.appendMarkdown(`${mod.description}\n\n`);
+        }
+        
+        if (mod.parameters.length > 0) {
+            md.appendMarkdown('**Parameters:**\n');
+            for (const param of mod.parameters) {
+                const optional = param.optional ? ' (optional)' : '';
+                const type = param.type ? `: ${param.type}` : '';
+                const desc = param.description ? ` - ${param.description}` : '';
+                const defaultVal = param.defaultValue ? ` (default: ${param.defaultValue})` : '';
+                md.appendMarkdown(`- \`${param.name}${type}\`${optional}${defaultVal}${desc}\n`);
+            }
+            md.appendMarkdown('\n');
+        }
+        
+        if (mod.returns) {
+            md.appendMarkdown('**Returns:**');
+            if (mod.returns.type) {
+                md.appendMarkdown(` \`${mod.returns.type}\``);
+            }
+            if (mod.returns.description) {
+                md.appendMarkdown(` - ${mod.returns.description}`);
+            }
+            md.appendMarkdown('\n\n');
+        }
+        
+        if (mod.examples && mod.examples.length > 0) {
+            md.appendMarkdown('**Examples:**\n');
+            for (const example of mod.examples) {
+                md.appendMarkdown('```isl\n' + example + '\n```\n');
+            }
+        }
+        
+        md.appendMarkdown('\n*Custom modifier from .islextensions*');
+        
+        return md;
     }
 
     private getVariableCompletions(document: vscode.TextDocument): vscode.CompletionItem[] {
