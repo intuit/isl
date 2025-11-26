@@ -1,221 +1,181 @@
 # ISL Extension - Setup Guide
 
-This guide helps you set up the ISL Language Support extension for development and use.
+Guide for installing and setting up the ISL Language Support extension.
 
 ## For Users
 
-### Installation from Marketplace (Once Published)
+### Installation
 
+#### From Marketplace
 1. Open VS Code or Cursor
 2. Go to Extensions (Ctrl+Shift+X / Cmd+Shift+X)
 3. Search for "ISL Language Support"
 4. Click Install
 
-### Manual Installation
-
-1. Download the `.vsix` file
+#### Manual Installation
+1. Download the `.vsix` file from releases
 2. Open VS Code/Cursor
-3. Go to Extensions view
-4. Click "..." menu → "Install from VSIX..."
-5. Select the downloaded file
+3. Extensions view → "..." menu → "Install from VSIX..."
+4. Select the downloaded file
 
 ### Configuration
 
-After installation, configure the extension:
+After installation, open Settings (Ctrl+,) and search for "ISL":
 
-1. Open Settings (Ctrl+, / Cmd+,)
-2. Search for "ISL"
-3. Configure:
-   - **ISL Command Path**: Set path to `isl.sh` or `isl.bat`
-   - **Java Home**: Set JAVA_HOME if Java is not in PATH
-   - **Formatting**: Adjust indentation preferences
-   - **Validation**: Enable/disable validation features
+**Essential Settings:**
+- `isl.execution.islCommand`: Path to `isl.sh` or `isl.bat`
+- `isl.execution.javaHome`: Java installation path (if not in PATH)
+
+**Optional Settings:**
+- `isl.formatting.indentSize`: Spaces per indent level (default: 4)
+- `isl.formatting.useTabs`: Use tabs instead of spaces
+- `isl.validation.enabled`: Enable/disable validation
+
+### ISL Runtime Setup
+
+To execute ISL transformations, you need the ISL runtime:
+
+1. **Install Java 11+**
+   ```bash
+   java -version  # Verify installation
+   ```
+
+2. **Get ISL Runtime**
+   - Clone: https://github.com/intuit/isl
+   - Build: `./gradlew build`
+   - Or use pre-built `isl.sh` / `isl.bat`
+
+3. **Configure Extension**
+   - Set `isl.execution.islCommand` to path of ISL script
+   - Example: `/path/to/isl/isl.sh`
+
+### Verification
+
+1. Open any `.isl` file
+2. You should see:
+   - Syntax highlighting
+   - IntelliSense suggestions
+   - Validation indicators
+3. Test execution: Right-click → "ISL: Run Transformation"
 
 ## For Developers
 
 ### Prerequisites
-
-- Node.js 18+ and npm
+- Node.js 18+
 - TypeScript 5+
 - VS Code or Cursor
 
 ### Development Setup
 
-1. **Clone and Navigate**
-   ```bash
-   cd plugin
-   ```
+```bash
+# Navigate to plugin directory
+cd plugin
 
-2. **Install Dependencies**
-   ```bash
-   npm install
-   ```
+# Install dependencies
+npm install
 
-3. **Compile TypeScript**
-   ```bash
-   npm run compile
-   ```
+# Compile TypeScript
+npm run compile
 
-4. **Watch Mode (for development)**
-   ```bash
-   npm run watch
-   ```
+# Start watch mode (auto-recompile)
+npm run watch
+```
 
-5. **Run Extension**
-   - Open the `plugin` folder in VS Code
-   - Press `F5` to launch Extension Development Host
-   - Open a `.isl` file to test
+### Running Extension
+
+1. Open `plugin` folder in VS Code
+2. Press `F5` to launch Extension Development Host
+3. Open a `.isl` file to test features
 
 ### Project Structure
 
 ```
 plugin/
-├── src/                      # TypeScript source files
-│   ├── extension.ts          # Main extension entry point
-│   ├── formatter.ts          # Code formatting
-│   ├── validator.ts          # Syntax validation
-│   ├── executor.ts           # ISL execution
-│   ├── completion.ts         # Code completion provider
-│   ├── hover.ts              # Hover documentation
-│   └── definition.ts         # Go to definition
+├── src/                      # TypeScript source
+│   ├── extension.ts          # Entry point
+│   ├── completion.ts         # Code completion
+│   ├── validator.ts          # Validation
+│   ├── formatter.ts          # Formatting
+│   └── ...                   # Other providers
 ├── syntaxes/                 # Syntax highlighting
-│   └── isl.tmLanguage.json   # TextMate grammar
 ├── snippets/                 # Code snippets
-│   └── isl.json              # ISL snippets
-├── images/                   # Assets
-│   ├── icon.png              # Extension icon
-│   └── file-icon.svg         # File icon
-├── package.json              # Extension manifest
-├── language-configuration.json # Language config
-└── tsconfig.json             # TypeScript config
+└── package.json              # Extension manifest
 ```
 
-### Building
+### Building & Packaging
 
 ```bash
+# Compile
 npm run compile
-```
 
-### Packaging
-
-```bash
+# Package for distribution
 npm install -g @vscode/vsce
 vsce package
 ```
 
-This creates `isl-language-support-<version>.vsix`
+Creates `isl-language-support-X.X.X.vsix`
 
 ### Testing
 
-1. **Manual Testing**
-   - Press F5 in VS Code
-   - Test all features with sample `.isl` files
-
-2. **Test Files**
-   - Use files from `../isl-cmd/examples/`
-   - Create edge case test files
-
-3. **Feature Testing Checklist**
-   - [ ] Syntax highlighting
-   - [ ] Code completion (keywords, services, modifiers)
-   - [ ] Validation (errors shown correctly)
-   - [ ] Hover documentation
-   - [ ] Go to definition
-   - [ ] Formatting
-   - [ ] ISL execution
-   - [ ] Snippets
+**Feature Testing Checklist:**
+- [ ] Syntax highlighting works
+- [ ] Code completion (keywords, services, modifiers)
+- [ ] Validation shows errors correctly
+- [ ] Hover documentation appears
+- [ ] Go to definition navigates correctly
+- [ ] Formatting works
+- [ ] ISL execution runs
+- [ ] Snippets expand correctly
+- [ ] Code actions appear
+- [ ] Inlay hints show types
 
 ### Debugging
 
 1. Set breakpoints in TypeScript files
-2. Press F5 to start debugging
+2. Press `F5` to start debugger
 3. Extension host opens with debugger attached
-4. View Debug Console for logs
-
-### Common Development Tasks
-
-**Add new keyword:**
-1. Add to `syntaxes/isl.tmLanguage.json`
-2. Add to `src/completion.ts`
-3. Add to `src/hover.ts` if it needs documentation
-
-**Add new modifier:**
-1. Add to completion list in `src/completion.ts`
-2. Add hover documentation in `src/hover.ts`
-
-**Add new snippet:**
-1. Edit `snippets/isl.json`
-2. Follow VSCode snippet format
-
-## ISL Runtime Setup
-
-To execute ISL transformations:
-
-### Option 1: Use Project ISL Runtime
-
-If you're in the ISL repository:
-- Windows: Use `isl.bat` in project root
-- Unix/Mac: Use `isl.sh` in project root
-
-### Option 2: Install ISL Separately
-
-1. Clone ISL repository:
-   ```bash
-   git clone https://github.com/intuit/isl.git
-   cd isl
-   ```
-
-2. Build ISL:
-   ```bash
-   ./gradlew build
-   ```
-
-3. Configure extension to use ISL:
-   - Set `isl.execution.islCommand` to full path of `isl.sh` or `isl.bat`
-
-### Option 3: Use Published ISL CLI
-
-Once ISL CLI is published to package managers, you can install it globally:
-```bash
-npm install -g isl-cli  # (example, if published)
-```
+4. Check Debug Console for logs
 
 ## Troubleshooting
 
 ### Extension doesn't activate
-- Check file extension is `.isl`
-- Verify `activationEvents` in package.json
-
-### Syntax highlighting not working
-- Check file is recognized as ISL language
+- Check file has `.isl` extension
 - View → Command Palette → "Change Language Mode" → ISL
 
+### Syntax highlighting not working
+- Restart VS Code
+- Check language mode is set to ISL
+
 ### ISL execution fails
-- Verify Java is installed: `java -version`
-- Check `isl.execution.islCommand` setting
-- Check `isl.execution.javaHome` setting
-- View Output panel (View → Output → ISL)
+- Verify Java: `java -version`
+- Check `isl.execution.islCommand` setting points to valid path
+- View Output panel: View → Output → ISL
 
 ### Validation errors
-- Disable validation temporarily: `isl.validation.enabled: false`
-- Check for legitimate syntax errors
-- Report false positives as issues
+- Check for actual syntax errors in code
+- Disable temporarily: `isl.validation.enabled: false`
+- Report false positives on GitHub
 
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+### Formatting issues
+- Check `isl.formatting.indentSize` setting
+- Try manual format: Shift+Alt+F
+- Report issues with code sample
 
 ## Resources
 
-- [VSCode Extension API](https://code.visualstudio.com/api)
-- [TextMate Grammar Guide](https://macromates.com/manual/en/language_grammars)
+- [Plugin Overview](PLUGIN-OVERVIEW.md) - Technical architecture
+- [Publishing Guide](PUBLISHING.md) - How to publish
 - [ISL Documentation](https://intuit.github.io/isl/)
+- [VSCode Extension API](https://code.visualstudio.com/api)
+
+## Contributing
+
+1. Fork repository
+2. Create feature branch
+3. Make changes
+4. Test thoroughly
+5. Submit pull request
 
 ## License
 
-Apache License 2.0 - See LICENSE file
-
+Apache License 2.0 - See [LICENSE](LICENSE) file

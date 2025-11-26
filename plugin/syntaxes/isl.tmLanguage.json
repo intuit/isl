@@ -82,10 +82,8 @@
     },
     "keywords": {
       "patterns": [
-        {
-          "name": "keyword.control.conditional.isl",
-          "match": "\\b(if|else|endif|switch|endswitch)\\b"
-        },
+        { "include": "#inline-if-expression" },
+        { "include": "#block-if-statement" },
         {
           "name": "keyword.control.loop.isl",
           "match": "\\b(foreach|endfor|while|endwhile|parallel)\\b"
@@ -328,6 +326,137 @@
         {
           "name": "punctuation.section.brackets.isl",
           "match": "[\\[\\]\\(\\)\\{\\}]"
+        }
+      ]
+    },
+    "inline-if-expression": {
+      "patterns": [
+        {
+          "name": "meta.inline-if-expression.isl",
+          "begin": "\\b(if)\\s*(\\()",
+          "end": "(;)|(?=\\n)|(?=,)",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.conditional.if.isl" },
+            "2": { "name": "punctuation.definition.condition.begin.isl" }
+          },
+          "endCaptures": {
+            "1": { "name": "punctuation.terminator.statement.isl" }
+          },
+          "patterns": [
+            {
+              "name": "meta.condition.isl",
+              "begin": "\\G",
+              "end": "\\)",
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.condition.end.isl" }
+              },
+              "patterns": [
+                { "include": "#variables" },
+                { "include": "#operators" },
+                { "include": "#function-calls" },
+                { "include": "#constants" },
+                { "include": "#numbers" },
+                { "include": "#strings" },
+                {
+                  "name": "keyword.operator.logical.isl",
+                  "match": "\\b(and|or|not)\\b"
+                },
+                {
+                  "name": "keyword.operator.comparison.isl",
+                  "match": "\\b(contains|startsWith|endsWith|matches|is)\\b"
+                }
+              ]
+            },
+            {
+              "name": "keyword.control.conditional.else.isl",
+              "match": "\\b(else)\\b"
+            },
+            {
+              "name": "keyword.control.conditional.endif.isl",
+              "match": "\\b(endif)\\b"
+            },
+            { "include": "#strings" },
+            { "include": "#numbers" },
+            { "include": "#constants" },
+            { "include": "#variables" },
+            { "include": "#function-calls" },
+            { "include": "#modifiers" },
+            { "include": "#operators" }
+          ]
+        }
+      ]
+    },
+    "block-if-statement": {
+      "patterns": [
+        {
+          "name": "meta.block-if-statement.isl",
+          "begin": "^\\s*(if)\\s*(\\()",
+          "end": "\\b(endif)\\b",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.conditional.if.isl" },
+            "2": { "name": "punctuation.definition.condition.begin.isl" }
+          },
+          "endCaptures": {
+            "1": { "name": "keyword.control.conditional.endif.isl" }
+          },
+          "patterns": [
+            {
+              "name": "meta.condition.isl",
+              "begin": "\\G",
+              "end": "\\)",
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.condition.end.isl" }
+              },
+              "patterns": [
+                { "include": "#variables" },
+                { "include": "#operators" },
+                { "include": "#function-calls" },
+                { "include": "#constants" },
+                { "include": "#numbers" },
+                { "include": "#strings" },
+                {
+                  "name": "keyword.operator.logical.isl",
+                  "match": "\\b(and|or|not)\\b"
+                },
+                {
+                  "name": "keyword.operator.comparison.isl",
+                  "match": "\\b(contains|startsWith|endsWith|matches|is)\\b"
+                }
+              ]
+            },
+            {
+              "name": "keyword.control.conditional.else.isl",
+              "match": "\\b(else)\\b"
+            },
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#variables"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#function-calls"
+            },
+            {
+              "include": "#modifiers"
+            }
+          ]
+        },
+        {
+          "name": "keyword.control.conditional.switch.isl",
+          "match": "\\b(switch|endswitch)\\b"
         }
       ]
     }

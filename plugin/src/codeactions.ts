@@ -114,6 +114,82 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
             action.isPreferred = true;
             actions.push(action);
         }
+
+        // Format long object declaration
+        if (diagnostic.code === 'format-object') {
+            const line = document.lineAt(diagnostic.range.start.line);
+            const action = new vscode.CodeAction(
+                'Format object on multiple lines',
+                vscode.CodeActionKind.QuickFix
+            );
+            action.command = {
+                command: 'isl.improvement.formatObject',
+                title: 'Format object on multiple lines',
+                arguments: [document, line.range]
+            };
+            action.diagnostics = [diagnostic];
+            action.isPreferred = true;
+            actions.push(action);
+        }
+
+        // Simplify string interpolation
+        if (diagnostic.code === 'simplify-interpolation') {
+            const text = document.getText(diagnostic.range);
+            // Extract the variable from ${$variable}
+            const match = text.match(/\$\{(\$[a-zA-Z_][a-zA-Z0-9_]*)\}/);
+            if (match) {
+                const variable = match[1];
+                const action = new vscode.CodeAction(
+                    `Simplify to ${variable}`,
+                    vscode.CodeActionKind.QuickFix
+                );
+                action.edit = new vscode.WorkspaceEdit();
+                action.edit.replace(document.uri, diagnostic.range, variable);
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                actions.push(action);
+            }
+        }
+
+        // Use coalesce operator
+        if (diagnostic.code === 'use-coalesce-operator') {
+            const line = document.lineAt(diagnostic.range.start.line);
+            const action = new vscode.CodeAction(
+                'Use ?? operator instead',
+                vscode.CodeActionKind.QuickFix
+            );
+            action.command = {
+                command: 'isl.improvement.useCoalesceOperator',
+                title: 'Use ?? operator',
+                arguments: [document, line.range]
+            };
+            action.diagnostics = [diagnostic];
+            action.isPreferred = true;
+            actions.push(action);
+        }
+
+        // Use = instead of : for variable assignment
+        if (diagnostic.code === 'use-equals-assignment') {
+            // Single fix
+            const action = new vscode.CodeAction(
+                'Change : to =',
+                vscode.CodeActionKind.QuickFix
+            );
+            action.edit = new vscode.WorkspaceEdit();
+            action.edit.replace(document.uri, diagnostic.range, '=');
+            action.diagnostics = [diagnostic];
+            action.isPreferred = true;
+            actions.push(action);
+
+            // Fix all in file
+            const fixAllAction = new vscode.CodeAction(
+                'Change all : to = in file',
+                vscode.CodeActionKind.QuickFix
+            );
+            fixAllAction.edit = this.createFixAllColonAssignments(document);
+            fixAllAction.diagnostics = [diagnostic];
+            actions.push(fixAllAction);
+        }
         
         return actions;
     }
@@ -332,6 +408,36 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
         // Check if line contains object with multiple properties
         const objectMatch = line.match(/\{[^}]+:[^}]+:[^}]+\}/);
         return objectMatch !== null;
+    }
+
+    private createFixAllColonAssignments(document: vscode.TextDocument): vscode.WorkspaceEdit {
+        const edit = new vscode.WorkspaceEdit();
+        const text = document.getText();
+        const lines = text.split('\n');
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Skip comments
+            const commentIndex = Math.min(
+                line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+                line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+            );
+            const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+            // Check for variable assignment using : instead of =
+            // Match: $varName: (at the start of line, optionally with whitespace)
+            const colonAssignmentPattern = /^(\s*)(\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)(\s*)(:)/;
+            const match = codeOnlyLine.match(colonAssignmentPattern);
+
+            if (match) {
+                const colonPos = match[1].length + match[2].length + match[3].length;
+                const range = new vscode.Range(i, colonPos, i, colonPos + 1);
+                edit.replace(document.uri, range, '=');
+            }
+        }
+
+        return edit;
     }
 }
 

@@ -10,6 +10,16 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
     ): vscode.CompletionItem[] | vscode.CompletionList {
         const linePrefix = document.lineAt(position).text.substr(0, position.character);
         
+        // Check for pagination cursor property access: $cursor.
+        const paginationPropertyMatch = linePrefix.match(/\$([a-zA-Z_][a-zA-Z0-9_]*)\.(\w*)$/);
+        if (paginationPropertyMatch) {
+            const varName = paginationPropertyMatch[1];
+            const paginationType = this.getPaginationType(document, varName);
+            if (paginationType) {
+                return this.getPaginationPropertyCompletions(paginationType);
+            }
+        }
+        
         // Check for @.This. - show functions from current file
         if (linePrefix.match(/@\.This\.[\w]*$/)) {
             return this.getFunctionsFromDocument(document);
@@ -137,9 +147,9 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             },
             { 
                 label: 'Math', 
-                methods: ['sum(initial)', 'average()', 'min()', 'max()', 'clamp(min, max)', 'round()', 'floor()', 'ceil()', 'abs()'], 
+                methods: ['sum(initial)', 'average()', 'mean()', 'min()', 'max()', 'mod(divisor)', 'sqrt()', 'clamp(min, max)', 'round()', 'floor()', 'ceil()', 'abs()', 'RandInt(min, max)', 'RandFloat()', 'RandDouble()'], 
                 detail: 'Math operations',
-                documentation: 'Mathematical operations on arrays and numbers.\n\nUse with arrays: `$total: $prices | Math.sum(0)`'
+                documentation: 'Mathematical operations on arrays and numbers.\n\nUse with arrays: `$total: $prices | Math.sum(0)`\n\nRandom numbers: `Math.RandInt(1, 100)`'
             },
             { 
                 label: 'String', 
@@ -149,9 +159,9 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             },
             { 
                 label: 'Array', 
-                methods: ['concat(...)', 'slice(start, end)', 'reverse()', 'flatten()'], 
+                methods: ['concat(...)', 'slice(start, end)', 'reverse()', 'flatten()', 'range(start, count, increment)'], 
                 detail: 'Array operations',
-                documentation: 'Array manipulation functions.'
+                documentation: 'Array manipulation functions.\n\n`Array.range(0, 10, 1)` creates array [0..9]'
             },
             { 
                 label: 'Json', 
@@ -196,39 +206,63 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             { label: 'to.decimal', detail: 'Convert to decimal', insertText: 'to.decimal', kind: vscode.CompletionItemKind.Method },
             { label: 'to.boolean', detail: 'Convert to boolean', insertText: 'to.boolean', kind: vscode.CompletionItemKind.Method },
             { label: 'to.array', detail: 'Convert to array', insertText: 'to.array', kind: vscode.CompletionItemKind.Method },
+            { label: 'to.object', detail: 'Convert to object', insertText: 'to.object', kind: vscode.CompletionItemKind.Method },
             { label: 'to.json', detail: 'Convert to JSON string', insertText: 'to.json', kind: vscode.CompletionItemKind.Method },
+            { label: 'to.yaml', detail: 'Convert to YAML string', insertText: 'to.yaml', kind: vscode.CompletionItemKind.Method },
+            { label: 'to.csv', detail: 'Convert to CSV string', insertText: 'to.csv', kind: vscode.CompletionItemKind.Method },
             { label: 'to.xml', detail: 'Convert to XML', insertText: 'to.xml("${1:root}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'to.hex', detail: 'Convert to hex string', insertText: 'to.hex', kind: vscode.CompletionItemKind.Method },
+            { label: 'to.bytes', detail: 'Convert to byte array', insertText: 'to.bytes', kind: vscode.CompletionItemKind.Method },
             { label: 'to.epochmillis', detail: 'Convert date to epoch milliseconds', insertText: 'to.epochmillis', kind: vscode.CompletionItemKind.Method },
             
             // String modifiers
             { label: 'trim', detail: 'Trim whitespace', insertText: 'trim', kind: vscode.CompletionItemKind.Method },
+            { label: 'trimStart', detail: 'Trim start whitespace', insertText: 'trimStart', kind: vscode.CompletionItemKind.Method },
+            { label: 'trimEnd', detail: 'Trim end whitespace', insertText: 'trimEnd', kind: vscode.CompletionItemKind.Method },
             { label: 'upperCase', detail: 'Convert to uppercase', insertText: 'upperCase', kind: vscode.CompletionItemKind.Method },
             { label: 'lowerCase', detail: 'Convert to lowercase', insertText: 'lowerCase', kind: vscode.CompletionItemKind.Method },
             { label: 'capitalize', detail: 'Capitalize first letter', insertText: 'capitalize', kind: vscode.CompletionItemKind.Method },
             { label: 'titleCase', detail: 'Convert to title case', insertText: 'titleCase', kind: vscode.CompletionItemKind.Method },
+            { label: 'camelCase', detail: 'Convert to camelCase', insertText: 'camelCase', kind: vscode.CompletionItemKind.Method },
+            { label: 'snakeCase', detail: 'Convert to snake_case', insertText: 'snakeCase', kind: vscode.CompletionItemKind.Method },
+            { label: 'left', detail: 'Get left N characters', insertText: 'left(${1:length})', kind: vscode.CompletionItemKind.Method },
+            { label: 'right', detail: 'Get right N characters', insertText: 'right(${1:length})', kind: vscode.CompletionItemKind.Method },
+            { label: 'cap', detail: 'Cap string at length (alias for left)', insertText: 'cap(${1:length})', kind: vscode.CompletionItemKind.Method },
             { label: 'split', detail: 'Split string', insertText: 'split("${1:,}")', kind: vscode.CompletionItemKind.Method },
             { label: 'replace', detail: 'Replace string', insertText: 'replace("${1:find}", "${2:replace}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'remove', detail: 'Remove substring', insertText: 'remove("${1:text}")', kind: vscode.CompletionItemKind.Method },
             { label: 'substring', detail: 'Get substring', insertText: 'substring(${1:start}, ${2:end})', kind: vscode.CompletionItemKind.Method },
+            { label: 'substringUpto', detail: 'Substring up to delimiter', insertText: 'substringUpto("${1:delimiter}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'substringAfter', detail: 'Substring after delimiter', insertText: 'substringAfter("${1:delimiter}")', kind: vscode.CompletionItemKind.Method },
             { label: 'truncate', detail: 'Truncate string', insertText: 'truncate(${1:length}, "${2:...}")', kind: vscode.CompletionItemKind.Method },
             { label: 'padStart', detail: 'Pad start', insertText: 'padStart(${1:length}, "${2: }")', kind: vscode.CompletionItemKind.Method },
             { label: 'padEnd', detail: 'Pad end', insertText: 'padEnd(${1:length}, "${2: }")', kind: vscode.CompletionItemKind.Method },
+            { label: 'concat', detail: 'Concatenate strings', insertText: 'concat(${1:\\$other}, "${2:delimiter}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'append', detail: 'Append strings', insertText: 'append(${1:\\$value})', kind: vscode.CompletionItemKind.Method },
+            { label: 'reverse', detail: 'Reverse string/array', insertText: 'reverse', kind: vscode.CompletionItemKind.Method },
+            { label: 'sanitizeTid', detail: 'Sanitize UUID/TID', insertText: 'sanitizeTid', kind: vscode.CompletionItemKind.Method },
             
             // Array modifiers
-            { label: 'filter', detail: 'Filter array', insertText: 'filter(${1:\\$item.${2:condition}})', kind: vscode.CompletionItemKind.Method, docs: 'Filters array based on condition.\n\nExample: `$active: $items | filter($item.active)`' },
-            { label: 'map', detail: 'Map array', insertText: 'map(${1:\\$item.${2:property}})', kind: vscode.CompletionItemKind.Method, docs: 'Transforms each element.\n\nExample: `$names: $users | map($user.name)`' },
-            { label: 'reduce', detail: 'Reduce array', insertText: 'reduce({{ \\$acc + \\$it }}, ${1:0})', kind: vscode.CompletionItemKind.Method, docs: 'Reduces array to single value.\n\nUse $acc (accumulator) and $it (current item)' },
-            { label: 'sort', detail: 'Sort array', insertText: 'sort', kind: vscode.CompletionItemKind.Method },
-            { label: 'reverse', detail: 'Reverse array', insertText: 'reverse', kind: vscode.CompletionItemKind.Method },
+            { label: 'filter', detail: 'Filter array', insertText: 'filter(${1:\\$fit.${2:condition}})', kind: vscode.CompletionItemKind.Method, docs: 'Filters array based on condition.\n\nUse $fit or $ for current item being filtered.\n\nExample: `$active: $items | filter($fit.active)`' },
+            { label: 'map', detail: 'Map array', insertText: 'map(${1:\\$.${2:property}})', kind: vscode.CompletionItemKind.Method, docs: 'Transforms each element.\n\nUse $ for current item.\n\nExample: `$names: $users | map($.name)`' },
+            { label: 'reduce', detail: 'Reduce array', insertText: 'reduce({{ \\$acc + \\$it }}, ${1:0})', kind: vscode.CompletionItemKind.Method, docs: 'Reduces array to single value.\n\nUse $acc (accumulator) and $it (current item).\n\nExample: `$sum: $numbers | reduce({{ $acc + $it }}, 0)`' },
+            { label: 'sort', detail: 'Sort array/object', insertText: 'sort', kind: vscode.CompletionItemKind.Method },
             { label: 'unique', detail: 'Get unique values', insertText: 'unique', kind: vscode.CompletionItemKind.Method },
-            { label: 'flatten', detail: 'Flatten nested arrays', insertText: 'flatten', kind: vscode.CompletionItemKind.Method },
+            { label: 'slice', detail: 'Slice array', insertText: 'slice(${1:start}, ${2:end})', kind: vscode.CompletionItemKind.Method },
             { label: 'length', detail: 'Get length', insertText: 'length', kind: vscode.CompletionItemKind.Method },
             { label: 'first', detail: 'Get first element', insertText: 'first', kind: vscode.CompletionItemKind.Method },
             { label: 'last', detail: 'Get last element', insertText: 'last', kind: vscode.CompletionItemKind.Method },
+            { label: 'take', detail: 'Take first N elements', insertText: 'take(${1:n})', kind: vscode.CompletionItemKind.Method },
+            { label: 'drop', detail: 'Drop first N elements', insertText: 'drop(${1:n})', kind: vscode.CompletionItemKind.Method },
             { label: 'at', detail: 'Get element at index', insertText: 'at(${1:index})', kind: vscode.CompletionItemKind.Method, docs: 'Supports negative indices: `at(-1)` gets last element' },
+            { label: 'indexOf', detail: 'Find index of element', insertText: 'indexOf(${1:element})', kind: vscode.CompletionItemKind.Method },
+            { label: 'lastIndexOf', detail: 'Find last index of element', insertText: 'lastIndexOf(${1:element})', kind: vscode.CompletionItemKind.Method },
             { label: 'isEmpty', detail: 'Check if empty', insertText: 'isEmpty', kind: vscode.CompletionItemKind.Method },
             { label: 'isNotEmpty', detail: 'Check if not empty', insertText: 'isNotEmpty', kind: vscode.CompletionItemKind.Method },
             { label: 'push', detail: 'Add item to array', insertText: 'push(${1:item})', kind: vscode.CompletionItemKind.Method },
+            { label: 'pushItems', detail: 'Push full array to end', insertText: 'pushItems(${1:\\$otherArray})', kind: vscode.CompletionItemKind.Method, docs: 'Appends all items from the provided array to the end of the input array.\n\nExample: `$items | pushItems($moreItems)`' },
             { label: 'pop', detail: 'Remove last item', insertText: 'pop', kind: vscode.CompletionItemKind.Method },
+            { label: 'chunk', detail: 'Split into chunks', insertText: 'chunk(${1:size})', kind: vscode.CompletionItemKind.Method },
             
             // Date modifiers
             { label: 'date.parse', detail: 'Parse date', insertText: 'date.parse("${1:yyyy-MM-dd}")', kind: vscode.CompletionItemKind.Method, docs: 'Parses date string.\n\nOptional locale: `date.parse(format, {locale: "en_US"})`' },
@@ -237,41 +271,84 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             { label: 'date.fromEpochSeconds', detail: 'From epoch seconds', insertText: 'date.fromEpochSeconds', kind: vscode.CompletionItemKind.Method },
             { label: 'date.fromEpochMillis', detail: 'From epoch milliseconds', insertText: 'date.fromEpochMillis', kind: vscode.CompletionItemKind.Method },
             
-            // XML/CSV modifiers
+            // JSON/XML/CSV modifiers
+            { label: 'json.parse', detail: 'Parse JSON', insertText: 'json.parse', kind: vscode.CompletionItemKind.Method },
+            { label: 'yaml.parse', detail: 'Parse YAML', insertText: 'yaml.parse', kind: vscode.CompletionItemKind.Method },
             { label: 'xml.parse', detail: 'Parse XML', insertText: 'xml.parse', kind: vscode.CompletionItemKind.Method },
             { label: 'csv.parsemultiline', detail: 'Parse CSV', insertText: 'csv.parsemultiline', kind: vscode.CompletionItemKind.Method, docs: 'Options: {headers: true, separator: ",", skipLines: 0}' },
+            { label: 'csv.findrow', detail: 'Find CSV row', insertText: 'csv.findrow', kind: vscode.CompletionItemKind.Method },
+            { label: 'html.escape', detail: 'Escape HTML entities', insertText: 'html.escape', kind: vscode.CompletionItemKind.Method },
+            { label: 'html.unescape', detail: 'Unescape HTML entities', insertText: 'html.unescape', kind: vscode.CompletionItemKind.Method },
             
             // Math modifiers
             { label: 'Math.sum', detail: 'Sum values', insertText: 'Math.sum(${1:0})', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.average', detail: 'Average values', insertText: 'Math.average', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.mean', detail: 'Mean of values', insertText: 'Math.mean', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.min', detail: 'Minimum value', insertText: 'Math.min', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.max', detail: 'Maximum value', insertText: 'Math.max', kind: vscode.CompletionItemKind.Method },
-            { label: 'Math.clamp', detail: 'Clamp value', insertText: 'Math.clamp(${1:min}, ${2:max})', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.mod', detail: 'Modulo operation', insertText: 'Math.mod(${1:divisor})', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.sqrt', detail: 'Square root', insertText: 'Math.sqrt', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.round', detail: 'Round number', insertText: 'Math.round', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.floor', detail: 'Round down', insertText: 'Math.floor', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.ceil', detail: 'Round up', insertText: 'Math.ceil', kind: vscode.CompletionItemKind.Method },
             { label: 'Math.abs', detail: 'Absolute value', insertText: 'Math.abs', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.clamp', detail: 'Clamp value', insertText: 'Math.clamp(${1:min}, ${2:max})', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.RandInt', detail: 'Random integer', insertText: 'Math.RandInt(${1:min}, ${2:max})', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.RandFloat', detail: 'Random float', insertText: 'Math.RandFloat', kind: vscode.CompletionItemKind.Method },
+            { label: 'Math.RandDouble', detail: 'Random double', insertText: 'Math.RandDouble', kind: vscode.CompletionItemKind.Method },
+            { label: 'negate', detail: 'Negate number', insertText: 'negate', kind: vscode.CompletionItemKind.Method },
+            { label: 'absolute', detail: 'Absolute value', insertText: 'absolute', kind: vscode.CompletionItemKind.Method },
             { label: 'precision', detail: 'Set decimal precision', insertText: 'precision(${1:2})', kind: vscode.CompletionItemKind.Method },
+            { label: 'round.up', detail: 'Round up', insertText: 'round.up', kind: vscode.CompletionItemKind.Method },
+            { label: 'round.down', detail: 'Round down', insertText: 'round.down', kind: vscode.CompletionItemKind.Method },
+            { label: 'round.half', detail: 'Round half', insertText: 'round.half', kind: vscode.CompletionItemKind.Method },
             
             // Object modifiers
             { label: 'keys', detail: 'Get object keys', insertText: 'keys', kind: vscode.CompletionItemKind.Method },
             { label: 'kv', detail: 'Key-value pairs', insertText: 'kv', kind: vscode.CompletionItemKind.Method, docs: 'Converts object to [{key, value}] array' },
             { label: 'delete', detail: 'Delete property', insertText: 'delete("${1:property}")', kind: vscode.CompletionItemKind.Method },
-            { label: 'select', detail: 'Select nested property', insertText: 'select("${1:path}")', kind: vscode.CompletionItemKind.Method, docs: 'Example: select("user.address.city")' },
+            { label: 'select', detail: 'Select by JSON path', insertText: 'select("${1:path}")', kind: vscode.CompletionItemKind.Method, docs: 'Example: select("user.address.city")' },
             { label: 'getProperty', detail: 'Get property (case-insensitive)', insertText: 'getProperty("${1:name}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'setProperty', detail: 'Set property', insertText: 'setProperty("${1:name}", ${2:value})', kind: vscode.CompletionItemKind.Method },
+            { label: 'merge', detail: 'Merge objects', insertText: 'merge(${1:\\$other})', kind: vscode.CompletionItemKind.Method },
+            { label: 'pick', detail: 'Pick properties', insertText: 'pick("${1:prop1}", "${2:prop2}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'omit', detail: 'Omit properties', insertText: 'omit("${1:prop1}", "${2:prop2}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'rename', detail: 'Rename property', insertText: 'rename("${1:oldName}", "${2:newName}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'has', detail: 'Check if has property', insertText: 'has("${1:property}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'default', detail: 'Default value if null/empty', insertText: 'default(${1:value})', kind: vscode.CompletionItemKind.Method },
             
-            // Regex
-            { label: 'regex.find', detail: 'Find regex match', insertText: 'regex.find("/${1:pattern}/")', kind: vscode.CompletionItemKind.Method },
-            { label: 'regex.matches', detail: 'Test regex match', insertText: 'regex.matches("/${1:pattern}/")', kind: vscode.CompletionItemKind.Method },
-            { label: 'regex.replace', detail: 'Replace with regex', insertText: 'regex.replace("/${1:pattern}/", "${2:replacement}")', kind: vscode.CompletionItemKind.Method },
+            // Regex modifiers
+            { label: 'regex.find', detail: 'Find regex matches', insertText: 'regex.find("${1:pattern}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'regex.matches', detail: 'Test regex match', insertText: 'regex.matches("${1:pattern}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'regex.replace', detail: 'Replace with regex', insertText: 'regex.replace("${1:pattern}", "${2:replacement}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'regex.replacefirst', detail: 'Replace first match', insertText: 'regex.replacefirst("${1:pattern}", "${2:replacement}")', kind: vscode.CompletionItemKind.Method },
             
-            // Encoding
+            // Encoding modifiers
             { label: 'encode.base64', detail: 'Base64 encode', insertText: 'encode.base64', kind: vscode.CompletionItemKind.Method },
+            { label: 'encode.base64url', detail: 'Base64 URL encode', insertText: 'encode.base64url', kind: vscode.CompletionItemKind.Method },
+            { label: 'encode.path', detail: 'URL path encode', insertText: 'encode.path', kind: vscode.CompletionItemKind.Method },
+            { label: 'encode.query', detail: 'URL query encode', insertText: 'encode.query', kind: vscode.CompletionItemKind.Method },
             { label: 'decode.base64', detail: 'Base64 decode', insertText: 'decode.base64', kind: vscode.CompletionItemKind.Method },
+            { label: 'decode.base64url', detail: 'Base64 URL decode', insertText: 'decode.base64url', kind: vscode.CompletionItemKind.Method },
+            { label: 'decode.query', detail: 'URL query decode', insertText: 'decode.query', kind: vscode.CompletionItemKind.Method },
+            { label: 'hex.tobinary', detail: 'Convert hex to binary', insertText: 'hex.tobinary', kind: vscode.CompletionItemKind.Method },
+            { label: 'join.string', detail: 'Join array to string', insertText: 'join.string("${1:,}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'join.path', detail: 'Join for URL path', insertText: 'join.path("${1:&}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'join.query', detail: 'Join for URL query', insertText: 'join.query("${1:&}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'email.parse', detail: 'Parse email addresses', insertText: 'email.parse', kind: vscode.CompletionItemKind.Method },
             
-            // Other modifiers
-            { label: 'default', detail: 'Default value if null', insertText: 'default(${1:value})', kind: vscode.CompletionItemKind.Method },
-            { label: 'coalesce', detail: 'First non-null value', insertText: 'coalesce(${1:value})', kind: vscode.CompletionItemKind.Method, docs: 'Prefer ?? operator: $value ?? $default' },
+            // Compression modifiers
+            { label: 'gzip', detail: 'GZip compress', insertText: 'gzip', kind: vscode.CompletionItemKind.Method },
+            { label: 'gunzip', detail: 'GZip decompress', insertText: 'gunzip', kind: vscode.CompletionItemKind.Method },
+            { label: 'gunzipToByte', detail: 'GZip decompress to bytes', insertText: 'gunzipToByte', kind: vscode.CompletionItemKind.Method },
+            
+            // Type checking
+            { label: 'typeof', detail: 'Get type of value', insertText: 'typeof', kind: vscode.CompletionItemKind.Method },
+            
+            // Legacy/Common
+            { label: 'contains', detail: 'Check if contains', insertText: 'contains("${1:value}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'startsWith', detail: 'Check if starts with', insertText: 'startsWith("${1:prefix}")', kind: vscode.CompletionItemKind.Method },
+            { label: 'endsWith', detail: 'Check if ends with', insertText: 'endsWith("${1:suffix}")', kind: vscode.CompletionItemKind.Method },
         ];
 
         return modifiers.map(m => {
@@ -314,5 +391,119 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         return Array.from(variables.values());
+    }
+    
+    private getPaginationType(document: vscode.TextDocument, varName: string): string | null {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        // Look for @.Pagination.[Type]( $varName, ... )
+        for (const line of lines) {
+            const cursorMatch = line.match(/@\.Pagination\.Cursor\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (cursorMatch && cursorMatch[1] === varName) {
+                return 'Cursor';
+            }
+            
+            const offsetMatch = line.match(/@\.Pagination\.Offset\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (offsetMatch && offsetMatch[1] === varName) {
+                return 'Offset';
+            }
+            
+            const pageMatch = line.match(/@\.Pagination\.Page\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (pageMatch && pageMatch[1] === varName) {
+                return 'Page';
+            }
+            
+            const keysetMatch = line.match(/@\.Pagination\.Keyset\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (keysetMatch && keysetMatch[1] === varName) {
+                return 'Keyset';
+            }
+            
+            const dateMatch = line.match(/@\.Pagination\.Date\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (dateMatch && dateMatch[1] === varName) {
+                return 'Date';
+            }
+        }
+        
+        return null;
+    }
+    
+    private getPaginationPropertyCompletions(paginationType: string): vscode.CompletionItem[] {
+        if (paginationType === 'Cursor') {
+            return [
+                this.createPaginationProperty(
+                    'current',
+                    'The value of the current cursor for the current page',
+                    'On the first loop this is null.'
+                ),
+                this.createPaginationProperty(
+                    'next',
+                    'The next value for the cursor on the next loop',
+                    'This needs to be set in the loop. If this value is the same as the previous value (e.g. value was not set) or the value is null, the pagination loop exits.'
+                )
+            ];
+        } else if (paginationType === 'Page') {
+            return [
+                this.createPaginationProperty(
+                    'startIndex',
+                    'The starting index as declared in the pagination',
+                    'Default is 0. This is the value passed in the pagination configuration.'
+                ),
+                this.createPaginationProperty(
+                    'pageSize',
+                    'Size of the page as declared in the pagination',
+                    'Default is 100. This is the value passed in the pagination configuration.'
+                ),
+                this.createPaginationProperty(
+                    'page',
+                    'Index of the current page',
+                    'Starting at startIndex. Increments with each iteration of the pagination loop.'
+                ),
+                this.createPaginationProperty(
+                    'fromOffset',
+                    'Start offset for the current page',
+                    'Calculated as: page * pageSize'
+                ),
+                this.createPaginationProperty(
+                    'toOffset',
+                    'End offset for the current page',
+                    'Calculated as: (page + 1) * pageSize'
+                ),
+                this.createPaginationProperty(
+                    'hasMorePages',
+                    'Whether there are more pages to fetch',
+                    'Set to false by default. In order to continue the pagination loop this needs to be set to true.'
+                )
+            ];
+        } else if (paginationType === 'Date') {
+            return [
+                this.createPaginationProperty(
+                    'startDate',
+                    'Start date of the current period',
+                    'The beginning of the current pagination period based on the duration.'
+                ),
+                this.createPaginationProperty(
+                    'endDate',
+                    'End date of the current period',
+                    'The end of the current pagination period based on the duration.'
+                ),
+                this.createPaginationProperty(
+                    'page',
+                    'Zero-based page index for the current page',
+                    'Increments with each iteration: 0, 1, 2, ...'
+                )
+            ];
+        }
+        
+        // Placeholder for other pagination types (Offset, Keyset)
+        return [];
+    }
+    
+    private createPaginationProperty(name: string, detail: string, docs: string): vscode.CompletionItem {
+        const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Property);
+        item.detail = detail;
+        item.documentation = new vscode.MarkdownString(docs);
+        item.insertText = name;
+        return item;
     }
 }

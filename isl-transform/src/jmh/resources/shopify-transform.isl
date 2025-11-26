@@ -8,9 +8,16 @@ fun convertAddress( $addr ) {
     $state = $addr.province_code | trim | upperCase;
     $zip = $addr.zip | trim;
     $country = $addr.country_code | trim | upperCase;
-    $formatted = `${$street}, ${$city}, ${$state} ${$zip}` | trim;
+    $formatted = `$street, ${$city}, ${$state} ${$zip}` | trim;
 
-    return { street: $street, city: $city, state: $state, zipCode: $zip, country: $country, formatted: $formatted };
+    return {
+        street: $street,
+        city: $city,
+        state: $state,
+        zipCode: $zip,
+        country: $country,
+        formatted: $formatted
+    };
 }
 
 // Helper function: Convert customer with loyalty tier calculation
@@ -19,7 +26,7 @@ fun convertCustomer( $cust ) {
     $lastName = $cust.last_name | trim | upperCase;
     $email = $cust.email | trim | lowerCase;
     $orders = $cust.orders_count | to.number;
-    $spent = $cust.total_spent | to.decimal | precision(2);
+    $spent = $cust.total_spent | to.decimal | precision( 2 );
     $addr = @.This.convertAddress( $cust.default_address );
 
     return { id: $cust.id | to.string, fullName: `$firstName ${$lastName}` | trim, firstName: $firstName, lastName: $lastName, email: $email, phone: $cust.phone | trim, totalOrders: $orders, lifetimeValue: $spent, address: $addr };
@@ -27,15 +34,14 @@ fun convertCustomer( $cust ) {
 
 // Helper function: Process and enrich line item
 fun processLineItem( $item ) {
-    $sku = $item.sku | trim | upperCase;
-    $name = $item.name | trim | truncate(100, "...");
-    $vendor = $item.vendor | trim | titleCase;
-    $qty = $item.quantity | to.number;
-    $price = $item.price | to.decimal;
-    $weight = $item.grams | to.number;
-    $lineTotal = {{ $price * $qty }} | Math.clamp(0, 999999) | precision(2);
-    $weightKg = {{ $weight / 1000 }} | precision(3);
-    $productCode = `${$sku}-${$item.product_id | to.string}` | upperCase;
+
+    $items = if( $item.result ) true else false;
+
+    $o = {
+        items: foreach $item in $array
+            // loop body
+        endfor
+    }
 
     return $item | to.string;
 
@@ -46,7 +52,7 @@ fun processLineItem( $item ) {
 fun run( $input ) {
     // Order header
     $orderId = $input.id | to.string;
-    $orderNum = $input.order_number | to.string | padStart(8, "0");
+    $orderNum = $input.order_number | to.string | padStart( 8, "0" );
     $orderName = $input.name | trim;
 
     // Convert customer with enrichment
@@ -66,21 +72,21 @@ fun run( $input ) {
     // Calculate order statistics using map/reduce with implicit $ iterator
     $totalItems = $input.line_items | length | to.number;
     $quantities = $input.line_items | map( $.quantity | to.number );
-    $totalQty = $quantities | Math.sum(0);
+    $totalQty = $quantities | Math.sum( 0 );
     $weights = $input.line_items | map( $.grams | to.number );
-    $totalWeight = $weights | Math.sum(0);
-    $totalWeightKg = {{ $totalWeight / 1000 }} | precision(3);
+    $totalWeight = $weights | Math.sum( 0 );
+    $totalWeightKg = {{ $totalWeight / 1000 }} | precision( 3 );
     $premiumCount = $input.line_items | filter( $.price | to.decimal >= 100 ) | length | to.number;
     $vendors = $input.line_items | map( $.vendor | trim | titleCase ) | unique | sort;
     $vendorCount = $vendors | length | to.number;
 
     // Financial calculations
-    $subtotal = $input.subtotal_price | to.decimal | precision(2);
-    $shippingCost = $input.total_shipping_price_set.shop_money.amount | to.decimal | precision(2);
-    $tax = $input.total_tax | to.decimal | precision(2);
-    $discounts = $input.total_discounts | to.decimal | precision(2);
-    $total = $input.total_price | to.decimal | precision(2);
-    $finalTotal = {{ $total - $discounts }} | Math.clamp(0, 999999) | precision(2);
+    $subtotal = $input.subtotal_price | to.decimal | precision( 2 );
+    $shippingCost = $input.total_shipping_price_set.shop_money.amount | to.decimal | precision( 2 );
+    $tax = $input.total_tax | to.decimal | precision( 2 );
+    $discounts = $input.total_discounts | to.decimal | precision( 2 );
+    $total = $input.total_price | to.decimal | precision( 2 );
+    $finalTotal = {{ $total - $discounts }} | Math.clamp( 0, 999999 ) | precision( 2 );
 
     // Determine shipping method and status with conditionals
     $fulfillmentStatus = $input.fulfillment_status | trim | upperCase;
@@ -95,7 +101,7 @@ fun run( $input ) {
     $noteValues = $input.note_attributes | map( $.value | trim );
 
     // Extract and process tags using map
-    $tags = $input.tags | split(",") | map( $ | trim | upperCase );
+    $tags = $input.tags | split( "," ) | map( $ | trim | upperCase );
 
     // Status flags with conditionals
     $isPaid = if( $input.financial_status | trim | lowerCase == "paid" ) true else false;
@@ -138,12 +144,19 @@ fun run( $input ) {
     tags: $tags;
     notes: $input.note | trim;
     noteKeys: $noteKeys;
-    processedAt: $input.processed_at | date.parse("yyyy-MM-dd'T'HH:mm:ssXXX") | to.string("yyyy-MM-dd HH:mm:ss");
+    processedAt: $input.processed_at | date.parse( "yyyy-MM-dd'T'HH:mm:ssXXX" ) | to.string( "yyyy-MM-dd HH:mm:ss" );
     isConfirmed: $input.confirmed | to.boolean;
     isTest: $input.test | to.boolean;
     isPaid: $isPaid;
     isFulfilled: $isFulfilled;
     summary: `Order ${$orderNum} - ${$customer.fullName} - ${$finalTotal} ${$input.currency | trim | upperCase} - ${$totalItems} items` | trim;
 }
+
+
+
+
+
+
+
 
 

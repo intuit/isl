@@ -9,11 +9,15 @@ import { IslCodeLensProvider, runIslFunction, showUsages, testFunction } from '.
 import { IslSignatureHelpProvider } from './signature';
 import { IslInlayHintsProvider } from './inlayhints';
 import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject } from './codeactions';
+import { IslDocumentHighlightProvider } from './highlights';
 
 export function activate(context: vscode.ExtensionContext) {
     console.log('ISL Language Support is now active');
 
-    const documentSelector: vscode.DocumentSelector = { scheme: 'file', language: 'isl' };
+    const documentSelector: vscode.DocumentSelector = [
+        { scheme: 'file', language: 'isl' },
+        { scheme: 'untitled', language: 'isl' }
+    ];
 
     // Register formatter
     const formatter = new IslDocumentFormatter();
@@ -84,6 +88,12 @@ export function activate(context: vscode.ExtensionContext) {
     const inlayHintsProvider = new IslInlayHintsProvider();
     context.subscriptions.push(
         vscode.languages.registerInlayHintsProvider(documentSelector, inlayHintsProvider)
+    );
+
+    // Register document highlight provider for control flow keyword matching
+    const highlightProvider = new IslDocumentHighlightProvider();
+    context.subscriptions.push(
+        vscode.languages.registerDocumentHighlightProvider(documentSelector, highlightProvider)
     );
 
     // Register code action provider

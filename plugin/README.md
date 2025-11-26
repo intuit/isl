@@ -1,180 +1,255 @@
 # ISL Language Support for VS Code & Cursor
 
-Comprehensive language support for ISL (Intuitive Scripting Language) - a powerful JSON transformation scripting language.
+Comprehensive language support for ISL [(Intuitive Scripting Language)](https://intuit.github.io/isl/) - a powerful JSON transformation scripting language.
 
 [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
-## 🤖 AI Assistant Support
+## What is ISL
 
-This extension includes comprehensive AI assistant configuration for Cursor, Windsurf, VSCode Copilot, and other AI-powered editors. When you open an ISL file, your AI assistant will automatically understand ISL syntax and can help you write transformations.
+ISL is a low-code [interpreted scripting language](<https://en.wikipedia.org/wiki/Interpreter_(computing)>) and runtime container designed to provide developers and non-developers an easy way to write, test, and deploy user developed code inside any service.
 
-**AI configuration files included:**
-- `.cursorrules` - For Cursor AI
-- `.windsurfrules` - For Windsurf AI  
-- `.github/copilot-instructions.md` - For GitHub Copilot
-- `ISL-LANGUAGE-GUIDE.md` - Complete reference for all AI assistants
+The ISL supports an intuitive simplified syntax with features that make data acquisition and data transformations easy with minimal lines of code. In addition, the language supports easy extensibility allowing it to be used as a multi-purpose service extensibility language.
 
-Simply ask your AI assistant to:
-- Generate ISL transformations between JSON files
-- Explain ISL syntax and modifiers
-- Convert data transformation logic to ISL
-- Debug and improve your ISL code
+The ISL can be embedded in any JVM based project to provide runtime based extensibility through a fast and lightweight runtime.
+
+## Overview
+
+In the most simple form the ISL is a JSON transformation language:
+
+Given Input JSON:
+```json
+{
+	"title": "IPod Nano - 8GB",
+	"body_html": "It's the small iPod with a big idea: Video.",
+	"id": 632910392,
+	"images": [
+		{
+			"id": 850703190,
+			"src": "http://example.com/burton.jpg",
+		}
+	],
+	"options": {
+		"name": "Color",
+		"values": [
+			"Pink",
+			"Red",
+			"Green",
+			"Black"
+		]
+	},
+	"status": "active",
+	"tags": "Emotive, Flash Memory, MP3, Music",
+	"updated_at": 1645004735,
+	"vendor": "Apple"
+}
+```
+
+And Transformation:
+```isl
+fun transform( $input ){
+    return {
+      // Simple JSON Path Selectors
+      id: $input.id,
+      // piped modifiers using `|`
+      name: $input.title | trim,
+      // easy string building using interpolation ` ... `
+      short_description: `${ $input.title } by ${ $input.vendor }`,
+      // child object building
+      primary_image: {
+          id: $input.images[0].id,
+          url: $input.images[0].src
+      },
+      // conditional properties
+      is_active: if( $input.status == "active" ) true else false,
+      option_name: $input.options.name,
+      // array to csv
+      option_values: $input.options.values | join(','),
+      // date processing
+      updated: $input.updated_at | date.fromEpochSeconds | to.string("yyyy-MM-dd HH:mm")
+    }
+}
+```
+
+Will output:
+```json
+{
+	"id": 632910392,
+	"name": "IPod Nano - 8GB",
+	"short_description": "IPod Nano - 8GB by Apple",
+	"primary_image": {
+		"id": 850703190,
+		"url": "http://example.com/burton.jpg"
+	},
+	"is_active": true,
+	"option_name": "Color",
+	"option_values": "Pink,Red,Green,Black",
+	"updated": "2022-02-47 09:45"
+}
+```
+
 
 ## Features
 
 ### 🎨 Syntax Highlighting
-- Full syntax highlighting for ISL files (.isl)
-- Support for all ISL constructs: functions, modifiers, variables, interpolations, etc.
-- Highlighting for string interpolation `${...}`, math expressions `{{...}}`, and function calls `@.Service.Method()`
+- Complete syntax highlighting for all ISL constructs
+- String interpolation: `${variable}`, `{{math}}`, `@.Function()`
+- Modifiers, operators, control flow, and more
 
-### 📝 IntelliSense & Code Completion
-- Smart code completion for:
-  - Keywords (fun, foreach, if, switch, etc.)
-  - Service calls (@.Date, @.Math, @.This, etc.)
-  - Modifiers (|filter, |map, |trim, |upperCase, etc.)
-  - Variables (with automatic discovery from your code)
-- Snippet support for common patterns
+### 💡 IntelliSense & Code Completion
+Smart completion for:
+- **Keywords**: `fun`, `foreach`, `if`, `switch`, etc.
+- **Services**: `@.Date`, `@.Math`, `@.String`, etc.
+- **Modifiers**: `|filter`, `|map`, `|trim`, `|upperCase`, 50+ more
+- **Variables**: Automatic discovery from your code
 
-### 🔍 Validation & Linting
-- Real-time syntax validation
-- Error detection for:
-  - Unbalanced braces, brackets, and parentheses
-  - Unclosed control flow statements (if/endif, foreach/endfor, etc.)
-  - Invalid variable declarations
-  - Mismatched string interpolations
-- Configurable validation rules
+### ✅ Validation & Linting
+Real-time error detection:
+- Balanced braces, brackets, parentheses
+- Control flow matching (`if`/`endif`, `foreach`/`endfor`, etc.)
+- Undefined functions and modifiers
+- Undeclared variable usage
+- Invalid syntax and semantic errors
 
-### 📖 Documentation on Hover
-- Hover over keywords, functions, and modifiers to see documentation
-- Quick reference for ISL syntax and built-in functions
-- Examples and usage hints
+### 📖 Hover Documentation
+Hover over any element for:
+- Keyword syntax and usage
+- Service method descriptions
+- Modifier documentation with examples
+- Variable type information
 
-### 🎯 Go to Definition
-- Jump to function definitions with F12
-- Navigate to type declarations
-- Follow import statements to their source files
+### 🔧 Code Actions & Quick Fixes
+- Simplify string interpolation (`${$var}` → `$var`)
+- Convert `:` to `=` for variable assignments
+- Format long objects onto multiple lines
+- Replace `default()` with `??` operator
 
-### ✨ Code Formatting
-- Automatic code formatting with customizable indentation
+### ✨ Smart Formatting
+- Automatic indentation and spacing
+- Parameter spacing normalization
+- Modifier chain alignment
+- Multi-line string preservation
 - Format on save support
-- Range formatting support
 
-### ▶️ Run & Execute ISL
-- Run ISL transformations directly from VS Code
-- Test with inline JSON input or external JSON files
+### 🎯 Signature Help & Type Hints
+- Parameter hints for functions and modifiers
+- Inline type annotations for variables
+- CodeLens actions (test functions, find usages)
+
+### ▶️ Execute ISL
+- Run transformations directly from editor
+- Test with inline JSON or external files
 - View formatted output side-by-side
-- Integrated output panel for debugging
+- Integrated error reporting
 
 ### 📋 Code Snippets
-Ready-to-use snippets for:
+20+ ready-to-use snippets for:
 - Functions and modifiers
-- Control flow (if, foreach, while, switch)
+- Control flow patterns
+- Array and object transformations
 - Date operations
-- Array transformations
-- And more!
+- Error handling
 
-## Getting Started
+## Quick Start
 
 1. Install the extension
 2. Open or create a `.isl` file
 3. Start coding with full language support!
 
-### Example ISL Code
+### Example
 
 ```isl
-// Transform customer data
 fun run($input) {
-    // Extract and transform fields
-    $customer = {
-        id: $input.customer_id | to.string,
-        name: `${$input.first_name} ${$input.last_name}` | trim,
-        email: $input.email | lowerCase,
-        joinDate: $input.created_at | date.parse("yyyy-MM-dd") | to.string("MM/dd/yyyy")
-    };
-    
-    // Process orders
-    orders: foreach $order in $input.orders | filter($order.status == "completed")
+    $customers = foreach $customer in $input.customers
         {
-            orderId: $order.id,
-            total: {{ $order.subtotal + $order.tax }},
-            items: $order.line_items | map($item.name)
+            id: $customer.id | to.string,
+            name: `${$customer.first} ${$customer.last}` | trim,
+            email: $customer.email | lowerCase,
+            orders: $customer.orders | filter($order.status == "completed")
         }
-    endfor,
+    endfor
     
-    customer: $customer,
-    processed: @.Date.Now() | to.string("yyyy-MM-dd HH:mm:ss")
+    return {
+        customers: $customers,
+        total: $customers | length,
+        processed: @.Date.Now() | to.string("yyyy-MM-dd")
+    }
 }
 ```
 
-## Requirements
+## Configuration
 
-To execute ISL transformations, you need:
-- Java Runtime Environment (JRE) 11 or later
-- ISL runtime (from the [ISL repository](https://github.com/intuit/isl))
+Available settings (all prefixed with `isl.`):
 
-**Note for Publishers**: The extension icon has been set to the official ISL logo. If the dimensions need adjustment for marketplace requirements (128x128), see `ICON-SETUP.md` for resize instructions.
-
-## Extension Settings
-
-This extension contributes the following settings:
-
-* `isl.validation.enabled`: Enable/disable ISL validation (default: true)
-* `isl.formatting.enabled`: Enable/disable ISL formatting (default: true)
-* `isl.formatting.indentSize`: Number of spaces for indentation (default: 4)
-* `isl.formatting.useTabs`: Use tabs instead of spaces (default: false)
-* `isl.linting.enabled`: Enable/disable ISL linting (default: true)
-* `isl.execution.islCommand`: Path to ISL command (default: "isl")
-* `isl.execution.javaHome`: Path to Java home directory (optional)
+```json
+{
+  "isl.validation.enabled": true,
+  "isl.formatting.enabled": true,
+  "isl.formatting.indentSize": 4,
+  "isl.formatting.useTabs": false,
+  "isl.formatting.alignProperties": false,
+  "isl.execution.islCommand": "isl",
+  "isl.execution.javaHome": ""
+}
+```
 
 ## Commands
 
-* `ISL: Validate Current File` - Validate the current ISL file
-* `ISL: Run Transformation` - Run ISL transformation with inline input
-* `ISL: Run Transformation with Input File` - Run ISL transformation with a JSON file
-* `ISL: Format Document` - Format the current document
-* `ISL: Open Documentation` - Open ISL documentation in browser
+- **ISL: Validate Current File** - Run validation
+- **ISL: Run Transformation** - Execute with inline input
+- **ISL: Run Transformation with Input File** - Execute with JSON file
+- **ISL: Format Document** - Format code
+- **ISL: Open Documentation** - Open ISL docs
 
-## Keyboard Shortcuts
+## Requirements
 
-* `Shift+Alt+F` - Format document
-* `F12` - Go to definition
-* `Ctrl+Space` - Trigger code completion
+To execute ISL transformations:
+- Java Runtime Environment (JRE) 11+
+- ISL runtime from [ISL repository](https://github.com/intuit/isl)
 
-## Known Issues
+## 🤖 AI Assistant Support
 
-- Complex nested string interpolations may have limited highlighting
-- Validation is syntax-based; runtime errors are only caught during execution
+This extension includes AI configuration for Cursor, Windsurf, GitHub Copilot, and other AI editors. Your AI assistant automatically understands ISL syntax and can help write transformations.
 
-## Release Notes
-
-### 1.0.0
-
-Initial release of ISL Language Support:
-- Syntax highlighting
-- Code completion
-- Validation and linting
-- Hover documentation
-- Go to definition
-- Code formatting
-- ISL execution support
-- Comprehensive snippets
-
-## Contributing
-
-Found a bug or have a feature request? Please file an issue on our [GitHub repository](https://github.com/intuit/isl).
+Ask your AI to:
+- Generate ISL transformations
+- Explain ISL syntax and modifiers
+- Convert data logic to ISL
+- Debug and optimize code
 
 ## Resources
 
 - [ISL Documentation](https://intuit.github.io/isl/)
 - [ISL GitHub Repository](https://github.com/intuit/isl)
-- [Quick Start Guide](https://intuit.github.io/isl/quickstart/)
 - [Language Reference](https://intuit.github.io/isl/dsl/)
+- [Quick Start Guide](https://intuit.github.io/isl/quickstart/)
+
+## Release Notes
+
+### 1.1.0
+
+**Major improvements:**
+- Signature help and inlay hints
+- Code actions and quick fixes
+- Enhanced formatter (parameter spacing, nested control flow)
+- Semantic validation (undefined functions/modifiers, variable tracking)
+- 20+ new code snippets
+- Better control flow balance detection
+- Multi-line string preservation
+
+### 1.0.0
+
+Initial release with syntax highlighting, completion, validation, formatting, and execution support.
+
+See [CHANGELOG.md](CHANGELOG.md) for full details.
+
+## Contributing
+
+Found a bug or have a feature request? File an issue on [GitHub](https://github.com/intuit/isl).
 
 ## License
 
-This extension is licensed under the Apache License 2.0. See the [LICENSE](LICENSE) file for details.
+Apache License 2.0 - See [LICENSE](LICENSE) file.
 
 ---
 
 **Enjoy using ISL!** 🚀
-
