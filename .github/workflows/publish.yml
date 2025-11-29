@@ -39,6 +39,21 @@ jobs:
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
 
+    - name: Verify OSSRH credentials
+      env:
+        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      run: |
+        if [ -z "$OSSRH_USERNAME" ]; then
+          echo "❌ OSSRH_USERNAME is not set!"
+          exit 1
+        fi
+        if [ -z "$OSSRH_PASSWORD" ]; then
+          echo "❌ OSSRH_PASSWORD is not set!"
+          exit 1
+        fi
+        echo "✓ OSSRH credentials are configured"
+
     - name: Determine and update version
       id: version
       run: |
@@ -165,9 +180,14 @@ jobs:
     - name: Verify OSSRH credentials
       env:
         OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
       run: |
         if [ -z "$OSSRH_USERNAME" ]; then
           echo "❌ OSSRH_USERNAME is not set!"
+          exit 1
+        fi
+        if [ -z "$OSSRH_PASSWORD" ]; then
+          echo "❌ OSSRH_PASSWORD is not set!"
           exit 1
         fi
         echo "✓ OSSRH credentials are configured"
@@ -210,6 +230,21 @@ jobs:
 
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+
+    - name: Verify OSSRH credentials
+      env:
+        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      run: |
+        if [ -z "$OSSRH_USERNAME" ]; then
+          echo "❌ OSSRH_USERNAME is not set!"
+          exit 1
+        fi
+        if [ -z "$OSSRH_PASSWORD" ]; then
+          echo "❌ OSSRH_PASSWORD is not set!"
+          exit 1
+        fi
+        echo "✓ OSSRH credentials are configured"
 
     - name: Determine and update version
       id: version
