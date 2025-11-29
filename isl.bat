@@ -13,8 +13,11 @@ setlocal
 REM Get the directory where this script is located
 set SCRIPT_DIR=%~dp0
 
+REM Read version from gradle.properties
+for /f "tokens=1,* delims==" %%a in ('findstr "^version=" "%SCRIPT_DIR%gradle.properties"') do set VERSION=%%b
+
 REM Check if the shadow JAR exists
-set JAR_FILE=%SCRIPT_DIR%isl-cmd\build\libs\isl-2.4.20-SNAPSHOT.jar
+set JAR_FILE=%SCRIPT_DIR%isl-cmd\build\libs\isl-%VERSION%.jar
 if exist "%JAR_FILE%" (
     REM Use the pre-built JAR
     java -jar "%JAR_FILE%" %*

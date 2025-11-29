@@ -4,7 +4,7 @@ plugins {
 }
 
 group = "com.intuit.isl"
-version = "2.4.20-SNAPSHOT"
+version = project.property("version") as String
 
 allprojects {
     repositories {
