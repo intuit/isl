@@ -24,44 +24,7 @@ subprojects {
     // Apply publishing plugin to library modules only
 
     if (name in listOf("isl-transform", "isl-validation", "isl-cmd")) {
-        // NEW PUBLISHING CONFIGURATION
-        mavenPublishing {
-            // This tells the plugin to use the NEW Central Portal API
-            publishToMavenCentral(com.vanniktech.maven.publish.SonatypeHost.CENTRAL_PORTAL)
-
-            // Automatically signs artifacts (assumes valid GPG secrets are present)
-            signAllPublications()
-
-            // Define coordinates
-            coordinates(group.toString(), project.name, version.toString())
-
-            pom {
-                name.set("ISL")
-                description.set("ISL - JSON transformation scripting language")
-                url.set("https://github.com/intuit/isl")
-
-                licenses {
-                    license {
-                        name.set("Apache License 2.0")
-                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
-                    }
-                }
-
-                developers {
-                    developer {
-                        id.set("intuit")
-                        name.set("Intuit Inc.")
-                        email.set("opensource@intuit.com")
-                    }
-                }
-
-                scm {
-                    url.set("https://github.com/intuit/isl")
-                    connection.set("scm:git:https://github.com/intuit/isl.git")
-                    developerConnection.set("scm:git:https://github.com/intuit/isl.git")
-                }
-            }
-        }
+        apply(plugin = "com.vanniktech.maven.publish")
     }
 
     extensions.configure<JavaPluginExtension> {
@@ -97,5 +60,46 @@ subprojects {
     }
 }
 
-// Publishing configuration is handled in subprojects that have the plugin applied
+// Configure publishing for library modules
+configure(subprojects.filter { it.name in listOf("isl-transform", "isl-validation", "isl-cmd") }) {
+    afterEvaluate {
+        extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
+            // This tells the plugin to use the NEW Central Portal API
+            publishToMavenCentral()
+
+            // Automatically signs artifacts (assumes valid GPG secrets are present)
+            signAllPublications()
+
+            // Define coordinates
+            coordinates(group.toString(), project.name, version.toString())
+
+            pom {
+                name.set("ISL")
+                description.set("ISL - JSON transformation scripting language")
+                url.set("https://github.com/intuit/isl")
+
+                licenses {
+                    license {
+                        name.set("Apache License 2.0")
+                        url.set("https://www.apache.org/licenses/LICENSE-2.0")
+                    }
+                }
+
+                developers {
+                    developer {
+                        id.set("intuit")
+                        name.set("Intuit Inc.")
+                        email.set("opensource@intuit.com")
+                    }
+                }
+
+                scm {
+                    url.set("https://github.com/intuit/isl")
+                    connection.set("scm:git:https://github.com/intuit/isl.git")
+                    developerConnection.set("scm:git:https://github.com/intuit/isl.git")
+                }
+            }
+        }
+    }
+}
 
