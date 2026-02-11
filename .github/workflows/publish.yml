@@ -41,15 +41,15 @@ jobs:
 
     - name: Verify OSSRH credentials
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
       run: |
-        if [ -z "$OSSRH_USERNAME" ]; then
-          echo "❌ OSSRH_USERNAME is not set!"
+        if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
+          echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
           exit 1
         fi
-        if [ -z "$OSSRH_PASSWORD" ]; then
-          echo "❌ OSSRH_PASSWORD is not set!"
+        if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
+          echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
           exit 1
         fi
         echo "✓ OSSRH credentials are configured"
@@ -86,9 +86,9 @@ jobs:
 
     - name: Publish Snapshot to Maven Central
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace --info
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
 
   publish-release:
     name: Publish Release to Maven Central
@@ -177,27 +177,36 @@ jobs:
           rm -f signing_key.asc
         fi
       
-    - name: Verify OSSRH credentials
-      env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-      run: |
-        if [ -z "$OSSRH_USERNAME" ]; then
-          echo "❌ OSSRH_USERNAME is not set!"
-          exit 1
-        fi
-        if [ -z "$OSSRH_PASSWORD" ]; then
-          echo "❌ OSSRH_PASSWORD is not set!"
-          exit 1
-        fi
-        echo "✓ OSSRH credentials are configured"
+    # - name: Verify OSSRH credentials
+    #   env:
+    #     MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+    #     MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+    #   run: |
+    #     if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
+    #       echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
+    #       exit 1
+    #     fi
+    #     if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
+    #       echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
+    #       exit 1
+    #     fi
+    #     echo "✓ OSSRH credentials are configured"
         
     - name: Publish to Maven Central
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-        SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace --info
+        # The plugin expects these specific names for the Central Portal
+        mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+        
+        # GPG Signing variables
+        ORG_GRADLE_PROJECT_signingKey: ${{ secrets.SIGNING_KEY }}
+        ORG_GRADLE_PROJECT_signingPassword: ${{ secrets.SIGNING_PASSWORD }}
+        ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.SIGNING_KEY_ID }}
+        
+        # MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        # MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        # SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
       
     # - name: Publish to GitHub Packages
     #   env:
@@ -233,15 +242,15 @@ jobs:
 
     - name: Verify OSSRH credentials
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
       run: |
-        if [ -z "$OSSRH_USERNAME" ]; then
-          echo "❌ OSSRH_USERNAME is not set!"
+        if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
+          echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
           exit 1
         fi
-        if [ -z "$OSSRH_PASSWORD" ]; then
-          echo "❌ OSSRH_PASSWORD is not set!"
+        if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
+          echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
           exit 1
         fi
         echo "✓ OSSRH credentials are configured"
@@ -278,7 +287,7 @@ jobs:
 
     - name: Publish Snapshot to Maven Central
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace --info
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
 
