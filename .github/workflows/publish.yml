@@ -33,11 +33,13 @@ jobs:
         java-version: '21'
         distribution: 'corretto'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
 
     - name: Verify OSSRH credentials
       env:
@@ -109,11 +111,13 @@ jobs:
         java-version: '21'
         distribution: 'corretto'
         
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+      
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
 
     - name: Determine and update version
       id: version
@@ -234,11 +238,13 @@ jobs:
         java-version: '21'
         distribution: 'corretto'
 
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
 
     - name: Verify OSSRH credentials
       env:

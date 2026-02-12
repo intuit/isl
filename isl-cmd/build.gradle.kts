@@ -47,7 +47,7 @@ dependencies {
 // Configure Shadow JAR for fat JAR creation
 tasks.shadowJar {
     archiveBaseName.set("isl")
-    archiveClassifier.set("")
+    archiveClassifier.set("all")
     archiveVersion.set(project.version.toString())
     
     manifest {
@@ -91,4 +91,6 @@ tasks.jar {
         )
     }
 }
+
+// Publishing is configured automatically by the maven publish plugin
 
