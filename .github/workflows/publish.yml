@@ -90,6 +90,8 @@ jobs:
       env:
         MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
       run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
 
   publish-release:
@@ -198,9 +200,11 @@ jobs:
         
     - name: Publish to Maven Central
       env:
-        # Plugin reads these from the environment (required for maven-central-build-service)
         MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        # Gradle sets project properties from ORG_GRADLE_PROJECT_* (plugin build service reads these)
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
         SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
       run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
@@ -288,5 +292,7 @@ jobs:
       env:
         MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
         MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
       run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
 

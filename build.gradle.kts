@@ -61,17 +61,23 @@ subprojects {
 }
 
 // ---- Publishing (Maven Central + signing) ----
-// Maven Central: plugin reads credentials from ENVIRONMENT only (MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD).
-// CI must set these env vars; locally use: export MAVEN_CENTRAL_USERNAME=... MAVEN_CENTRAL_PASSWORD=... before gradlew.
+// Maven Central: plugin build service needs mavenCentralUsername/Password. Set via:
+//   - Env: MAVEN_CENTRAL_USERNAME, MAVEN_CENTRAL_PASSWORD (or OSSRH_*); CI should also set ORG_GRADLE_PROJECT_mavenCentralUsername/Password.
+//   - Root gradle.properties: mavenCentralUsername, mavenCentralPassword (we set project.ext from these).
 // Signing: env SIGNING_KEY (or SIGNING_KEY_FILE) and SIGNING_PASSWORD (or SIGNING_PASSWORD_FILE)
 
 val publishModules = listOf("isl-transform", "isl-validation", "isl-cmd")
 
 configure(subprojects.filter { it.name in publishModules }) {
     afterEvaluate {
-        val mavenUser = System.getenv("MAVEN_CENTRAL_USERNAME") ?: System.getenv("OSSRH_USERNAME")
-        val mavenPass = System.getenv("MAVEN_CENTRAL_PASSWORD") ?: System.getenv("OSSRH_PASSWORD")
+        val mavenUser = System.getenv("MAVEN_CENTRAL_USERNAME") ?: System.getenv("OSSRH_USERNAME") ?: rootProject.findProperty("mavenCentralUsername")?.toString()
+        val mavenPass = System.getenv("MAVEN_CENTRAL_PASSWORD") ?: System.getenv("OSSRH_PASSWORD") ?: rootProject.findProperty("mavenCentralPassword")?.toString()
         val hasMavenCredsFromEnv = !mavenUser.isNullOrBlank() && !mavenPass.isNullOrBlank()
+        // Plugin build service reads mavenCentralUsername/Password; set so Provider has value when queried
+        if (hasMavenCredsFromEnv) {
+            project.ext.set("mavenCentralUsername", mavenUser)
+            project.ext.set("mavenCentralPassword", mavenPass)
+        }
 
         val signKey = System.getenv("SIGNING_KEY") ?: System.getenv("SIGNING_KEY_FILE")?.let { file(it).readText(Charsets.UTF_8).trim() }
         val signPass = System.getenv("SIGNING_PASSWORD") ?: System.getenv("SIGNING_PASSWORD_FILE")?.let { file(it).readText(Charsets.UTF_8).trim() } ?: ""
