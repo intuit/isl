@@ -182,22 +182,7 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
           rm -f signing_key.asc
         fi
-      
-    # - name: Verify OSSRH credentials
-    #   env:
-    #     MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-    #     MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-    #   run: |
-    #     if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
-    #       echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
-    #       exit 1
-    #     fi
-    #     if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
-    #       echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
-    #       exit 1
-    #     fi
-    #     echo "✓ OSSRH credentials are configured"
-        
+
     - name: Publish to Maven Central
       env:
         MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
@@ -208,12 +193,6 @@ jobs:
         SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
         SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
       run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
-      
-    # - name: Publish to GitHub Packages
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   run: ./gradlew publishAllPublicationsToGitHubPackagesRepository --no-daemon --stacktrace
-    #   continue-on-error: true
 
   publish-manual-snapshot:
     name: Publish Manual Snapshot

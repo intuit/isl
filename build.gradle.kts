@@ -72,9 +72,8 @@ configure(subprojects.filter { it.name in publishModules }) {
     afterEvaluate {
         val mavenUser = System.getenv("MAVEN_CENTRAL_USERNAME") ?: System.getenv("OSSRH_USERNAME") ?: rootProject.findProperty("mavenCentralUsername")?.toString()
         val mavenPass = System.getenv("MAVEN_CENTRAL_PASSWORD") ?: System.getenv("OSSRH_PASSWORD") ?: rootProject.findProperty("mavenCentralPassword")?.toString()
-        val hasMavenCredsFromEnv = !mavenUser.isNullOrBlank() && !mavenPass.isNullOrBlank()
-        // Plugin build service reads mavenCentralUsername/Password; set so Provider has value when queried
-        if (hasMavenCredsFromEnv) {
+        val hasMavenCreds = !mavenUser.isNullOrBlank() && !mavenPass.isNullOrBlank()
+        if (hasMavenCreds) {
             project.ext.set("mavenCentralUsername", mavenUser)
             project.ext.set("mavenCentralPassword", mavenPass)
         }
@@ -83,7 +82,7 @@ configure(subprojects.filter { it.name in publishModules }) {
         val signPass = System.getenv("SIGNING_PASSWORD") ?: System.getenv("SIGNING_PASSWORD_FILE")?.let { file(it).readText(Charsets.UTF_8).trim() } ?: ""
         val hasSigning = !signKey.isNullOrBlank()
 
-        if (hasMavenCredsFromEnv && hasSigning) {
+        if (hasMavenCreds && hasSigning) {
             apply(plugin = "signing")
             extensions.configure<org.gradle.plugins.signing.SigningExtension> {
                 val keyContent = signKey!!.trim()
@@ -107,7 +106,7 @@ configure(subprojects.filter { it.name in publishModules }) {
                     developerConnection.set("scm:git:https://github.com/intuit/isl.git")
                 }
             }
-            if (hasMavenCredsFromEnv) {
+            if (hasMavenCreds) {
                 publishToMavenCentral()
                 if (hasSigning) signAllPublications()
             }
@@ -124,7 +123,7 @@ tasks.register("publishToMavenCentral") {
     doFirst {
         if (taskDependencies.getDependencies(this).isEmpty()) {
             throw GradleException(
-                "Maven Central credentials must be in the environment: MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD (or OSSRH_USERNAME, OSSRH_PASSWORD). For local publish use: gradlew publishToMavenLocal"
+                "Maven Central credentials required: set MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD (or OSSRH_*), or mavenCentralUsername/Password in root gradle.properties. For local only: gradlew publishToMavenLocal"
             )
         }
     }
