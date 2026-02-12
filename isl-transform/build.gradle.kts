@@ -198,6 +198,12 @@ tasks.check {
     dependsOn(tasks.jacocoTestCoverageVerification)
 }
 
+// Configure JavaDoc to exclude ANTLR generated files
+tasks.withType<Javadoc> {
+    exclude("com/intuit/isl/antlr/**")
+    options.encoding = "UTF-8"
+}
+
 // Configure JAR to include manifest entries (for version detection)
 tasks.jar {
     manifest {
