@@ -221,12 +221,13 @@ configure(subprojects.filter { it.name in listOf("isl-transform", "isl-validatio
         
         // Configure publishing extension AFTER signing is configured
         extensions.configure<com.vanniktech.maven.publish.MavenPublishBaseExtension> {
-            // This tells the plugin to use the NEW Central Portal API
-            val mavenCentralUsername = System.getenv("MAVEN_CENTRAL_USERNAME") ?: project.findProperty("mavenCentralUsername") as String?
-            val mavenCentralPassword = System.getenv("MAVEN_CENTRAL_PASSWORD") ?: project.findProperty("mavenCentralPassword") as String?
-            
+            // Configure Maven Central only when credentials are available (plugin requires them for its build service).
+            val mavenCentralUsername = System.getenv("OSSRH_USERNAME") ?: project.findProperty("mavenCentralUsername") as String?
+            val mavenCentralPassword = System.getenv("OSSRH_PASSWORD") ?: project.findProperty("mavenCentralPassword") as String?
             if (mavenCentralUsername != null && mavenCentralPassword != null) {
                 publishToMavenCentral()
+            } else {
+                println(">>>> COULD NOT FIND OSSRH_USERNAME or OSSRH_PASSWORD.")
             }
 
             // Automatically signs artifacts (only if signing is configured)
@@ -263,6 +264,27 @@ configure(subprojects.filter { it.name in listOf("isl-transform", "isl-validatio
                     developerConnection.set("scm:git:https://github.com/intuit/isl.git")
                 }
             }
+        }
+    }
+}
+
+// Root-level publishToMavenCentral: runs all subproject publishToMavenCentral tasks, or fails with a clear message
+val publishSubprojects = listOf("isl-transform", "isl-validation", "isl-cmd")
+tasks.register("publishToMavenCentral") {
+    group = "publishing"
+    description = "Publishes all library modules to Maven Central. Requires MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD."
+    publishSubprojects.forEach { subName ->
+        project(subName).tasks.findByName("publishToMavenCentral")?.let { subTask ->
+            dependsOn(subTask)
+        }
+    }
+    doFirst {
+        if (taskDependencies.getDependencies(this).isEmpty()) {
+            throw GradleException(
+                "publishToMavenCentral is not available: set MAVEN_CENTRAL_USERNAME and MAVEN_CENTRAL_PASSWORD " +
+                "(env or gradle.properties: mavenCentralUsername, mavenCentralPassword). " +
+                "For local-only publish use: gradlew publishToMavenLocal"
+            )
         }
     }
 }
