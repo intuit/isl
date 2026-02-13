@@ -26,7 +26,7 @@ This guide shows you how to embed ISL in your Java/Kotlin project.
 
 ```kotlin
 dependencies {
-    implementation("com.intuit.isl:isl-transform:2.4.20-SNAPSHOT")
+    implementation("com.intuit.isl:isl-transform:1.1.0-SNAPSHOT")
 }
 ```
 

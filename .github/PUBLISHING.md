@@ -68,7 +68,7 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 **Manual Trigger:**
 ```bash
 # Go to Actions → Publish to Maven Central → Run workflow
-# Specify the version (e.g., 2.4.20)
+# Specify the version (e.g., 1.1.2)
 ```
 
 ### 3. Performance Benchmarks (`benchmark.yml`)
@@ -87,8 +87,8 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 
 1. **Create a Git tag:**
    ```bash
-   git tag -a v2.4.20 -m "Release version 2.4.20"
-   git push origin v2.4.20
+   git tag -a v1.1.0 -m "Release version 1.1.0"
+   git push origin v1.1.0
    ```
 
 2. **Create a GitHub Release:**
@@ -105,7 +105,7 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 
 1. **Update version in `build.gradle.kts`:**
    ```kotlin
-   version = "2.4.20"  // Remove -SNAPSHOT for releases
+   version = "1.1.0"  // Remove -SNAPSHOT for releases
    ```
 
 2. **Trigger workflow manually:**
@@ -118,12 +118,12 @@ Configure the following secrets in your GitHub repository (Settings → Secrets 
 
 The project uses semantic versioning: `MAJOR.MINOR.PATCH`
 
-- **SNAPSHOT versions** (e.g., `2.4.20-SNAPSHOT`):
+- **SNAPSHOT versions** (e.g., `1.1.0-SNAPSHOT`):
   - Published to Sonatype Snapshots repository
   - Used for development builds
   - Automatically overwritten with each publish
 
-- **Release versions** (e.g., `2.4.20`):
+- **Release versions** (e.g., `1.1.0`):
   - Published to Maven Central Staging
   - Requires manual promotion in Sonatype OSSRH
   - Immutable once published
@@ -186,14 +186,14 @@ Once published to Maven Central, users can add the dependency:
 ### Gradle (Kotlin DSL)
 ```kotlin
 dependencies {
-    implementation("com.intuit.isl:isl-transform:2.4.20")
+    implementation("com.intuit.isl:isl-transform:1.1.0")
 }
 ```
 
 ### Gradle (Groovy)
 ```groovy
 dependencies {
-    implementation 'com.intuit.isl:isl-transform:2.4.20'
+    implementation 'com.intuit.isl:isl-transform:1.1.0'
 }
 ```
 
@@ -202,7 +202,7 @@ dependencies {
 <dependency>
     <groupId>com.intuit.isl</groupId>
     <artifactId>isl-transform</artifactId>
-    <version>2.4.20</version>
+    <version>1.1.0</version>
 </dependency>
 ```
 

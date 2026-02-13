@@ -8,8 +8,11 @@ echo ""
 # Ensure we're in the right directory
 cd "$(dirname "$0")"
 
+# Read version from gradle.properties
+VERSION=$(grep "^version=" "../../gradle.properties" | cut -d'=' -f2 | tr -d '\r')
+
 # Check if JAR exists
-JAR="../build/libs/isl-2.4.20-SNAPSHOT.jar"
+JAR="../build/libs/isl-$VERSION.jar"
 if [ ! -f "$JAR" ]; then
     echo "Building ISL CLI..."
     cd ..
