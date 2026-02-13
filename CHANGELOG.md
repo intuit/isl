@@ -1,3 +1,7 @@
+## [1.1.0] - 2026-02-13
+
+- chore: update CHANGELOG for v1.1.1-SNAPSHOT (81e598e)
+
 ## [1.1.1-SNAPSHOT] - 2026-02-13
 
 - prepare for publishing (e4d2865)
