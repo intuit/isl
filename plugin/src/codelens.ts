@@ -8,7 +8,7 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
 
     constructor() {}
 
-    public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.CodeLens[] | Thenable<vscode.CodeLens[]> {
+    public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];
         const text = document.getText();
         const lines = text.split('\n');
@@ -34,8 +34,8 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
         for (const func of functions) {
             const range = new vscode.Range(func.line, 0, func.line, lines[func.line].length);
             
-            // Count usages
-            const usageCount = this.countUsages(text, func.name, func.type);
+            // Count usages including imports (async)
+            const usageCount = await this.countUsagesAsync(document, func.name, func.type);
             
             // Add "Run" button
             const runCommand: vscode.Command = {
@@ -63,16 +63,7 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
                 codeLenses.push(new vscode.CodeLens(range, noUsageCommand));
             }
             
-            // Add test button if not a run function
-            if (func.name !== 'run') {
-                const testCommand: vscode.Command = {
-                    title: `🧪 Test`,
-                    command: 'isl.testFunction',
-                    arguments: [document.uri, func.name, func.params],
-                    tooltip: `Test ${func.name} with sample data`
-                };
-                codeLenses.push(new vscode.CodeLens(range, testCommand));
-            }
+            // Test button removed - not doing much
         }
 
         return codeLenses;
@@ -95,6 +86,108 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
         
         return count;
     }
+
+    private async countUsagesAsync(document: vscode.TextDocument, functionName: string, functionType: string): Promise<number> {
+        // Start with local usages
+        const text = document.getText();
+        let count = this.countUsages(text, functionName, functionType);
+        
+        // Find all files that import this file and get the module names they use
+        const importInfo = await this.findFilesAndModuleNamesThatImport(document.uri);
+        
+        // Count usages in imported files using the correct module name for each file
+        for (const { fileUri, moduleName } of importInfo) {
+            try {
+                const importedText = fs.readFileSync(fileUri.fsPath, 'utf-8');
+                
+                if (functionType === 'fun') {
+                    // Count @.ModuleName.functionName() calls (using the import name, not filename)
+                    const functionCallPattern = new RegExp(`@\\.${moduleName}\\.${functionName}\\s*\\(`, 'g');
+                    const matches = importedText.match(functionCallPattern);
+                    count += matches ? matches.length : 0;
+                } else if (functionType === 'modifier') {
+                    // Count | ModuleName.modifierName usages (using the import name, not filename)
+                    const modifierPattern = new RegExp(`\\|\\s*${moduleName}\\.${functionName}(?:\\s*\\(|\\s|$)`, 'g');
+                    const matches = importedText.match(modifierPattern);
+                    count += matches ? matches.length : 0;
+                }
+            } catch (error) {
+                // Silently skip files that can't be read
+                console.warn(`Could not read file ${fileUri.fsPath} for usage counting: ${error}`);
+            }
+        }
+        
+        return count;
+    }
+
+    /**
+     * Finds all files that import the given file and returns the module name each file uses
+     */
+    private async findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array<{ fileUri: vscode.Uri, moduleName: string }>> {
+        const results: Array<{ fileUri: vscode.Uri, moduleName: string }> = [];
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+        
+        if (!workspaceFolder) {
+            return results;
+        }
+        
+        // Search for all .isl files in the workspace
+        const pattern = new vscode.RelativePattern(workspaceFolder, '**/*.isl');
+        const allIslFiles = await vscode.workspace.findFiles(pattern, null, 1000);
+        
+        // Check each file for imports that point to the current file
+        for (const fileUri of allIslFiles) {
+            // Skip the current file
+            if (fileUri.fsPath === uri.fsPath) {
+                continue;
+            }
+            
+            try {
+                const fileText = fs.readFileSync(fileUri.fsPath, 'utf-8');
+                const lines = fileText.split('\n');
+                
+                // Check each line for import statements
+                for (const line of lines) {
+                    // Pattern: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
+                    const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
+                    if (importMatch) {
+                        const moduleName = importMatch[1];
+                        const importPath = importMatch[2];
+                        
+                        // Resolve the import path relative to the importing file
+                        const importingDir = path.dirname(fileUri.fsPath);
+                        let resolvedPath: string;
+                        
+                        if (path.isAbsolute(importPath)) {
+                            resolvedPath = importPath;
+                        } else {
+                            resolvedPath = path.resolve(importingDir, importPath);
+                        }
+                        
+                        // Try with .isl extension if not present
+                        if (!resolvedPath.endsWith('.isl')) {
+                            const withExtension = resolvedPath + '.isl';
+                            if (fs.existsSync(withExtension)) {
+                                resolvedPath = withExtension;
+                            }
+                        }
+                        
+                        // Check if the resolved path matches the current file
+                        if (fs.existsSync(resolvedPath) && path.resolve(resolvedPath) === path.resolve(uri.fsPath)) {
+                            results.push({ fileUri, moduleName });
+                            break; // Found the import, no need to check more lines in this file
+                        }
+                    }
+                }
+            } catch (error) {
+                // Silently skip files that can't be read
+                console.warn(`Could not check file ${fileUri.fsPath} for imports: ${error}`);
+            }
+        }
+        
+        return results;
+    }
+
 
     public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): vscode.CodeLens | Thenable<vscode.CodeLens> {
         return codeLens;
@@ -301,6 +394,7 @@ export async function showUsages(uri: vscode.Uri, functionName: string, function
     const text = document.getText();
     const locations: vscode.Location[] = [];
     
+    // Find usages in current file
     const lines = text.split('\n');
     
     for (let i = 0; i < lines.length; i++) {
@@ -324,12 +418,114 @@ export async function showUsages(uri: vscode.Uri, functionName: string, function
         }
     }
     
+    // Find all files that import this file and get the module names they use
+    const importInfo = await findFilesAndModuleNamesThatImport(uri);
+    
+    for (const { fileUri, moduleName } of importInfo) {
+        try {
+            const importedText = fs.readFileSync(fileUri.fsPath, 'utf-8');
+            const importedLines = importedText.split('\n');
+            
+            for (let i = 0; i < importedLines.length; i++) {
+                const line = importedLines[i];
+                let match;
+                
+                if (functionType === 'fun') {
+                    // Look for @.ModuleName.functionName() calls (using the import name)
+                    const pattern = new RegExp(`@\\.${moduleName}\\.${functionName}\\s*\\(`, 'g');
+                    while ((match = pattern.exec(line)) !== null) {
+                        const startPos = new vscode.Position(i, match.index);
+                        const endPos = new vscode.Position(i, match.index + match[0].length);
+                        locations.push(new vscode.Location(fileUri, new vscode.Range(startPos, endPos)));
+                    }
+                } else if (functionType === 'modifier') {
+                    // Look for | ModuleName.modifierName usages (using the import name)
+                    const pattern = new RegExp(`\\|\\s*${moduleName}\\.${functionName}(?:\\s*\\(|\\s|$)`, 'g');
+                    while ((match = pattern.exec(line)) !== null) {
+                        const startPos = new vscode.Position(i, match.index);
+                        const endPos = new vscode.Position(i, match.index + match[0].length);
+                        locations.push(new vscode.Location(fileUri, new vscode.Range(startPos, endPos)));
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently skip files that can't be read
+            console.warn(`Could not read file ${fileUri.fsPath} for usage display: ${error}`);
+        }
+    }
+    
     if (locations.length > 0) {
         vscode.commands.executeCommand('editor.action.showReferences', uri, locations[0].range.start, locations);
     } else {
         vscode.window.showInformationMessage(`No usages found for ${functionName}`);
     }
 }
+
+async function findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array<{ fileUri: vscode.Uri, moduleName: string }>> {
+    const results: Array<{ fileUri: vscode.Uri, moduleName: string }> = [];
+    const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+    
+    if (!workspaceFolder) {
+        return results;
+    }
+    
+    // Search for all .isl files in the workspace
+    const pattern = new vscode.RelativePattern(workspaceFolder, '**/*.isl');
+    const allIslFiles = await vscode.workspace.findFiles(pattern, null, 1000);
+    
+    // Check each file for imports that point to the current file
+    for (const fileUri of allIslFiles) {
+        // Skip the current file
+        if (fileUri.fsPath === uri.fsPath) {
+            continue;
+        }
+        
+        try {
+            const fileText = fs.readFileSync(fileUri.fsPath, 'utf-8');
+            const lines = fileText.split('\n');
+            
+            // Check each line for import statements
+            for (const line of lines) {
+                // Pattern: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
+                const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
+                if (importMatch) {
+                    const moduleName = importMatch[1];
+                    const importPath = importMatch[2];
+                    
+                    // Resolve the import path relative to the importing file
+                    const importingDir = path.dirname(fileUri.fsPath);
+                    let resolvedPath: string;
+                    
+                    if (path.isAbsolute(importPath)) {
+                        resolvedPath = importPath;
+                    } else {
+                        resolvedPath = path.resolve(importingDir, importPath);
+                    }
+                    
+                    // Try with .isl extension if not present
+                    if (!resolvedPath.endsWith('.isl')) {
+                        const withExtension = resolvedPath + '.isl';
+                        if (fs.existsSync(withExtension)) {
+                            resolvedPath = withExtension;
+                        }
+                    }
+                    
+                    // Check if the resolved path matches the current file
+                    if (fs.existsSync(resolvedPath) && path.resolve(resolvedPath) === path.resolve(uri.fsPath)) {
+                        results.push({ fileUri, moduleName });
+                        break; // Found the import, no need to check more lines in this file
+                    }
+                }
+            }
+        } catch (error) {
+            // Silently skip files that can't be read
+            console.warn(`Could not check file ${fileUri.fsPath} for imports: ${error}`);
+        }
+    }
+    
+    return results;
+}
+
 
 export async function testFunction(uri: vscode.Uri, functionName: string, params: string, context: vscode.ExtensionContext) {
     // Same as runFunction but with test data

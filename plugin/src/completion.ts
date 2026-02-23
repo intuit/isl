@@ -30,6 +30,13 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         if (linePrefix.match(/@\.This\.[\w]*$/)) {
             return this.getFunctionsFromDocument(document, extensions);
         }
+        // Check for @.ServiceName. - show methods for that service
+        const serviceMethodMatch = linePrefix.match(/@\.([A-Z][a-zA-Z0-9_]*)\.(\w*)$/);
+        if (serviceMethodMatch) {
+            const serviceName = serviceMethodMatch[1];
+            const methodPrefix = serviceMethodMatch[2] || '';
+            return this.getServiceMethodCompletions(serviceName, methodPrefix);
+        }
         // Provide different completions based on context
         else if (linePrefix.endsWith('@.')) {
             return this.getServiceCompletions();
@@ -282,6 +289,107 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             item.detail = s.detail;
             item.documentation = new vscode.MarkdownString(s.documentation);
             item.insertText = s.label;
+            return item;
+        });
+    }
+
+    private getServiceMethodCompletions(serviceName: string, methodPrefix: string = ''): vscode.CompletionItem[] {
+        const serviceMethods: Record<string, Array<{name: string, params: string, detail: string, documentation?: string}>> = {
+            'Date': [
+                { name: 'Now', params: '()', detail: 'Get current date/time', documentation: 'Returns the current date and time in UTC.\n\nExample: `$now: @.Date.Now()`' },
+                { name: 'parse', params: '(string, format)', detail: 'Parse date string', documentation: 'Parses a date string using the specified format.\n\nExample: `$date: @.Date.parse("2024-01-01", "yyyy-MM-dd")`' },
+                { name: 'fromEpochSeconds', params: '(seconds)', detail: 'Create date from epoch seconds', documentation: 'Creates a date from Unix epoch seconds.\n\nExample: `$date: @.Date.fromEpochSeconds(1704067200)`' },
+                { name: 'fromEpochMillis', params: '(millis)', detail: 'Create date from epoch milliseconds', documentation: 'Creates a date from Unix epoch milliseconds.\n\nExample: `$date: @.Date.fromEpochMillis(1704067200000)`' }
+            ],
+            'Math': [
+                { name: 'sum', params: '(initial)', detail: 'Sum values in array', documentation: 'Sums all values in an array. Use with pipe: `$prices | Math.sum(0)`' },
+                { name: 'average', params: '()', detail: 'Calculate average', documentation: 'Calculates the average of values in an array.' },
+                { name: 'mean', params: '()', detail: 'Calculate mean', documentation: 'Calculates the mean of values in an array (alias for average).' },
+                { name: 'min', params: '()', detail: 'Find minimum value', documentation: 'Finds the minimum value in an array.' },
+                { name: 'max', params: '()', detail: 'Find maximum value', documentation: 'Finds the maximum value in an array.' },
+                { name: 'mod', params: '(divisor)', detail: 'Modulo operation', documentation: 'Performs modulo operation: `value % divisor`' },
+                { name: 'sqrt', params: '()', detail: 'Square root', documentation: 'Calculates the square root of a number.' },
+                { name: 'clamp', params: '(min, max)', detail: 'Clamp value between min and max', documentation: 'Clamps a value between min and max bounds.' },
+                { name: 'round', params: '()', detail: 'Round number', documentation: 'Rounds a number to the nearest integer.' },
+                { name: 'floor', params: '()', detail: 'Round down', documentation: 'Rounds a number down to the nearest integer.' },
+                { name: 'ceil', params: '()', detail: 'Round up', documentation: 'Rounds a number up to the nearest integer.' },
+                { name: 'abs', params: '()', detail: 'Absolute value', documentation: 'Returns the absolute value of a number.' },
+                { name: 'RandInt', params: '(min, max)', detail: 'Random integer', documentation: 'Generates a random integer between min and max (inclusive).\n\nExample: `@.Math.RandInt(1, 100)`' },
+                { name: 'RandFloat', params: '()', detail: 'Random float', documentation: 'Generates a random float between 0.0 and 1.0.' },
+                { name: 'RandDouble', params: '()', detail: 'Random double', documentation: 'Generates a random double between 0.0 and 1.0.' }
+            ],
+            'String': [
+                { name: 'concat', params: '(...)', detail: 'Concatenate strings', documentation: 'Concatenates multiple strings together.' },
+                { name: 'join', params: '(array, sep)', detail: 'Join array with separator', documentation: 'Joins an array of strings with a separator.' },
+                { name: 'split', params: '(str, sep)', detail: 'Split string', documentation: 'Splits a string by a separator into an array.' },
+                { name: 'replace', params: '(str, find, replace)', detail: 'Replace substring', documentation: 'Replaces occurrences of a substring in a string.' }
+            ],
+            'Array': [
+                { name: 'concat', params: '(...)', detail: 'Concatenate arrays', documentation: 'Concatenates multiple arrays together.' },
+                { name: 'slice', params: '(start, end)', detail: 'Slice array', documentation: 'Extracts a portion of an array from start to end index.' },
+                { name: 'reverse', params: '()', detail: 'Reverse array', documentation: 'Reverses the order of elements in an array.' },
+                { name: 'flatten', params: '()', detail: 'Flatten nested arrays', documentation: 'Flattens a nested array structure into a single level.' },
+                { name: 'range', params: '(start, count, increment)', detail: 'Generate range', documentation: 'Generates an array of numbers.\n\nExample: `@.Array.range(0, 10, 1)` creates [0, 1, 2, ..., 9]' }
+            ],
+            'Json': [
+                { name: 'parse', params: '(string)', detail: 'Parse JSON string', documentation: 'Parses a JSON string into an object.\n\nExample: `$obj: @.Json.parse($jsonString)`' },
+                { name: 'stringify', params: '(object)', detail: 'Stringify to JSON', documentation: 'Converts an object to a JSON string.\n\nExample: `$json: @.Json.stringify($obj)`' }
+            ],
+            'Xml': [
+                { name: 'parse', params: '(string)', detail: 'Parse XML string', documentation: 'Parses an XML string into an object.\n\nAttributes use @ prefix, text uses #text' },
+                { name: 'toXml', params: '(object, rootName)', detail: 'Convert to XML', documentation: 'Converts an object to an XML string with the specified root element name.' }
+            ],
+            'Csv': [
+                { name: 'parse', params: '(string)', detail: 'Parse CSV string', documentation: 'Parses a CSV string into an array of objects.' },
+                { name: 'parsemultiline', params: '(string, options)', detail: 'Parse multiline CSV', documentation: 'Parses a multiline CSV string.\n\nOptions: `{headers: true, separator: ",", skipLines: 0}`\n\nExample: `$data: @.Csv.parsemultiline($csvText)`' }
+            ],
+            'Crypto': [
+                { name: 'md5', params: '(string)', detail: 'MD5 hash', documentation: 'Calculates MD5 hash of a string.' },
+                { name: 'sha1', params: '(string)', detail: 'SHA-1 hash', documentation: 'Calculates SHA-1 hash of a string.' },
+                { name: 'sha256', params: '(string)', detail: 'SHA-256 hash', documentation: 'Calculates SHA-256 hash of a string.' },
+                { name: 'base64encode', params: '(string)', detail: 'Base64 encode', documentation: 'Encodes a string to Base64.' },
+                { name: 'base64decode', params: '(string)', detail: 'Base64 decode', documentation: 'Decodes a Base64 string.' }
+            ]
+        };
+
+        const methods = serviceMethods[serviceName];
+        if (!methods) {
+            return [];
+        }
+
+        // Filter methods by prefix if provided
+        const filteredMethods = methodPrefix 
+            ? methods.filter(m => m.name.toLowerCase().startsWith(methodPrefix.toLowerCase()))
+            : methods;
+
+        return filteredMethods.map(m => {
+            const item = new vscode.CompletionItem(m.name, vscode.CompletionItemKind.Method);
+            item.detail = m.detail;
+            if (m.documentation) {
+                item.documentation = new vscode.MarkdownString(m.documentation);
+            }
+            
+            // Create snippet with parameters
+            const paramMatch = m.params.match(/\(([^)]*)\)/);
+            if (paramMatch && paramMatch[1]) {
+                const paramList = paramMatch[1];
+                if (paramList === '...') {
+                    item.insertText = new vscode.SnippetString(`${m.name}(\${1:arg1}, \${2:arg2})`);
+                } else if (paramList.includes(',')) {
+                    const params = paramList.split(',').map((p, idx) => {
+                        const paramName = p.trim();
+                        return `\${${idx + 1}:${paramName}}`;
+                    });
+                    item.insertText = new vscode.SnippetString(`${m.name}(${params.join(', ')})`);
+                } else if (paramList) {
+                    item.insertText = new vscode.SnippetString(`${m.name}(\${1:${paramList.trim()}})`);
+                } else {
+                    item.insertText = new vscode.SnippetString(`${m.name}()`);
+                }
+            } else {
+                item.insertText = new vscode.SnippetString(`${m.name}()`);
+            }
+            
             return item;
         });
     }

@@ -120,3 +120,7 @@ output-*.json
 # Test files for extensions
 .islextensions
 test-extensions.isl
+
+
+# Plugin
+*.vsix

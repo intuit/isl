@@ -1,5 +1,8 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 import { IslExtensionsManager } from './extensions';
+import { validateControlFlowBalance as validateControlFlowBalanceUtil } from './controlFlowMatcher';
 
 export class IslValidator {
     private diagnosticCollection: vscode.DiagnosticCollection;
@@ -115,6 +118,11 @@ export class IslValidator {
         'Pagination.Cursor', 'Pagination.Page', 'Pagination.Date', 'Pagination.Offset', 'Pagination.Keyset'
     ]);
 
+    // Built-in namespaces (these should not be treated as imported modules)
+    private readonly builtInNamespaces = new Set([
+        'Date', 'Math', 'String', 'Array', 'Json', 'Xml', 'Yaml', 'Crypto', 'Pagination', 'This'
+    ]);
+
     constructor(private extensionsManager: IslExtensionsManager) {
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('isl');
     }
@@ -169,13 +177,17 @@ export class IslValidator {
         const userDefinedModifiers = this.extractUserDefinedModifiers(document);
         const declaredVariables = this.extractDeclaredVariables(document);
 
+        // Extract imports and their exported functions/modifiers
+        const importedFunctions = await this.extractImportedFunctions(document);
+        const importedModifiers = await this.extractImportedModifiers(document);
+
         // Extract pagination variables for property validation
         const paginationVariables = this.extractPaginationVariables(document);
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions);
-            this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers, extensions);
+            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions, importedFunctions);
+            this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers, extensions, importedModifiers);
             this.checkVariableUsage(line, i, diagnostics, document, declaredVariables);
             this.checkPaginationPropertyAccess(line, i, diagnostics, document, paginationVariables);
             this.checkLongObjectDeclaration(line, i, diagnostics, document);
@@ -391,173 +403,11 @@ export class IslValidator {
     }
 
     private checkControlFlowBalance(text: string, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
-        const lines = text.split('\n');
-        
-        const controlFlowStack: Array<{ type: string, line: number, isBlock: boolean }> = [];
-
-        for (let i = 0; i < lines.length; i++) {
-            const fullLine = lines[i];
-            
-            // Skip comments
-            const commentIndex = Math.min(
-                fullLine.indexOf('//') !== -1 ? fullLine.indexOf('//') : Infinity,
-                fullLine.indexOf('#') !== -1 ? fullLine.indexOf('#') : Infinity
-            );
-            const line = (commentIndex !== Infinity ? fullLine.substring(0, commentIndex) : fullLine).trim();
-            
-            // Skip empty lines
-            if (!line) {
-                continue;
-            }
-
-            // Check for control flow keywords (can appear anywhere in the line for expression forms)
-            // Use word boundaries (\b) to avoid matching partial words
-            
-            // Distinguish between block statements and inline expressions for all control flow constructs
-            // Block statements: start at beginning of line (after whitespace) - require end keyword
-            // Inline expressions: preceded by = or : (assignment/property) - can span multiple lines
-            //                     BUT if terminated with ; or , on same line, they're complete
-            
-            // IF statements
-            const blockIfMatches = line.match(/^\s*if[\s(]/g) || [];
-            const inlineIfMatches = line.match(/[=:>]\s*if[\s(]/g) || [];
-            const endifMatches = line.match(/\bendif\b/g) || [];
-            
-            // SWITCH statements  
-            const blockSwitchMatches = line.match(/^\s*switch[\s(]/g) || [];
-            const inlineSwitchMatches = line.match(/[=:>]\s*switch[\s(]/g) || [];
-            const endswitchMatches = line.match(/\bendswitch\b/g) || [];
-            
-            // FOREACH loops
-            const blockForeachMatches = line.match(/^\s*foreach\s/g) || [];
-            const inlineForeachMatches = line.match(/[=:>]\s*foreach\s/g) || [];
-            const endforMatches = line.match(/\bendfor\b/g) || [];
-            
-            // WHILE loops
-            const blockWhileMatches = line.match(/^\s*while[\s(]/g) || [];
-            const inlineWhileMatches = line.match(/[=:>]\s*while[\s(]/g) || [];
-            const endwhileMatches = line.match(/\bendwhile\b/g) || [];
-            
-            // Check if inline expressions on this line are complete (have terminator ; or , and no end keyword)
-            const hasTerminator = line.includes(';') || line.includes(',');
-            const hasEndKeyword = endifMatches.length > 0 || endswitchMatches.length > 0 || 
-                                 endforMatches.length > 0 || endwhileMatches.length > 0;
-            const inlineIsComplete = hasTerminator && !hasEndKeyword;
-            
-            // Push opening keywords
-            // - Always push block statements (marked as isBlock: true)
-            // - Only push inline statements if they're NOT complete on this line (marked as isBlock: false)
-            // - Inline statements can end with } instead of endif, so we won't report unclosed errors for them
-            for (let j = 0; j < blockIfMatches.length; j++) {
-                controlFlowStack.push({ type: 'if', line: i, isBlock: true });
-            }
-            if (!inlineIsComplete) {
-                for (let j = 0; j < inlineIfMatches.length; j++) {
-                    controlFlowStack.push({ type: 'if', line: i, isBlock: false });
-                }
-            }
-            
-            for (let j = 0; j < blockSwitchMatches.length; j++) {
-                controlFlowStack.push({ type: 'switch', line: i, isBlock: true });
-            }
-            if (!inlineIsComplete) {
-                for (let j = 0; j < inlineSwitchMatches.length; j++) {
-                    controlFlowStack.push({ type: 'switch', line: i, isBlock: false });
-                }
-            }
-            
-            for (let j = 0; j < blockForeachMatches.length; j++) {
-                controlFlowStack.push({ type: 'foreach', line: i, isBlock: true });
-            }
-            if (!inlineIsComplete) {
-                for (let j = 0; j < inlineForeachMatches.length; j++) {
-                    controlFlowStack.push({ type: 'foreach', line: i, isBlock: false });
-                }
-            }
-            
-            for (let j = 0; j < blockWhileMatches.length; j++) {
-                controlFlowStack.push({ type: 'while', line: i, isBlock: true });
-            }
-            if (!inlineIsComplete) {
-                for (let j = 0; j < inlineWhileMatches.length; j++) {
-                    controlFlowStack.push({ type: 'while', line: i, isBlock: false });
-                }
-            }
-            
-            // Pop closing keywords - now that we track both block and inline, just pop when we find a match
-            
-            // Note: Explicit end keywords (endif, endfor, etc.) always close their control flow
-            // The }; or ], pattern is only for inline control flows that don't use explicit end keywords
-            
-            // For endif
-            for (let j = 0; j < endifMatches.length; j++) {
-                if (controlFlowStack.length === 0 || controlFlowStack[controlFlowStack.length - 1].type !== 'if') {
-                    const range = new vscode.Range(i, 0, i, fullLine.length);
-                    diagnostics.push(new vscode.Diagnostic(
-                        range,
-                        'Unexpected endif without matching if',
-                        vscode.DiagnosticSeverity.Error
-                    ));
-                } else {
-                    controlFlowStack.pop();
-                }
-            }
-            
-            // For endfor
-            for (let j = 0; j < endforMatches.length; j++) {
-                if (controlFlowStack.length === 0 || controlFlowStack[controlFlowStack.length - 1].type !== 'foreach') {
-                    const range = new vscode.Range(i, 0, i, fullLine.length);
-                    diagnostics.push(new vscode.Diagnostic(
-                        range,
-                        'Unexpected endfor without matching foreach',
-                        vscode.DiagnosticSeverity.Error
-                    ));
-                } else {
-                    controlFlowStack.pop();
-                }
-            }
-            
-            // For endwhile
-            for (let j = 0; j < endwhileMatches.length; j++) {
-                if (controlFlowStack.length === 0 || controlFlowStack[controlFlowStack.length - 1].type !== 'while') {
-                    const range = new vscode.Range(i, 0, i, fullLine.length);
-                    diagnostics.push(new vscode.Diagnostic(
-                        range,
-                        'Unexpected endwhile without matching while',
-                        vscode.DiagnosticSeverity.Error
-                    ));
-                } else {
-                    controlFlowStack.pop();
-                }
-            }
-            
-            // For endswitch
-            for (let j = 0; j < endswitchMatches.length; j++) {
-                if (controlFlowStack.length === 0 || controlFlowStack[controlFlowStack.length - 1].type !== 'switch') {
-                    const range = new vscode.Range(i, 0, i, fullLine.length);
-                    diagnostics.push(new vscode.Diagnostic(
-                        range,
-                        'Unexpected endswitch without matching switch',
-                        vscode.DiagnosticSeverity.Error
-                    ));
-                } else {
-                    controlFlowStack.pop();
-                }
-            }
-        }
-
-        // Check for unclosed control flow statements
-        // Only report errors for block statements, not inline expressions
-        // Inline expressions can use { } blocks instead of endif/endswitch/etc.
-        for (const item of controlFlowStack) {
-            if (item.isBlock) {
-                const range = new vscode.Range(item.line, 0, item.line, lines[item.line].length);
-                diagnostics.push(new vscode.Diagnostic(
-                    range,
-                    `Unclosed ${item.type} statement`,
-                    vscode.DiagnosticSeverity.Error
-                ));
-            }
+        // Use the shared utility for control flow validation
+        // This properly handles multi-line statements and nested structures
+        const errors = validateControlFlowBalanceUtil(document);
+        for (const { diagnostic } of errors) {
+            diagnostics.push(diagnostic);
         }
     }
 
@@ -620,6 +470,130 @@ export class IslValidator {
     }
 
     // Semantic validation methods
+
+    /**
+     * Extracts import statements from the document
+     * Returns a map of module name -> file path
+     */
+    private extractImports(document: vscode.TextDocument): Map<string, string> {
+        const imports = new Map<string, string>();
+        const text = document.getText();
+        const lines = text.split('\n');
+
+        for (const line of lines) {
+            // Match: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
+            const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
+            if (importMatch) {
+                const moduleName = importMatch[1];
+                const filePath = importMatch[2];
+                imports.set(moduleName, filePath);
+            }
+        }
+
+        return imports;
+    }
+
+    /**
+     * Resolves the absolute path of an imported file relative to the current document
+     */
+    private resolveImportPath(document: vscode.TextDocument, importPath: string): vscode.Uri | null {
+        const currentDir = path.dirname(document.uri.fsPath);
+        let resolvedPath: string;
+
+        if (path.isAbsolute(importPath)) {
+            resolvedPath = importPath;
+        } else {
+            resolvedPath = path.resolve(currentDir, importPath);
+        }
+
+        // Try with .isl extension if not present
+        if (!resolvedPath.endsWith('.isl')) {
+            const withExtension = resolvedPath + '.isl';
+            if (fs.existsSync(withExtension)) {
+                resolvedPath = withExtension;
+            }
+        }
+
+        if (fs.existsSync(resolvedPath)) {
+            return vscode.Uri.file(resolvedPath);
+        }
+
+        return null;
+    }
+
+    /**
+     * Extracts functions from imported files
+     * Returns a map of module name -> set of function names
+     */
+    private async extractImportedFunctions(document: vscode.TextDocument): Promise<Map<string, Set<string>>> {
+        const importedFunctions = new Map<string, Set<string>>();
+        const imports = this.extractImports(document);
+
+        for (const [moduleName, filePath] of imports) {
+            const importedUri = this.resolveImportPath(document, filePath);
+            if (!importedUri) {
+                continue;
+            }
+
+            try {
+                const importedText = fs.readFileSync(importedUri.fsPath, 'utf-8');
+                const importedLines = importedText.split('\n');
+                const functions = new Set<string>();
+
+                for (const line of importedLines) {
+                    // Match function definitions: fun functionName(
+                    const funMatch = line.match(/^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+                    if (funMatch) {
+                        functions.add(funMatch[1]);
+                    }
+                }
+
+                importedFunctions.set(moduleName, functions);
+            } catch (error) {
+                // Silently skip if file cannot be read
+                console.warn(`Could not read imported file ${filePath}: ${error}`);
+            }
+        }
+
+        return importedFunctions;
+    }
+
+    /**
+     * Extracts modifiers from imported files
+     * Returns a map of module name -> set of modifier names
+     */
+    private async extractImportedModifiers(document: vscode.TextDocument): Promise<Map<string, Set<string>>> {
+        const importedModifiers = new Map<string, Set<string>>();
+        const imports = this.extractImports(document);
+
+        for (const [moduleName, filePath] of imports) {
+            const importedUri = this.resolveImportPath(document, filePath);
+            if (!importedUri) {
+                continue;
+            }
+
+            try {
+                const importedText = fs.readFileSync(importedUri.fsPath, 'utf-8');
+                const importedLines = importedText.split('\n');
+                const modifiers = new Set<string>();
+
+                for (const line of importedLines) {
+                    // Match modifier definitions: modifier modifierName(
+                    const modMatch = line.match(/^\s*modifier\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+                    if (modMatch) {
+                        modifiers.add(modMatch[1]);
+                    }
+                }
+
+                importedModifiers.set(moduleName, modifiers);
+            } catch (error) {
+                // Silently skip if file cannot be read
+                console.warn(`Could not read imported file ${filePath}: ${error}`);
+            }
+        }
+
+        return importedModifiers;
+    }
 
     private extractUserDefinedFunctions(document: vscode.TextDocument): Set<string> {
         const functions = new Set<string>();
@@ -750,7 +724,7 @@ export class IslValidator {
         return variables;
     }
 
-    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions) {
+    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions, importedFunctions: Map<string, Set<string>>) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -758,41 +732,123 @@ export class IslValidator {
         );
         const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
         
-        // Check for @.This.functionName() or @.functionName() calls
-        const functionCallPattern = /@\.(?:This\.)?([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+        // First check for @.ModuleName.functionName() pattern (imported functions and built-ins)
+        const importedFunctionPattern = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
         let match;
+        const processedRanges: Array<{ start: number; end: number }> = [];
 
-        while ((match = functionCallPattern.exec(codeOnlyLine)) !== null) {
-            const funcName = match[1];
+        while ((match = importedFunctionPattern.exec(codeOnlyLine)) !== null) {
+            const moduleName = match[1];
+            const funcName = match[2];
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
             
-            // Skip if it's a built-in function, user-defined function, or custom extension function
-            if (this.builtInFunctions.has(funcName) || userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
+            // Track this range so we don't process it again
+            processedRanges.push({ start: matchStart, end: matchEnd });
+            
+            // Skip if it's a built-in namespace (Date, Math, This, etc.)
+            if (this.builtInNamespaces.has(moduleName)) {
+                // Check if it's a valid built-in function (case-insensitive check)
+                const builtInKey = `${moduleName}.${funcName}`;
+                const builtInKeyLower = builtInKey.toLowerCase();
+                let isBuiltIn = false;
+                
+                for (const builtIn of this.builtInFunctions) {
+                    if (builtIn.toLowerCase() === builtInKeyLower) {
+                        isBuiltIn = true;
+                        break;
+                    }
+                }
+                
+                // For @.This.functionName(), check if it's a local function
+                if (moduleName === 'This') {
+                    if (userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
+                        continue;
+                    } else {
+                        const startPos = match.index + match[0].indexOf(funcName);
+                        const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
+                        diagnostics.push(new vscode.Diagnostic(
+                            range,
+                            `Function '${funcName}' is not defined`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                    }
+                } else if (isBuiltIn) {
+                    // Valid built-in function
+                    continue;
+                } else {
+                    // Built-in namespace but function doesn't exist
+                    const startPos = match.index + match[0].indexOf(funcName);
+                    const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Function '${funcName}' is not a valid ${moduleName} function`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                }
                 continue;
             }
 
-            // Check if it's a namespaced built-in (like Date.now, Math.sum)
-            const fullMatch = match[0];
-            let isBuiltIn = false;
-            for (const builtIn of this.builtInFunctions) {
-                if (fullMatch.includes(builtIn.split('.')[1])) {
-                    isBuiltIn = true;
-                    break;
+            // Check if it's an imported module
+            if (importedFunctions.has(moduleName)) {
+                if (importedFunctions.get(moduleName)!.has(funcName)) {
+                    continue;
+                } else {
+                    const startPos = match.index + match[0].indexOf(funcName);
+                    const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Function '${funcName}' is not exported from module '${moduleName}'`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                }
+            } else {
+                // Module not found - check if it's imported
+                const imports = this.extractImports(document);
+                if (!imports.has(moduleName)) {
+                    const startPos = match.index + match[0].indexOf(moduleName);
+                    const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + moduleName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Module '${moduleName}' is not imported`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
                 }
             }
+        }
 
-            if (!isBuiltIn) {
-                const startPos = match.index + match[0].indexOf(funcName);
-                const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
-                diagnostics.push(new vscode.Diagnostic(
-                    range,
-                    `Function '${funcName}' is not defined`,
-                    vscode.DiagnosticSeverity.Warning
-                ));
+        // Check for @.This.functionName() calls (skip already processed ranges)
+        // Note: @.functionName() without This. is not valid ISL syntax, so we only check @.This.functionName()
+        // All @.ModuleName.functionName() patterns were already handled above
+        const thisFunctionPattern = /@\.This\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+        while ((match = thisFunctionPattern.exec(codeOnlyLine)) !== null) {
+            const matchStart = match.index;
+            const matchEnd = matchStart + match[0].length;
+            
+            // Skip if this range was already processed as an imported function or built-in
+            if (processedRanges.some(r => matchStart >= r.start && matchEnd <= r.end)) {
+                continue;
             }
+
+            const funcName = match[1];
+            
+            // Check if it's a user-defined function or custom extension function
+            if (userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
+                continue;
+            }
+
+            // Function not found
+            const startPos = match.index + match[0].indexOf(funcName);
+            const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                `Function '${funcName}' is not defined`,
+                vscode.DiagnosticSeverity.Warning
+            ));
         }
     }
 
-    private checkModifierUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedModifiers: Set<string>, extensions: import('./extensions').IslExtensions) {
+    private checkModifierUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedModifiers: Set<string>, extensions: import('./extensions').IslExtensions, importedModifiers: Map<string, Set<string>>) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -801,6 +857,7 @@ export class IslValidator {
         const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
         
         // Check for | modifierName usage (including multi-level like regex.find or Math.sum)
+        // Also check for | ModuleName.modifierName (imported modifiers)
         const modifierPattern = /\|\s*([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*(?:\(|$|\|)/g;
         let match;
 
@@ -836,6 +893,72 @@ export class IslValidator {
             
             if (isBuiltIn) {
                 continue;
+            }
+
+            // Check if it's an imported modifier: | ModuleName.modifierName
+            const parts = modifierName.split('.');
+            if (parts.length === 2) {
+                const [moduleName, modName] = parts;
+                
+                // Skip if it's a built-in namespace (Date, Math, etc.)
+                if (this.builtInNamespaces.has(moduleName)) {
+                    // Check if it's a valid built-in function that can be used as a modifier (case-insensitive)
+                    const builtInKey = `${moduleName}.${modName}`;
+                    const builtInKeyLower = builtInKey.toLowerCase();
+                    let isBuiltIn = false;
+                    
+                    for (const builtIn of this.builtInFunctions) {
+                        if (builtIn.toLowerCase() === builtInKeyLower) {
+                            isBuiltIn = true;
+                            break;
+                        }
+                    }
+                    
+                    if (isBuiltIn) {
+                        continue;
+                    } else {
+                        // Built-in namespace but modifier doesn't exist
+                        const modifierStart = match.index + match[0].indexOf(modifierName) + (moduleName.length + 1);
+                        const range = new vscode.Range(lineNumber, modifierStart, lineNumber, modifierStart + modName.length);
+                        diagnostics.push(new vscode.Diagnostic(
+                            range,
+                            `Modifier '${modName}' is not a valid ${moduleName} modifier`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                        continue;
+                    }
+                }
+
+                // Check if it's an imported module
+                if (importedModifiers.has(moduleName)) {
+                    if (importedModifiers.get(moduleName)!.has(modName)) {
+                        continue;
+                    } else {
+                        // Calculate position: find modName within the full match string
+                        const modifierStart = match.index + match[0].indexOf(modifierName) + (moduleName.length + 1);
+                        const range = new vscode.Range(lineNumber, modifierStart, lineNumber, modifierStart + modName.length);
+                        diagnostics.push(new vscode.Diagnostic(
+                            range,
+                            `Modifier '${modName}' is not exported from module '${moduleName}'`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                        continue;
+                    }
+                } else {
+                    // Check if module is imported
+                    const imports = this.extractImports(document);
+                    if (!imports.has(moduleName)) {
+                        // Calculate position: find moduleName within the full match string
+                        const moduleStart = match.index + match[0].indexOf(moduleName);
+                        const range = new vscode.Range(lineNumber, moduleStart, lineNumber, moduleStart + moduleName.length);
+                        diagnostics.push(new vscode.Diagnostic(
+                            range,
+                            `Module '${moduleName}' is not imported`,
+                            vscode.DiagnosticSeverity.Warning
+                        ));
+                        continue;
+                    }
+                }
             }
 
             const startPos = match.index + match[0].indexOf(modifierName);

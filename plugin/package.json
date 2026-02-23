@@ -197,5 +197,8 @@
   },
   "dependencies": {
     "vscode-languageclient": "^8.1.0"
-  }
+  },
+  "extensionRecommendations": [
+    "streetsidesoftware.code-spell-checker"
+  ]
 }

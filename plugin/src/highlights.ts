@@ -1,4 +1,10 @@
 import * as vscode from 'vscode';
+import { 
+    findMatchingControlFlowKeyword, 
+    CONTROL_FLOW_PAIRS,
+    stripComments,
+    findAllControlFlowKeywordsInLine
+} from './controlFlowMatcher';
 
 export class IslDocumentHighlightProvider implements vscode.DocumentHighlightProvider {
     
@@ -71,63 +77,26 @@ export class IslDocumentHighlightProvider implements vscode.DocumentHighlightPro
         matchKeyword: string,
         searchForward: boolean
     ): vscode.Position | undefined {
-        const text = document.getText();
-        const lines = text.split('\n');
-        let depth = 0;
-
-        const increment = searchForward ? 1 : -1;
-        const start = searchForward ? startLine : startLine;
-        const end = searchForward ? lines.length : -1;
-
-        for (let i = start; searchForward ? i < end : i > end; i += increment) {
-            const line = lines[i];
-            
-            // Skip comments
-            const commentIndex = Math.min(
-                line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
-                line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
-            );
-            const codeLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
-
-            // Find keywords in this line
-            const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
-            const matchKeywordRegex = new RegExp(`\\b${matchKeyword}\\b`, 'g');
-
-            let match;
-
-            // For the first line (where cursor is), skip the current keyword position
-            const currentLineMatches: Array<{ keyword: string, index: number }> = [];
-
-            // Find all opening keywords
-            while ((match = keywordRegex.exec(codeLine)) !== null) {
-                if (i !== startLine) { // Not on the same line as cursor
-                    currentLineMatches.push({ keyword: keyword, index: match.index });
-                }
-            }
-
-            // Find all closing keywords
-            while ((match = matchKeywordRegex.exec(codeLine)) !== null) {
-                currentLineMatches.push({ keyword: matchKeyword, index: match.index });
-            }
-
-            // Sort by index
-            currentLineMatches.sort((a, b) => a.index - b.index);
-
-            // Process matches
-            for (const m of currentLineMatches) {
-                if (m.keyword === keyword) {
-                    depth++;
-                } else if (m.keyword === matchKeyword) {
-                    if (depth === 0) {
-                        // Found the match!
-                        return new vscode.Position(i, m.index);
-                    }
-                    depth--;
-                }
-            }
+        // Get the current position of the keyword on the start line
+        const startLineText = document.lineAt(startLine).text;
+        const codeLine = stripComments(startLineText);
+        const keywordRegex = new RegExp(`\\b${keyword}\\b`, 'g');
+        let match;
+        let startColumn = -1;
+        
+        // Find the keyword position on the start line
+        while ((match = keywordRegex.exec(codeLine)) !== null) {
+            startColumn = match.index;
+            break; // Use the first match
         }
-
-        return undefined;
+        
+        if (startColumn === -1) {
+            return undefined;
+        }
+        
+        // Use the shared utility to find the matching keyword
+        // This properly handles multi-line statements and nested structures
+        return findMatchingControlFlowKeyword(document, startLine, startColumn, keyword);
     }
 
     private findIfElseEndifHighlights(
@@ -138,43 +107,34 @@ export class IslDocumentHighlightProvider implements vscode.DocumentHighlightPro
         const text = document.getText();
         const lines = text.split('\n');
         const highlights: vscode.DocumentHighlight[] = [];
-        let depth = 0;
-        let foundIf = false;
         let ifPosition: vscode.Position | undefined;
 
-        // Search backwards to find the matching 'if' if we're on 'else' or 'endif'
+        // Find the 'if' position
         if (word === 'else' || word === 'endif') {
-            for (let i = startLine; i >= 0; i--) {
-                const line = lines[i];
-                const commentIndex = Math.min(
-                    line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
-                    line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
-                );
-                const codeLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
-
-                // Count endif keywords (increase depth when going backwards)
-                const endifMatches = codeLine.match(/\bendif\b/g);
-                if (endifMatches && i !== startLine) {
-                    depth += endifMatches.length;
+            // Search backwards to find the matching 'if'
+            const startLineText = document.lineAt(startLine).text;
+            const codeLine = stripComments(startLineText);
+            
+            // Get the position of 'else' or 'endif' on the current line
+            let currentColumn = -1;
+            if (word === 'else') {
+                const elseMatch = codeLine.match(/\belse\b/);
+                if (elseMatch) {
+                    currentColumn = elseMatch.index!;
                 }
-
-                // Count if keywords (decrease depth when going backwards)
-                const ifMatches = Array.from(codeLine.matchAll(/\bif[\s(]/g));
-                for (const match of ifMatches) {
-                    if (depth === 0) {
-                        ifPosition = new vscode.Position(i, match.index);
-                        foundIf = true;
-                        break;
-                    }
-                    depth--;
+            } else {
+                const endifMatch = codeLine.match(/\bendif\b/);
+                if (endifMatch) {
+                    currentColumn = endifMatch.index!;
                 }
-
-                if (foundIf) break;
             }
-
-            if (!ifPosition) {
+            
+            if (currentColumn === -1) {
                 return undefined;
             }
+            
+            // Use the shared utility to find the matching 'if'
+            ifPosition = findMatchingControlFlowKeyword(document, startLine, currentColumn, word);
         } else {
             // We're on 'if', use current position
             const currentLine = lines[startLine];
@@ -186,28 +146,32 @@ export class IslDocumentHighlightProvider implements vscode.DocumentHighlightPro
             }
         }
 
+        if (!ifPosition) {
+            return undefined;
+        }
+
         // Now search forward from the 'if' position to find 'else' and 'endif'
-        depth = 0;
+        // Use depth tracking to handle nested if statements
+        let depth = 0;
         let elsePosition: vscode.Position | undefined;
         let endifPosition: vscode.Position | undefined;
+        const pair = CONTROL_FLOW_PAIRS.if;
 
         for (let i = ifPosition.line; i < lines.length; i++) {
             const line = lines[i];
-            const commentIndex = Math.min(
-                line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
-                line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
-            );
-            const codeLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+            const codeLine = stripComments(line);
 
-            // Count if keywords (increase depth)
-            const ifMatches = Array.from(codeLine.matchAll(/\bif[\s(]/g));
+            // Find all if keywords (increase depth)
+            const ifMatches = Array.from(codeLine.matchAll(pair.startPattern));
             for (const match of ifMatches) {
-                if (i !== ifPosition.line) {
-                    depth++;
+                // Skip the initial 'if' position
+                if (i === ifPosition.line && match.index === ifPosition.character) {
+                    continue;
                 }
+                depth++;
             }
 
-            // Look for 'else' at the same depth
+            // Look for 'else' at depth 0 (same level as the initial if)
             if (depth === 0 && !elsePosition) {
                 const elseMatch = codeLine.match(/\belse\b/);
                 if (elseMatch && i !== ifPosition.line) {
@@ -216,7 +180,7 @@ export class IslDocumentHighlightProvider implements vscode.DocumentHighlightPro
             }
 
             // Count endif keywords (decrease depth)
-            const endifMatch = codeLine.match(/\bendif\b/);
+            const endifMatch = codeLine.match(pair.endPattern);
             if (endifMatch) {
                 if (depth === 0) {
                     endifPosition = new vscode.Position(i, endifMatch.index!);
