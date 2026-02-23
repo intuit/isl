@@ -1,43 +1,163 @@
-name: Publish to Maven Central
+name: Publish to Maven Central (Snapshot/Release)
 
 on:
   release:
     types: [created]
+  push:
+    branches: [ main, master ]
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 2.4.20)'
-        required: true
+        description: 'Version to publish (e.g., 1.1.0)'
+        required: false
         type: string
 
 jobs:
-  publish:
-    name: Publish to Maven Central
+  publish-snapshot:
+    name: Publish Snapshot
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-      
+
+    # Run on pushes to main/master branches
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
-      
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'corretto'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
+
+    - name: Verify OSSRH credentials
+      env:
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+      run: |
+        if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
+          echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
+          exit 1
+        fi
+        if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
+          echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
+          exit 1
+        fi
+        echo "✓ OSSRH credentials are configured"
+
+    - name: Determine and update version
+      id: version
+      run: |
+        # Read current version from gradle.properties
+        CURRENT_VERSION=$(grep "^version=" gradle.properties | cut -d'=' -f2 | tr -d '\r')
+        echo "Current version: $CURRENT_VERSION"
+
+        # Automatic increment for snapshots
+        if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-SNAPSHOT)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-SNAPSHOT"
+          echo "Incrementing patch version: $CURRENT_VERSION -> $NEW_VERSION"
+        else
+          echo "❌ Unable to parse version: $CURRENT_VERSION"
+          exit 1
+        fi
+
+        # Update gradle.properties with new version
+        sed -i "s/version=.*/version=$NEW_VERSION/" gradle.properties
+        echo "Updated gradle.properties with version: $NEW_VERSION"
+
+        # Output the new version for use in other steps
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build artifacts
+      run: ./gradlew build --no-daemon --stacktrace -x test
+
+    - name: Publish Snapshot to Maven Central
+      env:
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
+
+  publish-release:
+    name: Publish Release to Maven Central
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+        token: ${{ secrets.GITHUB_TOKEN }}
+
     - name: Set up JDK 21
       uses: actions/setup-java@v4
       with:
         java-version: '21'
         distribution: 'corretto'
         
-    - name: Setup Gradle
-      uses: gradle/actions/setup-gradle@v3
-      
     - name: Grant execute permission for gradlew
       run: chmod +x gradlew
       
-    - name: Update version
-      if: github.event.inputs.version != ''
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
+
+    - name: Determine and update version
+      id: version
       run: |
-        sed -i 's/version = ".*"/version = "${{ github.event.inputs.version }}"/' build.gradle.kts
+        # Read current version from gradle.properties
+        CURRENT_VERSION=$(grep "^version=" gradle.properties | cut -d'=' -f2 | tr -d '\r')
+        echo "Current version: $CURRENT_VERSION"
+
+        if [ "${{ github.event.inputs.version }}" != "" ]; then
+          # Manual version specified
+          NEW_VERSION="${{ github.event.inputs.version }}"
+          echo "Using manually specified version: $NEW_VERSION"
+        elif [ "${{ github.event_name }}" = "release" ]; then
+          # Release event - create release version (remove -SNAPSHOT if present)
+          NEW_VERSION=$(echo "$CURRENT_VERSION" | sed 's/-SNAPSHOT$//')
+          echo "Creating release version: $NEW_VERSION"
+        else
+          # Automatic increment for snapshots
+          if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-SNAPSHOT)?$ ]]; then
+            MAJOR="${BASH_REMATCH[1]}"
+            MINOR="${BASH_REMATCH[2]}"
+            PATCH="${BASH_REMATCH[3]}"
+            NEW_PATCH=$((PATCH + 1))
+            NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-SNAPSHOT"
+            echo "Incrementing patch version: $CURRENT_VERSION -> $NEW_VERSION"
+          else
+            echo "❌ Unable to parse version: $CURRENT_VERSION"
+            exit 1
+          fi
+        fi
+
+        # Update gradle.properties with new version
+        sed -i "s/version=.*/version=$NEW_VERSION/" gradle.properties
+        echo "Updated gradle.properties with version: $NEW_VERSION"
+
+        # Output the new version for use in other steps
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
         
     - name: Build artifacts
       run: ./gradlew build --no-daemon --stacktrace -x test
@@ -63,27 +183,154 @@ jobs:
           echo "EOF" >> $GITHUB_ENV
           rm -f signing_key.asc
         fi
-      
+
+    - name: Publish to Maven Central
+      env:
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+        SIGNING_KEY: ${{ secrets.SIGNING_KEY }}
+        SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
+
+    - name: Generate release notes
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+        if [ -z "$PREV_TAG" ]; then
+          COMMITS=$(git log --pretty=format:"- %s (%h)" | head -100)
+        else
+          COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" | head -100)
+        fi
+        {
+          echo "## What's changed"
+          echo ""
+          echo "$COMMITS"
+          echo ""
+          echo "---"
+          echo ""
+          echo "**Maven Central:** \`com.intuit.isl:isl-transform:${VERSION}\`, \`isl-validation\`, \`isl-cmd\`"
+        } > release_notes.md
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: v${{ steps.version.outputs.version }}
+        name: v${{ steps.version.outputs.version }}
+        body_path: release_notes.md
+        generate_release_notes: true
+        make_latest: true
+        skip_if_tag_exists: true
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Update CHANGELOG and push
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        DATE=$(date +%Y-%m-%d)
+        PREV_TAG=$(git describe --tags --abbrev=0 2>/dev/null || true)
+        if [ -z "$PREV_TAG" ]; then
+          COMMITS=$(git log --pretty=format:"- %s (%h)" | head -80)
+        else
+          COMMITS=$(git log ${PREV_TAG}..HEAD --pretty=format:"- %s (%h)" | head -80)
+        fi
+        HEADER="## [${VERSION}] - ${DATE}"
+        SECTION="${HEADER}"$'\n\n'"${COMMITS}"$'\n\n'
+        if [ -f CHANGELOG.md ]; then
+          echo "$SECTION$(cat CHANGELOG.md)" > CHANGELOG.md
+        else
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "All notable changes to this project will be documented in this file." >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "$SECTION" >> CHANGELOG.md
+        fi
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add CHANGELOG.md
+        git diff --staged --quiet || (git commit -m "chore: update CHANGELOG for v${VERSION}" && git push origin HEAD:${{ github.ref_name }})
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  publish-manual-snapshot:
+    name: Publish Manual Snapshot
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    # Run on manual dispatch without version specified (snapshot publishing)
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.version == ''
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'corretto'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Setup Gradle
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: wrapper
+
     - name: Verify OSSRH credentials
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
       run: |
-        if [ -z "$OSSRH_USERNAME" ]; then
-          echo "❌ OSSRH_USERNAME is not set!"
+        if [ -z "$MAVEN_CENTRAL_USERNAME" ]; then
+          echo "❌ MAVEN_CENTRAL_USERNAME is not set!"
+          exit 1
+        fi
+        if [ -z "$MAVEN_CENTRAL_PASSWORD" ]; then
+          echo "❌ MAVEN_CENTRAL_PASSWORD is not set!"
           exit 1
         fi
         echo "✓ OSSRH credentials are configured"
-        
-    - name: Publish to Maven Central
+
+    - name: Determine and update version
+      id: version
+      run: |
+        # Read current version from gradle.properties
+        CURRENT_VERSION=$(grep "^version=" gradle.properties | cut -d'=' -f2 | tr -d '\r')
+        echo "Current version: $CURRENT_VERSION"
+
+        # Automatic increment for snapshots
+        if [[ "$CURRENT_VERSION" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)(-SNAPSHOT)?$ ]]; then
+          MAJOR="${BASH_REMATCH[1]}"
+          MINOR="${BASH_REMATCH[2]}"
+          PATCH="${BASH_REMATCH[3]}"
+          NEW_PATCH=$((PATCH + 1))
+          NEW_VERSION="${MAJOR}.${MINOR}.${NEW_PATCH}-SNAPSHOT"
+          echo "Incrementing patch version: $CURRENT_VERSION -> $NEW_VERSION"
+        else
+          echo "❌ Unable to parse version: $CURRENT_VERSION"
+          exit 1
+        fi
+
+        # Update gradle.properties with new version
+        sed -i "s/version=.*/version=$NEW_VERSION/" gradle.properties
+        echo "Updated gradle.properties with version: $NEW_VERSION"
+
+        # Output the new version for use in other steps
+        echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+
+    - name: Build artifacts
+      run: ./gradlew build --no-daemon --stacktrace -x test
+
+    - name: Publish Snapshot to Maven Central
       env:
-        OSSRH_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-        OSSRH_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
-        SIGNING_PASSWORD: ${{ secrets.SIGNING_PASSWORD }}
-      run: ./gradlew publishMavenPublicationToOSSRHRepository --no-daemon --stacktrace --info
-      
-    # - name: Publish to GitHub Packages
-    #   env:
-    #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-    #   run: ./gradlew publishAllPublicationsToGitHubPackagesRepository --no-daemon --stacktrace
-    #   continue-on-error: true
+        MAVEN_CENTRAL_USERNAME: ${{ secrets.OSSRH_USERNAME }}
+        MAVEN_CENTRAL_PASSWORD: ${{ secrets.OSSRH_PASSWORD }}
+        ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.OSSRH_USERNAME }}
+        ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.OSSRH_PASSWORD }}
+      run: ./gradlew publishToMavenCentral --no-daemon --stacktrace --info
 

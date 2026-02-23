@@ -11,8 +11,11 @@
 # Get the directory where this script is located
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 
+# Read version from gradle.properties
+VERSION=$(grep "^version=" "$SCRIPT_DIR/gradle.properties" | cut -d'=' -f2 | tr -d '\r')
+
 # Check if the shadow JAR exists
-JAR_FILE="$SCRIPT_DIR/isl-cmd/build/libs/isl-2.4.20-SNAPSHOT.jar"
+JAR_FILE="$SCRIPT_DIR/isl-cmd/build/libs/isl-$VERSION.jar"
 
 if [ -f "$JAR_FILE" ]; then
     # Use the pre-built JAR

@@ -6,7 +6,7 @@ plugins {
 }
 
 group = "com.intuit.isl"
-version = "1.0.0"
+version = rootProject.version
 java.sourceCompatibility = JavaVersion.VERSION_21
 
 // Force Jackson version to match ISL requirements
@@ -15,6 +15,12 @@ ext["jackson.version"] = "2.18.3"
 repositories {
     mavenCentral()
     mavenLocal()
+    maven {
+        url = uri("https://oss.sonatype.org/content/repositories/snapshots/")
+    }
+    maven {
+        url = uri("https://oss.sonatype.org/content/repositories/releases/")
+    }
 }
 
 dependencies {
@@ -27,8 +33,8 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     
-    // ISL - using the built JAR from the libs directory
-    implementation(files("libs/isl-transform-2.4.20-SNAPSHOT.jar"))
+    // ISL - using the published artifact
+    implementation("com.intuit.isl:isl-transform:$version")
     
     // ISL Dependencies (required when using JAR file directly)
     implementation("org.antlr:antlr4-runtime:4.9.1")
