@@ -1,0 +1,204 @@
+{
+  "name": "isl-language-support",
+  "displayName": "ISL Language Support",
+  "description": "Comprehensive language support for ISL (Intuitive Scripting Language) - JSON transformation language",
+  "version": "1.1.0",
+  "publisher": "isl-team",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/intuit/isl"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "keywords": [
+    "isl",
+    "json",
+    "transformation",
+    "scripting",
+    "jolt"
+  ],
+  "activationEvents": [
+    "onLanguage:isl",
+    "workspaceContains:**/*.isl"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "languages": [
+      {
+        "id": "isl",
+        "aliases": [
+          "ISL",
+          "isl"
+        ],
+        "extensions": [
+          ".isl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/file-icon.svg",
+          "dark": "./images/file-icon.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "isl",
+        "scopeName": "source.isl",
+        "path": "./syntaxes/isl.tmLanguage.json"
+      }
+    ],
+    "configuration": {
+      "title": "ISL",
+      "properties": {
+        "isl.validation.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL validation"
+        },
+        "isl.formatting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL formatting"
+        },
+        "isl.formatting.indentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Number of spaces for indentation"
+        },
+        "isl.formatting.useTabs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use tabs instead of spaces"
+        },
+        "isl.formatting.alignProperties": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align object property colons"
+        },
+        "isl.linting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL linting"
+        },
+        "isl.execution.islCommand": {
+          "type": "string",
+          "default": "isl",
+          "description": "Path to ISL command line tool (isl.sh or isl.bat)"
+        },
+        "isl.execution.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Java home directory (if not in PATH)"
+        },
+        "isl.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "isl.validate",
+        "title": "ISL: Validate Current File"
+      },
+      {
+        "command": "isl.run",
+        "title": "ISL: Run Transformation"
+      },
+      {
+        "command": "isl.runWithInput",
+        "title": "ISL: Run Transformation with Input File"
+      },
+      {
+        "command": "isl.format",
+        "title": "ISL: Format Document"
+      },
+      {
+        "command": "isl.showDocumentation",
+        "title": "ISL: Open Documentation"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.validate",
+          "group": "isl@1"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.run",
+          "group": "isl@2"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.runWithInput",
+          "group": "isl@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "isl.validate",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.run",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.runWithInput",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.format",
+          "when": "resourceLangId == isl"
+        }
+      ]
+    },
+    "snippets": [
+      {
+        "language": "isl",
+        "path": "./snippets/isl.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "publish:ovsx": "ovsx publish"
+  },
+  "devDependencies": {
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/vsce": "^2.32.0",
+    "eslint": "^8.40.0",
+    "ovsx": "^0.10.7",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^8.1.0"
+  },
+  "extensionRecommendations": [
+    "streetsidesoftware.code-spell-checker"
+  ]
+}

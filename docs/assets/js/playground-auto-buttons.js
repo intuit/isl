@@ -21,6 +21,19 @@
     }
   }
   
+    /**
+   * Checks if a code block is explicitly marked as JSON
+   */
+    function hasJsonClass(preElement) {
+      // Check pre element classes
+      const preClasses = preElement.className || '';
+      if (preClasses.includes('language-json') || preClasses.includes('highlighter-json')) {
+        return true;
+      }
+      
+      return false;
+    }
+
   /**
    * Checks if a code block is explicitly marked as ISL
    */
@@ -103,26 +116,13 @@
       iterations++;
       
       // Check if this is a <pre> with JSON code
-      if (currentElement.tagName === 'PRE') {
+      if (currentElement.tagName === 'PRE' && hasJsonClass(currentElement)) {
         const codeElement = currentElement.querySelector('code');
         if (codeElement) {
           const text = codeElement.textContent.trim();
           // Simple check if it looks like JSON
           if (text.startsWith('{') || text.startsWith('[')) {
-            // Check if there's an "Input JSON" label before this
-            let labelElement = currentElement.previousElementSibling;
-            let labelChecks = 0;
-            
-            while (labelElement && labelChecks < 3) {
-              labelChecks++;
-              const labelText = labelElement.textContent || '';
-              
-              if (/\w*input\w*/i.test(labelText)) {
-                return text;
-              }
-              
-              labelElement = labelElement.previousElementSibling;
-            }
+            return text;
           }
         }
       }

@@ -22,7 +22,8 @@ out/
 dist/
 node_modules/
 .vscode-test/
-*.vsix
+# Allow plugin vsix packages
+!plugin/*.vsix
 
 # Gradle
 .gradle/
@@ -111,3 +112,15 @@ jacoco.exec
 
 # Kotlin
 .kotlin/
+
+
+# Outputs from tests
+output-*.json
+
+# Test files for extensions
+.islextensions
+test-extensions.isl
+
+
+# Plugin
+*.vsix

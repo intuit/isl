@@ -84,12 +84,6 @@ docs:
         url: /dev/hosting
       - title: "Performance Benchmarks"
         url: /dev/benchmark-report
-      - title: "Release Process"
-        url: /dev/release
-      - title: "Contributing"
-        url: /dev/contributing
-      - title: "Playground Integration"
-        url: /dev/playground-integration
 
   - title: More
     children:
@@ -99,6 +93,10 @@ docs:
         url: /changelog
       - title: "Roadmap"
         url: /roadmap
+      - title: "Contributing"
+        url: /dev/contributing
+      - title: "Release Process"
+        url: /dev/release
       - title: "Support"
         url: /support
 
