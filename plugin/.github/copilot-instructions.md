@@ -164,6 +164,28 @@ endfor
    foreach $item in ($array | filter($.active))
    ```
 
+6. **Modifiers inside math expressions are valid**:
+   ```isl
+   // ✅ Correct
+   $result: {{ $items | length + 5 }}
+   ```
+
+7. **if conditions returning true or false are valid**:
+   ```isl
+   // ✅ Correct - tests if $value is true-ish (not null, empty, zero or false)
+   return if ($value) true else false endif;
+   // ✅ Also valid
+   !$value  // for the negative case
+   ```
+
+8. **Null access is safe**:
+   ```isl
+   // ✅ Correct - ISL doesn't suffer from null references
+   $val: $object.property.property.property
+   // If any property in chain is missing, $val will be null
+   // Don't suggest null checks for property chains
+   ```
+
 ## Standard Patterns
 
 ### Simple Transformation
@@ -239,6 +261,7 @@ $total: $items
 - ❌ Accessing properties after modifiers inline
 - ❌ Traditional for loops (`for (i=0; i<n; i++)`)
 - ❌ Ternary operator (`? :`) - use `if/else/endif`
+- ❌ Null checks for property chains - ISL safely handles null property access
 
 ## Documentation References
 

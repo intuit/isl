@@ -1,130 +1,27 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
-import { IslExtensionsManager } from './extensions';
+import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from './extensions';
 import { validateControlFlowBalance as validateControlFlowBalanceUtil } from './controlFlowMatcher';
+import { getBuiltInModifiersSet, getBuiltInFunctionsSet, getBuiltInNamespacesSet } from './language';
 
 export class IslValidator {
     private diagnosticCollection: vscode.DiagnosticCollection;
     private validationTimeout: NodeJS.Timeout | undefined;
+    private readonly logValidation: (msg: string) => void;
 
-    // Built-in modifiers
-    private readonly builtInModifiers = new Set([
-        // String modifiers
-        'trim', 'trimStart', 'trimEnd',
-        'cap', 'left', 'right',
-        'substring', 'substringUpto', 'substringAfter',
-        'lowerCase', 'upperCase',
-        'replace', 'remove',
-        'concat', 'append',
-        'split',
-        'csv.*',
-        'padStart', 'padEnd',
-        'reverse',
-        'capitalize', 'titleCase', 'camelCase', 'snakeCase',
-        'truncate',
-        'html.*',
-        'sanitizeTid',
-        
-        // Array modifiers
-        'isEmpty', 'isNotEmpty',
-        'push', 'pop', 'pushItems',
-        'at', 'first', 'last',
-        'take', 'drop',
-        'unique', 'slice',
-        'indexOf', 'lastIndexOf',
-        'chunk',
-        
-        // Object modifiers
-        'length',
-        'keys', 'kv',
-        'sort',
-        'delete',
-        'select',
-        'getProperty', 'setProperty',
-        'merge',
-        'pick', 'omit',
-        'rename',
-        'has',
-        'default',
-        
-        // Math modifiers (pipe usage)
-        'negate', 'absolute', 'precision',
-        'round.*',
-        
-        // Conversion modifiers
-        'to.*',
-        'hex.*',
-        'join.*',
-        'email.*',
-        
-        // Encoding modifiers
-        'encode.*',
-        'decode.*',
-        
-        // Compression modifiers
-        'gzip', 'gunzip', 'gunzipToByte',
-        
-        // JSON/XML/YAML modifiers
-        'json.*',
-        'yaml.*',
-        'xml.*',
-        
-        // Regex modifiers
-        'regex.*',
-        
-        // Date modifiers
-        'date.*',
-        
-        // Type modifiers
-        'typeof',
-        
-        // High-order modifiers
-        'map', 'filter', 'reduce',
-        
-        // Legacy/Alias modifiers
-        'contains', 'startsWith', 'endsWith'
-    ]);
+    private readonly builtInModifiers: Set<string>;
+    private readonly builtInFunctions: Set<string>;
+    private readonly builtInNamespaces: Set<string>;
 
-    // Built-in functions (static methods) - these can also be used with pipes
-    private readonly builtInFunctions = new Set([
-        // Date functions
-        'Date.now', 'Date.parse', 'Date.format',
-        'Date.fromEpochSeconds', 'Date.fromEpochMillis',
-        
-        // Math functions (can be used as @.Math.* or | Math.*)
-        'Math.min', 'Math.max', 'Math.mean', 'Math.mod', 'Math.sqrt',
-        'Math.sum', 'Math.average',
-        'Math.round', 'Math.floor', 'Math.ceil', 'Math.abs',
-        'Math.RandInt', 'Math.RandFloat', 'Math.RandDouble',
-        
-        // String functions
-        'String.concat', 'String.join',
-        
-        // Array functions
-        'Array.from', 'Array.of', 'Array.range',
-        'Array.slice', 'Array.unique',
-        
-        // JSON/XML/YAML functions
-        'Json.parse', 'Json.stringify',
-        'Xml.parse', 'Xml.toXml',
-        'Yaml.parse',
-        
-        // Crypto functions
-        'Crypto.md5', 'Crypto.sha1', 'Crypto.sha256',
-        'Crypto.base64encode', 'Crypto.base64decode',
-        
-        // Pagination functions
-        'Pagination.Cursor', 'Pagination.Page', 'Pagination.Date', 'Pagination.Offset', 'Pagination.Keyset'
-    ]);
-
-    // Built-in namespaces (these should not be treated as imported modules)
-    private readonly builtInNamespaces = new Set([
-        'Date', 'Math', 'String', 'Array', 'Json', 'Xml', 'Yaml', 'Crypto', 'Pagination', 'This'
-    ]);
-
-    constructor(private extensionsManager: IslExtensionsManager) {
+    constructor(private extensionsManager: IslExtensionsManager, options?: { outputChannel?: vscode.OutputChannel }) {
+        this.builtInModifiers = getBuiltInModifiersSet();
+        this.builtInFunctions = getBuiltInFunctionsSet();
+        this.builtInNamespaces = getBuiltInNamespacesSet();
         this.diagnosticCollection = vscode.languages.createDiagnosticCollection('isl');
+        this.logValidation = options?.outputChannel
+            ? (msg: string) => options.outputChannel!.appendLine(`[ISL Validation] ${msg}`)
+            : () => {};
     }
 
     public dispose() {
@@ -194,7 +91,22 @@ export class IslValidator {
             this.checkUnnecessaryStringInterpolation(line, i, diagnostics, document);
             this.checkDefaultModifier(line, i, diagnostics, document);
             this.checkColonAssignment(line, i, diagnostics, document);
+            this.checkMathInTemplateString(line, i, diagnostics, document);
+            this.checkConsecutiveFilters(line, i, diagnostics, document);
+            this.checkNamingConvention(line, i, diagnostics, document);
+            this.checkMathOutsideBraces(line, i, diagnostics, document);
+            this.checkInconsistentSpacing(line, i, diagnostics, document);
         }
+        
+        // Multi-line checks
+        this.checkForeachVariableScoping(document, diagnostics);
+        this.checkTypeConversion(document, diagnostics);
+        
+        // Check for foreach loops that can be converted to map (multi-line check)
+        this.checkForeachToMap(document, diagnostics);
+        
+        // Check for functions that should be modifiers (multi-line check)
+        this.checkFunctionToModifier(document, diagnostics);
 
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
@@ -731,23 +643,60 @@ export class IslValidator {
             line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
         );
         const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
-        
-        // First check for @.ModuleName.functionName() pattern (imported functions and built-ins)
-        const importedFunctionPattern = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
         let match;
         const processedRanges: Array<{ start: number; end: number }> = [];
 
+        // First: mark all valid @.Name() global extension calls so we never treat them as "module not imported"
+        const globalFunctionPattern = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+        while ((match = globalFunctionPattern.exec(codeOnlyLine)) !== null) {
+            const name = match[1];
+            if (name && getExtensionFunction(extensions, name)) {
+                processedRanges.push({ start: match.index, end: match.index + match[0].length });
+                this.logValidation(`@.${name}() resolved as global extension (single name)`);
+            }
+        }
+
+        // Now check for @.ModuleName.functionName() pattern (imported functions and built-ins)
+        const importedFunctionPattern = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
         while ((match = importedFunctionPattern.exec(codeOnlyLine)) !== null) {
             const moduleName = match[1];
             const funcName = match[2];
             const matchStart = match.index;
             const matchEnd = matchStart + match[0].length;
-            
+            const compoundName = `${moduleName}.${funcName}`;
+
+            // Skip if this span is already a valid global extension call (@.name())
+            if (processedRanges.some(r => matchStart >= r.start && matchEnd <= r.end)) {
+                continue;
+            }
+
+            // Global extension with compound name (e.g. @.Call.Api() where "Call.Api" is in extensions)
+            const compoundExtFunc = getExtensionFunction(extensions, compoundName);
+            if (compoundExtFunc) {
+                processedRanges.push({ start: matchStart, end: matchEnd });
+                this.logValidation(`@.${compoundName}() resolved as global extension (compound name)`);
+                continue;
+            }
+
+            // First: if first part is a global extension function, this is wrong form (@.Call.Api → use @.Call())
+            const extFunc = getExtensionFunction(extensions, moduleName);
+            if (extFunc && match[0].startsWith('@.' + moduleName + '.')) {
+                const startPos = match.index + match[0].indexOf(moduleName);
+                const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + moduleName.length);
+                diagnostics.push(new vscode.Diagnostic(
+                    range,
+                    `Global extension functions are called as @.${moduleName}(), not @.${moduleName}.${funcName}()`,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+                continue;
+            }
+
             // Track this range so we don't process it again
             processedRanges.push({ start: matchStart, end: matchEnd });
-            
+
             // Skip if it's a built-in namespace (Date, Math, This, etc.)
             if (this.builtInNamespaces.has(moduleName)) {
+                this.logValidation(`@.${compoundName}() checking built-in namespace '${moduleName}'`);
                 // Check if it's a valid built-in function (case-insensitive check)
                 const builtInKey = `${moduleName}.${funcName}`;
                 const builtInKeyLower = builtInKey.toLowerCase();
@@ -760,9 +709,10 @@ export class IslValidator {
                     }
                 }
                 
-                // For @.This.functionName(), check if it's a local function
+                // For @.This.functionName(), only same-file functions (not global extensions)
                 if (moduleName === 'This') {
-                    if (userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
+                    if (userDefinedFunctions.has(funcName)) {
+                        this.logValidation(`@.${compoundName}() resolved as same-file function`);
                         continue;
                     } else {
                         const startPos = match.index + match[0].indexOf(funcName);
@@ -774,7 +724,7 @@ export class IslValidator {
                         ));
                     }
                 } else if (isBuiltIn) {
-                    // Valid built-in function
+                    this.logValidation(`@.${compoundName}() resolved as built-in function`);
                     continue;
                 } else {
                     // Built-in namespace but function doesn't exist
@@ -792,6 +742,7 @@ export class IslValidator {
             // Check if it's an imported module
             if (importedFunctions.has(moduleName)) {
                 if (importedFunctions.get(moduleName)!.has(funcName)) {
+                    this.logValidation(`@.${compoundName}() resolved as imported function`);
                     continue;
                 } else {
                     const startPos = match.index + match[0].indexOf(funcName);
@@ -803,9 +754,23 @@ export class IslValidator {
                     ));
                 }
             } else {
-                // Module not found - check if it's imported
+                // Module not found - check if it's imported (never report "not imported" for global extension names)
                 const imports = this.extractImports(document);
-                if (!imports.has(moduleName)) {
+                if (getExtensionFunction(extensions, moduleName)) {
+                    // Should have been caught above; treat as wrong form
+                    this.logValidation(`@.${compoundName}() wrong form: global extension '${moduleName}' should be called as @.${moduleName}(), not @.${compoundName}()`);
+                    const startPos = match.index + match[0].indexOf(moduleName);
+                    const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + moduleName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Global extension functions are called as @.${moduleName}(), not @.${moduleName}.${funcName}()`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                } else if (getExtensionFunction(extensions, compoundName)) {
+                    // Compound global extension (e.g. Call.Api) – valid, don't report "not imported"
+                    this.logValidation(`@.${compoundName}() resolved as global extension (compound); skipping "module not imported"`);
+                } else if (!imports.has(moduleName)) {
+                    this.logValidation(`@.${compoundName}() module '${moduleName}' is not imported (not in extensions as '${moduleName}' or '${compoundName}')`);
                     const startPos = match.index + match[0].indexOf(moduleName);
                     const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + moduleName.length);
                     diagnostics.push(new vscode.Diagnostic(
@@ -817,27 +782,41 @@ export class IslValidator {
             }
         }
 
-        // Check for @.This.functionName() calls (skip already processed ranges)
-        // Note: @.functionName() without This. is not valid ISL syntax, so we only check @.This.functionName()
-        // All @.ModuleName.functionName() patterns were already handled above
+        // Check for @.SingleName() – global extension functions (called directly by name, like built-ins)
+        // Pattern matches only one identifier after the dot (e.g. @.sendEmail(), not @.Date.Now())
+        globalFunctionPattern.lastIndex = 0;
+        while ((match = globalFunctionPattern.exec(codeOnlyLine)) !== null) {
+            const name = match[1];
+            if (name && getExtensionFunction(extensions, name)) {
+                continue; // valid global extension call
+            }
+            if (this.builtInNamespaces.has(name)) {
+                const startPos = match.index + match[0].indexOf(name);
+                const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + name.length);
+                diagnostics.push(new vscode.Diagnostic(
+                    range,
+                    `Use @.${name}.method() form, not @.${name}()`,
+                    vscode.DiagnosticSeverity.Warning
+                ));
+            }
+        }
+
+        // Check for @.This.functionName() calls – only same-file functions
         const thisFunctionPattern = /@\.This\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
         while ((match = thisFunctionPattern.exec(codeOnlyLine)) !== null) {
             const matchStart = match.index;
             const matchEnd = matchStart + match[0].length;
             
-            // Skip if this range was already processed as an imported function or built-in
             if (processedRanges.some(r => matchStart >= r.start && matchEnd <= r.end)) {
                 continue;
             }
 
             const funcName = match[1];
             
-            // Check if it's a user-defined function or custom extension function
-            if (userDefinedFunctions.has(funcName) || extensions.functions.has(funcName)) {
+            if (userDefinedFunctions.has(funcName)) {
                 continue;
             }
 
-            // Function not found
             const startPos = match.index + match[0].indexOf(funcName);
             const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
             diagnostics.push(new vscode.Diagnostic(
@@ -865,7 +844,7 @@ export class IslValidator {
             const modifierName = match[1];
             
             // Check if it's a user-defined modifier or custom extension modifier
-            if (userDefinedModifiers.has(modifierName) || extensions.modifiers.has(modifierName)) {
+            if (userDefinedModifiers.has(modifierName) || getExtensionModifier(extensions, modifierName)) {
                 continue;
             }
             
@@ -934,7 +913,6 @@ export class IslValidator {
                     if (importedModifiers.get(moduleName)!.has(modName)) {
                         continue;
                     } else {
-                        // Calculate position: find modName within the full match string
                         const modifierStart = match.index + match[0].indexOf(modifierName) + (moduleName.length + 1);
                         const range = new vscode.Range(lineNumber, modifierStart, lineNumber, modifierStart + modName.length);
                         diagnostics.push(new vscode.Diagnostic(
@@ -944,20 +922,38 @@ export class IslValidator {
                         ));
                         continue;
                     }
-                } else {
-                    // Check if module is imported
-                    const imports = this.extractImports(document);
-                    if (!imports.has(moduleName)) {
-                        // Calculate position: find moduleName within the full match string
-                        const moduleStart = match.index + match[0].indexOf(moduleName);
-                        const range = new vscode.Range(lineNumber, moduleStart, lineNumber, moduleStart + moduleName.length);
-                        diagnostics.push(new vscode.Diagnostic(
-                            range,
-                            `Module '${moduleName}' is not imported`,
-                            vscode.DiagnosticSeverity.Warning
-                        ));
-                        continue;
-                    }
+                }
+                // Before "module not imported": check if this is a global extension (function or modifier)
+                if (getExtensionFunction(extensions, moduleName)) {
+                    const moduleStart = match.index + match[0].indexOf(moduleName);
+                    const range = new vscode.Range(lineNumber, moduleStart, lineNumber, moduleStart + moduleName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Use @.${moduleName}() for extension functions, not | ${moduleName}.${modName}`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                    continue;
+                }
+                if (getExtensionModifier(extensions, moduleName)) {
+                    const moduleStart = match.index + match[0].indexOf(moduleName);
+                    const range = new vscode.Range(lineNumber, moduleStart, lineNumber, moduleStart + moduleName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Global extension modifiers are used as | ${moduleName}, not | ${moduleName}.${modName}`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                    continue;
+                }
+                const imports = this.extractImports(document);
+                if (!imports.has(moduleName)) {
+                    const moduleStart = match.index + match[0].indexOf(moduleName);
+                    const range = new vscode.Range(lineNumber, moduleStart, lineNumber, moduleStart + moduleName.length);
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Module '${moduleName}' is not imported`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                    continue;
                 }
             }
 
@@ -1225,6 +1221,925 @@ export class IslValidator {
             );
             diagnostic.code = 'use-equals-assignment';
             diagnostics.push(diagnostic);
+        }
+    }
+
+    private checkMathInTemplateString(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Skip comments
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        // Find all template strings (backtick strings) in the line
+        // Pattern to find backtick strings: `...`
+        // We need to be careful about escaped backticks
+        const backtickPattern = /`(?:[^`\\]|\\.)*`/g;
+        let backtickMatch;
+        
+        while ((backtickMatch = backtickPattern.exec(codeOnlyLine)) !== null) {
+            const templateString = backtickMatch[0];
+            const templateStart = backtickMatch.index;
+            
+            // Extract the content inside the backticks (without the backticks themselves)
+            const content = templateString.slice(1, -1);
+            
+            // Helper function to check if a position range is inside any of the exclusion blocks
+            const isInsideExclusionBlocks = (start: number, end: number, exclusionBlocks: Array<{ start: number; end: number }>): boolean => {
+                return exclusionBlocks.some(block => start >= block.start && end <= block.end);
+            };
+            
+            // Find all {{ ... }} blocks to exclude them (these are already correct)
+            const mathBlockPattern = /\{\{([^}]+)\}\}/g;
+            const mathBlocks: Array<{ start: number; end: number }> = [];
+            let mathBlockMatch;
+            while ((mathBlockMatch = mathBlockPattern.exec(content)) !== null) {
+                mathBlocks.push({
+                    start: mathBlockMatch.index,
+                    end: mathBlockMatch.index + mathBlockMatch[0].length
+                });
+            }
+            
+            // Find all ${ ... } interpolation blocks to exclude them (these are correct)
+            const interpolationPattern = /\$\{([^}]+)\}/g;
+            const interpolationBlocks: Array<{ start: number; end: number }> = [];
+            let interpolationMatch;
+            while ((interpolationMatch = interpolationPattern.exec(content)) !== null) {
+                interpolationBlocks.push({
+                    start: interpolationMatch.index,
+                    end: interpolationMatch.index + interpolationMatch[0].length
+                });
+            }
+            
+            // Combine all exclusion blocks
+            const allExclusionBlocks = [...mathBlocks, ...interpolationBlocks];
+            
+            // Find math expressions: $var operator (number|$var) or (number|$var) operator $var
+            // Math operators: +, -, *, /, %
+            // Pattern matches: $var * 1.1, $var + $var, 10 * $var, etc.
+            const mathExpressionPattern = /((?:\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*|\d+(?:\.\d+)?))\s*([+\-*/%])\s*((?:\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*|\d+(?:\.\d+)?))/g;
+            let mathMatch;
+            while ((mathMatch = mathExpressionPattern.exec(content)) !== null) {
+                const matchStart = mathMatch.index;
+                const matchEnd = matchStart + mathMatch[0].length;
+                
+                // Skip if already inside an exclusion block
+                if (isInsideExclusionBlocks(matchStart, matchEnd, allExclusionBlocks)) {
+                    continue;
+                }
+                
+                // This is a math expression that needs {{ }} wrapping
+                // Calculate the absolute position in the document line
+                const absoluteStart = templateStart + 1 + matchStart; // +1 for opening backtick
+                const absoluteEnd = templateStart + 1 + matchEnd;
+                
+                const range = new vscode.Range(
+                    lineNumber,
+                    absoluteStart,
+                    lineNumber,
+                    absoluteEnd
+                );
+                
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    'Math expressions in template strings must be wrapped in {{ }}',
+                    vscode.DiagnosticSeverity.Warning
+                );
+                diagnostic.code = 'math-outside-braces';
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+
+    private checkConsecutiveFilters(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Skip comments
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        // Find consecutive filter operations: | filter(...) | filter(...)
+        // Pattern: | filter(condition) | filter(condition)
+        const filterPattern = /\|\s*filter\s*\(([^)]+)\)/g;
+        const filterMatches: Array<{ match: RegExpMatchArray; condition: string; start: number; end: number }> = [];
+        
+        let filterMatch;
+        while ((filterMatch = filterPattern.exec(codeOnlyLine)) !== null) {
+            filterMatches.push({
+                match: filterMatch,
+                condition: filterMatch[1].trim(),
+                start: filterMatch.index,
+                end: filterMatch.index + filterMatch[0].length
+            });
+        }
+
+        // Check if we have at least 2 consecutive filters
+        if (filterMatches.length < 2) {
+            return;
+        }
+
+        // Find the longest sequence of consecutive filters
+        let consecutiveStart = -1;
+        let consecutiveEnd = -1;
+        
+        for (let i = 0; i < filterMatches.length - 1; i++) {
+            const currentFilter = filterMatches[i];
+            const nextFilter = filterMatches[i + 1];
+            
+            // Get the text between the two filters
+            const textBetween = codeOnlyLine.substring(currentFilter.end, nextFilter.start);
+            
+            // If there's only whitespace or pipes between them, they're consecutive
+            const betweenTrimmed = textBetween.trim();
+            if (betweenTrimmed === '' || betweenTrimmed === '|') {
+                // Mark the start of consecutive sequence
+                if (consecutiveStart === -1) {
+                    consecutiveStart = currentFilter.start;
+                }
+                consecutiveEnd = nextFilter.end;
+            } else {
+                // If we found a consecutive sequence, create diagnostic and reset
+                if (consecutiveStart !== -1 && consecutiveEnd !== -1) {
+                    const range = new vscode.Range(
+                        lineNumber,
+                        consecutiveStart,
+                        lineNumber,
+                        consecutiveEnd
+                    );
+                    
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        'Consecutive filter operations can be combined with "and" operator',
+                        vscode.DiagnosticSeverity.Hint
+                    );
+                    diagnostic.code = 'inefficient-filter';
+                    diagnostics.push(diagnostic);
+                    
+                    // Reset for next potential sequence
+                    consecutiveStart = -1;
+                    consecutiveEnd = -1;
+                }
+            }
+        }
+        
+        // Check if we ended with a consecutive sequence
+        if (consecutiveStart !== -1 && consecutiveEnd !== -1) {
+            const range = new vscode.Range(
+                lineNumber,
+                consecutiveStart,
+                lineNumber,
+                consecutiveEnd
+            );
+            
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                'Consecutive filter operations can be combined with "and" operator',
+                vscode.DiagnosticSeverity.Hint
+            );
+            diagnostic.code = 'inefficient-filter';
+            diagnostics.push(diagnostic);
+        }
+    }
+
+    private checkForeachToMap(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        // Find all foreach loops
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+            
+            // Check if this line starts a foreach loop
+            const foreachMatch = trimmed.match(/^foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.+)/);
+            if (!foreachMatch) {
+                continue;
+            }
+            
+            const loopVar = foreachMatch[1];
+            const arrayVar = foreachMatch[2].trim();
+            const foreachStartLine = i;
+            
+            // Find the matching endfor
+            let braceDepth = 0;
+            let foundEndfor = false;
+            let endforLine = -1;
+            
+            for (let j = i + 1; j < lines.length; j++) {
+                const currentLine = lines[j];
+                const currentTrimmed = currentLine.trim();
+                
+                // Skip comments
+                const commentIndex = Math.min(
+                    currentLine.indexOf('//') !== -1 ? currentLine.indexOf('//') : Infinity,
+                    currentLine.indexOf('#') !== -1 ? currentLine.indexOf('#') : Infinity
+                );
+                const codeLine = commentIndex !== Infinity ? currentLine.substring(0, commentIndex) : currentLine;
+                
+                // Count braces to handle nested structures
+                braceDepth += (codeLine.match(/\{/g) || []).length;
+                braceDepth -= (codeLine.match(/\}/g) || []).length;
+                
+                if (currentTrimmed === 'endfor' && braceDepth === 0) {
+                    foundEndfor = true;
+                    endforLine = j;
+                    break;
+                }
+            }
+            
+            if (!foundEndfor) {
+                continue; // Skip if no matching endfor found
+            }
+            
+            // Check lines before the foreach for array initialization
+            // Look for pattern: $varName: [] or $varName = []
+            let arrayVarName: string | null = null;
+            let arrayInitLine = -1;
+            
+            for (let j = Math.max(0, foreachStartLine - 5); j < foreachStartLine; j++) {
+                const prevLine = lines[j];
+                const commentIndex = Math.min(
+                    prevLine.indexOf('//') !== -1 ? prevLine.indexOf('//') : Infinity,
+                    prevLine.indexOf('#') !== -1 ? prevLine.indexOf('#') : Infinity
+                );
+                const codeLine = commentIndex !== Infinity ? prevLine.substring(0, commentIndex) : prevLine;
+                
+                // Match: $varName: [] or $varName = []
+                const arrayInitMatch = codeLine.match(/\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]\s*\[\s*\]/);
+                if (arrayInitMatch) {
+                    arrayVarName = arrayInitMatch[1];
+                    arrayInitLine = j;
+                    break;
+                }
+            }
+            
+            if (!arrayVarName) {
+                continue; // No array initialization found
+            }
+            
+            // Check the loop body for push operations
+            // Pattern: $arrayVarName: $arrayVarName | push(expression)
+            let foundPush = false;
+            let pushExpression: string | null = null;
+            let pushLine = -1;
+            let hasOtherStatements = false;
+            
+            for (let j = foreachStartLine + 1; j < endforLine; j++) {
+                const bodyLine = lines[j];
+                const trimmedBody = bodyLine.trim();
+                
+                // Skip empty lines and comments
+                if (trimmedBody === '' || trimmedBody.startsWith('//') || trimmedBody.startsWith('#')) {
+                    continue;
+                }
+                
+                const commentIndex = Math.min(
+                    bodyLine.indexOf('//') !== -1 ? bodyLine.indexOf('//') : Infinity,
+                    bodyLine.indexOf('#') !== -1 ? bodyLine.indexOf('#') : Infinity
+                );
+                const codeLine = commentIndex !== Infinity ? bodyLine.substring(0, commentIndex) : bodyLine;
+                const trimmedCode = codeLine.trim();
+                
+                // Match: $arrayVarName: $arrayVarName | push(expression)
+                // Also match: $arrayVarName = $arrayVarName | push(expression)
+                const pushPattern = new RegExp(`\\$${arrayVarName}\\s*[=:]\\s*\\$${arrayVarName}\\s*\\|\\s*push\\s*\\(([^)]+)\\)`, 'g');
+                const pushMatch = pushPattern.exec(trimmedCode);
+                
+                if (pushMatch) {
+                    if (!foundPush) {
+                        foundPush = true;
+                        pushExpression = pushMatch[1].trim();
+                        pushLine = j;
+                    }
+                } else {
+                    // Check if this is another statement (not just whitespace)
+                    if (trimmedCode.length > 0) {
+                        hasOtherStatements = true;
+                    }
+                }
+            }
+            
+            // Only suggest conversion if we found a push and no other statements
+            if (!foundPush || !pushExpression || hasOtherStatements) {
+                continue;
+            }
+            
+            // Check if the push expression uses the loop variable
+            // Replace $loopVar with $ in the expression to convert to map syntax
+            const mapExpression = pushExpression.replace(new RegExp(`\\$${loopVar}`, 'g'), '$');
+            
+            // Create diagnostic covering the foreach loop
+            const foreachLine = document.lineAt(foreachStartLine);
+            const endforLineObj = document.lineAt(endforLine);
+            const range = new vscode.Range(
+                foreachStartLine,
+                0,
+                endforLine,
+                endforLineObj.text.length
+            );
+            
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                'Foreach loop can be replaced with map() modifier',
+                vscode.DiagnosticSeverity.Hint
+            );
+            diagnostic.code = 'foreach-to-map';
+            // Store metadata for the quick fix
+            (diagnostic as any).arrayVarName = arrayVarName;
+            (diagnostic as any).arrayInitLine = arrayInitLine;
+            (diagnostic as any).arrayVar = arrayVar;
+            (diagnostic as any).mapExpression = mapExpression;
+            (diagnostic as any).foreachStartLine = foreachStartLine;
+            (diagnostic as any).endforLine = endforLine;
+            diagnostics.push(diagnostic);
+        }
+    }
+
+    private checkNamingConvention(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Get naming convention from configuration
+        const config = vscode.workspace.getConfiguration('isl.naming');
+        const convention = config.get<string>('convention', 'PascalCase');
+        
+        // Skip if convention is not set or disabled
+        if (!convention) {
+            return;
+        }
+
+        // Skip comments
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        // Check function declarations: fun functionName(
+        const funMatch = codeOnlyLine.match(/^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+        if (funMatch) {
+            const funcName = funMatch[1];
+            const funcNameStart = codeOnlyLine.indexOf(funcName);
+            
+            if (!this.matchesNamingConvention(funcName, convention)) {
+                const correctName = this.convertToNamingConvention(funcName, convention);
+                const range = new vscode.Range(
+                    lineNumber,
+                    funcNameStart,
+                    lineNumber,
+                    funcNameStart + funcName.length
+                );
+                
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Function name '${funcName}' should be ${convention}. Suggested: '${correctName}'`,
+                    vscode.DiagnosticSeverity.Hint
+                );
+                diagnostic.code = 'naming-convention';
+                (diagnostic as any).originalName = funcName;
+                (diagnostic as any).correctName = correctName;
+                (diagnostic as any).type = 'function';
+                diagnostics.push(diagnostic);
+            }
+        }
+
+        // Check modifier declarations: modifier modifierName(
+        const modMatch = codeOnlyLine.match(/^\s*modifier\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+        if (modMatch) {
+            const modName = modMatch[1];
+            const modNameStart = codeOnlyLine.indexOf(modName);
+            
+            if (!this.matchesNamingConvention(modName, convention)) {
+                const correctName = this.convertToNamingConvention(modName, convention);
+                const range = new vscode.Range(
+                    lineNumber,
+                    modNameStart,
+                    lineNumber,
+                    modNameStart + modName.length
+                );
+                
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Modifier name '${modName}' should be ${convention}. Suggested: '${correctName}'`,
+                    vscode.DiagnosticSeverity.Hint
+                );
+                diagnostic.code = 'naming-convention';
+                (diagnostic as any).originalName = modName;
+                (diagnostic as any).correctName = correctName;
+                (diagnostic as any).type = 'modifier';
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+
+    private matchesNamingConvention(name: string, convention: string): boolean {
+        switch (convention) {
+            case 'PascalCase':
+                // PascalCase: First letter uppercase, rest can be lowercase or uppercase
+                // Examples: TransformVariant, GetUser, ProcessData
+                return /^[A-Z][a-zA-Z0-9]*$/.test(name);
+            case 'camelCase':
+                // camelCase: First letter lowercase, rest can be mixed
+                // Examples: transformVariant, getUser, processData
+                return /^[a-z][a-zA-Z0-9]*$/.test(name);
+            case 'snake_case':
+                // snake_case: All lowercase with underscores
+                // Examples: transform_variant, get_user, process_data
+                return /^[a-z][a-z0-9_]*$/.test(name) && !/[A-Z]/.test(name);
+            default:
+                return true; // Unknown convention, don't enforce
+        }
+    }
+
+    private convertToNamingConvention(name: string, convention: string): string {
+        // First, normalize the name by splitting on capital letters, underscores, and numbers
+        // This handles: PascalCase, camelCase, snake_case, and mixed cases
+        
+        // Split on capital letters, underscores, and numbers
+        const parts: string[] = [];
+        let currentPart = '';
+        
+        for (let i = 0; i < name.length; i++) {
+            const char = name[i];
+            const isUpper = /[A-Z]/.test(char);
+            const isLower = /[a-z]/.test(char);
+            const isUnderscore = char === '_';
+            const isNumber = /[0-9]/.test(char);
+            
+            if (isUnderscore) {
+                if (currentPart) {
+                    parts.push(currentPart.toLowerCase());
+                    currentPart = '';
+                }
+            } else if (isUpper && currentPart && /[a-z]/.test(currentPart[currentPart.length - 1])) {
+                // Capital letter after lowercase - start new part
+                parts.push(currentPart.toLowerCase());
+                currentPart = char;
+            } else {
+                currentPart += char;
+            }
+        }
+        
+        if (currentPart) {
+            parts.push(currentPart.toLowerCase());
+        }
+        
+        // Filter out empty parts
+        const cleanParts = parts.filter(p => p.length > 0);
+        
+        if (cleanParts.length === 0) {
+            return name; // Can't convert, return original
+        }
+        
+        switch (convention) {
+            case 'PascalCase':
+                // Capitalize first letter of each part
+                return cleanParts.map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+            case 'camelCase':
+                // First part lowercase, rest capitalized
+                return cleanParts[0] + cleanParts.slice(1).map(p => p.charAt(0).toUpperCase() + p.slice(1)).join('');
+            case 'snake_case':
+                // All lowercase with underscores
+                return cleanParts.join('_');
+            default:
+                return name; // Unknown convention, return original
+        }
+    }
+
+    private checkFunctionToModifier(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        // First, extract all user-defined functions
+        const userDefinedFunctions = this.extractUserDefinedFunctions(document);
+        
+        // Track how each function is used
+        const functionUsage: Map<string, { withPipe: number; withoutPipe: number; definitionLine: number }> = new Map();
+        
+        // Initialize usage tracking
+        for (const funcName of userDefinedFunctions) {
+            functionUsage.set(funcName, { withPipe: 0, withoutPipe: 0, definitionLine: -1 });
+        }
+        
+        // Find function definitions and record their line numbers
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const funMatch = line.match(/^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+            if (funMatch) {
+                const funcName = funMatch[1];
+                if (functionUsage.has(funcName)) {
+                    functionUsage.get(funcName)!.definitionLine = i;
+                }
+            }
+        }
+        
+        // Check how functions are used
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Skip comments
+            const commentIndex = Math.min(
+                line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+                line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+            );
+            const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+            
+            // Check for function calls: @.This.functionName( or @.ModuleName.functionName(
+            const functionCallPattern = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+            let match;
+            
+            while ((match = functionCallPattern.exec(codeOnlyLine)) !== null) {
+                const moduleName = match[1];
+                const funcName = match[2];
+                
+                // Only check user-defined functions (skip built-ins)
+                if (moduleName === 'This' && functionUsage.has(funcName)) {
+                    // Check if this call is preceded by a pipe operator
+                    // Look for | before @.This.functionName on the same line
+                    const callStart = match.index;
+                    const beforeCall = codeOnlyLine.substring(0, callStart);
+                    // Check if there's a pipe operator before the call (with optional whitespace)
+                    const hasPipe = /\|\s*$/.test(beforeCall.trim()) || /\|\s+@\.This\./.test(beforeCall);
+                    
+                    if (hasPipe) {
+                        functionUsage.get(funcName)!.withPipe++;
+                    } else {
+                        functionUsage.get(funcName)!.withoutPipe++;
+                    }
+                }
+            }
+        }
+        
+        // Check if any functions are always used with pipe
+        for (const [funcName, usage] of functionUsage.entries()) {
+            // Only suggest conversion if:
+            // 1. Function is used at least once with pipe
+            // 2. Function is never used without pipe (or used with pipe more than without)
+            // 3. We found the definition line
+            if (usage.withPipe > 0 && usage.withoutPipe === 0 && usage.definitionLine >= 0) {
+                const definitionLine = document.lineAt(usage.definitionLine);
+                const funMatch = definitionLine.text.match(/^\s*(fun)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
+                
+                if (funMatch) {
+                    const funKeywordStart = definitionLine.text.indexOf('fun');
+                    const range = new vscode.Range(
+                        usage.definitionLine,
+                        funKeywordStart,
+                        usage.definitionLine,
+                        funKeywordStart + 3
+                    );
+                    
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        `Function '${funcName}' is always used with pipe operator. Consider converting to modifier.`,
+                        vscode.DiagnosticSeverity.Hint
+                    );
+                    diagnostic.code = 'function-to-modifier';
+                    (diagnostic as any).functionName = funcName;
+                    (diagnostic as any).definitionLine = usage.definitionLine;
+                    diagnostics.push(diagnostic);
+                }
+            }
+        }
+    }
+
+    private checkMathOutsideBraces(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Skip comments
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        // Skip if line is empty or only whitespace
+        if (codeOnlyLine.trim() === '') {
+            return;
+        }
+
+        // Find all {{ ... }} blocks to exclude them
+        const mathBlockPattern = /\{\{([^}]+)\}\}/g;
+        const mathBlocks: Array<{ start: number; end: number }> = [];
+        let mathBlockMatch;
+        while ((mathBlockMatch = mathBlockPattern.exec(codeOnlyLine)) !== null) {
+            mathBlocks.push({
+                start: mathBlockMatch.index,
+                end: mathBlockMatch.index + mathBlockMatch[0].length
+            });
+        }
+
+        // Find all template strings (backtick strings) to exclude them (already handled by checkMathInTemplateString)
+        const backtickPattern = /`(?:[^`\\]|\\.)*`/g;
+        const templateStrings: Array<{ start: number; end: number }> = [];
+        let backtickMatch;
+        while ((backtickMatch = backtickPattern.exec(codeOnlyLine)) !== null) {
+            templateStrings.push({
+                start: backtickMatch.index,
+                end: backtickMatch.index + backtickMatch[0].length
+            });
+        }
+
+        // Combine exclusion blocks
+        const allExclusionBlocks = [...mathBlocks, ...templateStrings];
+
+        // Helper function to check if a position is inside exclusion blocks
+        const isInsideExclusionBlocks = (start: number, end: number): boolean => {
+            return allExclusionBlocks.some(block => start >= block.start && end <= block.end);
+        };
+
+        // Find math operations: $var operator (number|$var) or (number|$var) operator $var
+        // Math operators: +, -, *, /, %
+        // But exclude comparison operators: ==, !=, <, >, <=, >=
+        // Pattern: variable/number operator variable/number
+        const mathExpressionPattern = /((?:\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*|\d+(?:\.\d+)?))\s*([+\-*/%])\s*((?:\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*|\d+(?:\.\d+)?))/g;
+        let mathMatch;
+        
+        while ((mathMatch = mathExpressionPattern.exec(codeOnlyLine)) !== null) {
+            const matchStart = mathMatch.index;
+            const matchEnd = matchStart + mathMatch[0].length;
+            
+            // Skip if already inside an exclusion block
+            if (isInsideExclusionBlocks(matchStart, matchEnd)) {
+                continue;
+            }
+
+            // Check if this is part of a comparison operator (==, !=, <=, >=, <, >)
+            // Look at characters before and after the operator
+            const beforeOp = codeOnlyLine.substring(Math.max(0, matchStart - 1), matchStart);
+            const afterOp = codeOnlyLine.substring(matchEnd, Math.min(codeOnlyLine.length, matchEnd + 1));
+            const operator = mathMatch[2];
+            
+            // Skip if it's part of a comparison
+            if (operator === '=' && (beforeOp === '=' || beforeOp === '!' || afterOp === '=')) {
+                continue; // == or != or <= or >=
+            }
+            if (operator === '<' && afterOp === '=') {
+                continue; // <=
+            }
+            if (operator === '>' && afterOp === '=') {
+                continue; // >=
+            }
+            if (operator === '<' || operator === '>') {
+                // Could be comparison, but also could be math in some contexts
+                // Check if it's in a condition context (if, while, etc.)
+                const beforeMatch = codeOnlyLine.substring(0, matchStart);
+                if (beforeMatch.match(/\b(if|while|switch|filter|map)\s*\(/)) {
+                    continue; // Likely a comparison in a condition
+                }
+            }
+
+            // This is a math expression that needs {{ }} wrapping
+            const range = new vscode.Range(
+                lineNumber,
+                matchStart,
+                lineNumber,
+                matchEnd
+            );
+            
+            const diagnostic = new vscode.Diagnostic(
+                range,
+                'Math operations must be wrapped in {{ }}',
+                vscode.DiagnosticSeverity.Warning
+            );
+            diagnostic.code = 'math-outside-braces';
+            diagnostics.push(diagnostic);
+        }
+    }
+
+    private checkInconsistentSpacing(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        // Skip comments
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        // Check for missing spaces around operators and pipes
+        // Pattern: $var:value (missing space after :)
+        // Pattern: $var|modifier (missing space before |)
+        // Pattern: $var| modifier (missing space after |)
+        
+        // Check for missing space after : in assignments
+        const colonPattern = /(\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)\s*:\s*([^\s=:])/g;
+        let colonMatch;
+        while ((colonMatch = colonPattern.exec(codeOnlyLine)) !== null) {
+            const colonPos = codeOnlyLine.indexOf(':', colonMatch.index);
+            if (colonPos !== -1 && codeOnlyLine[colonPos + 1] !== ' ') {
+                const range = new vscode.Range(
+                    lineNumber,
+                    colonPos + 1,
+                    lineNumber,
+                    colonPos + 1
+                );
+                
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    'Missing space after :',
+                    vscode.DiagnosticSeverity.Hint
+                );
+                diagnostic.code = 'inconsistent-spacing';
+                diagnostics.push(diagnostic);
+            }
+        }
+
+        // Check for missing spaces around pipe operator |
+        const pipePattern = /([^\s|])\s*\|([^\s|])/g;
+        let pipeMatch;
+        while ((pipeMatch = pipePattern.exec(codeOnlyLine)) !== null) {
+            const pipePos = codeOnlyLine.indexOf('|', pipeMatch.index);
+            if (pipePos !== -1) {
+                const beforePipe = codeOnlyLine[pipePos - 1];
+                const afterPipe = codeOnlyLine[pipePos + 1];
+                
+                if (beforePipe !== ' ' || afterPipe !== ' ') {
+                    const range = new vscode.Range(
+                        lineNumber,
+                        pipePos,
+                        lineNumber,
+                        pipePos + 1
+                    );
+                    
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        'Missing space around | operator',
+                        vscode.DiagnosticSeverity.Hint
+                    );
+                    diagnostic.code = 'inconsistent-spacing';
+                    diagnostics.push(diagnostic);
+                }
+            }
+        }
+    }
+
+    private checkForeachVariableScoping(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        // Track foreach loops and their variables
+        const foreachLoops: Array<{ loopVar: string; startLine: number; endLine: number }> = [];
+        
+        // Find all foreach loops
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+            
+            const foreachMatch = trimmed.match(/^foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.+)/);
+            if (foreachMatch) {
+                const loopVar = foreachMatch[1];
+                const foreachStartLine = i;
+                
+                // Find the matching endfor
+                let braceDepth = 0;
+                let foundEndfor = false;
+                let endforLine = -1;
+                
+                for (let j = i + 1; j < lines.length; j++) {
+                    const currentLine = lines[j];
+                    const currentTrimmed = currentLine.trim();
+                    
+                    const commentIndex = Math.min(
+                        currentLine.indexOf('//') !== -1 ? currentLine.indexOf('//') : Infinity,
+                        currentLine.indexOf('#') !== -1 ? currentLine.indexOf('#') : Infinity
+                    );
+                    const codeLine = commentIndex !== Infinity ? currentLine.substring(0, commentIndex) : currentLine;
+                    
+                    braceDepth += (codeLine.match(/\{/g) || []).length;
+                    braceDepth -= (codeLine.match(/\}/g) || []).length;
+                    
+                    if (currentTrimmed === 'endfor' && braceDepth === 0) {
+                        foundEndfor = true;
+                        endforLine = j;
+                        break;
+                    }
+                }
+                
+                if (foundEndfor) {
+                    foreachLoops.push({
+                        loopVar,
+                        startLine: foreachStartLine,
+                        endLine: endforLine
+                    });
+                }
+            }
+        }
+        
+        // Check if loop variables are used after their loops
+        for (const loop of foreachLoops) {
+            for (let i = loop.endLine + 1; i < lines.length; i++) {
+                const line = lines[i];
+                
+                // Skip comments
+                const commentIndex = Math.min(
+                    line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+                    line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+                );
+                const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+                
+                // Check if loop variable is used
+                const varPattern = new RegExp(`\\$${loop.loopVar}(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)*\\b`, 'g');
+                const varMatch = varPattern.exec(codeOnlyLine);
+                
+                if (varMatch) {
+                    const range = new vscode.Range(
+                        i,
+                        varMatch.index,
+                        i,
+                        varMatch.index + varMatch[0].length
+                    );
+                    
+                    const diagnostic = new vscode.Diagnostic(
+                        range,
+                        `Loop variable '$${loop.loopVar}' is used outside its loop scope. Consider using map() instead.`,
+                        vscode.DiagnosticSeverity.Warning
+                    );
+                    diagnostic.code = 'foreach-variable-scoping';
+                    (diagnostic as any).loopVar = loop.loopVar;
+                    (diagnostic as any).foreachStartLine = loop.startLine;
+                    diagnostics.push(diagnostic);
+                    break; // Only flag first occurrence
+                }
+            }
+        }
+    }
+
+    private checkTypeConversion(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        const lines = text.split('\n');
+        
+        // Patterns that suggest implicit type conversion
+        // $number: $stringValue (assigning string to number variable)
+        // $boolean: $stringValue (assigning string to boolean variable)
+        // etc.
+        
+        // This is a heuristic check - we look for variable names that suggest types
+        // and assignments from variables that might be different types
+        
+        const typeSuggestingNames = {
+            number: /\b(number|num|count|total|sum|price|amount|quantity|qty|index|id|size|length)\b/i,
+            boolean: /\b(boolean|bool|is|has|can|should|enabled|active|valid|flag)\b/i,
+            string: /\b(string|str|text|name|label|message|description|title|value)\b/i
+        };
+        
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            
+            // Skip comments
+            const commentIndex = Math.min(
+                line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+                line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+            );
+            const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+            
+            // Match variable assignments: $varName = $otherVar or $varName: $otherVar
+            const assignmentMatch = codeOnlyLine.match(/^\s*\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]\s*\$([a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*)/);
+            if (!assignmentMatch) {
+                continue;
+            }
+            
+            const leftVar = assignmentMatch[1];
+            const rightVar = assignmentMatch[2];
+            
+            // Check if left variable name suggests a type
+            let suggestedType: string | null = null;
+            for (const [type, pattern] of Object.entries(typeSuggestingNames)) {
+                if (pattern.test(leftVar)) {
+                    suggestedType = type;
+                    break;
+                }
+            }
+            
+            if (!suggestedType) {
+                continue;
+            }
+            
+            // Check if right variable name suggests a different type
+            let rightVarType: string | null = null;
+            for (const [type, pattern] of Object.entries(typeSuggestingNames)) {
+                if (pattern.test(rightVar)) {
+                    rightVarType = type;
+                    break;
+                }
+            }
+            
+            // If types don't match, suggest explicit conversion
+            if (rightVarType && rightVarType !== suggestedType) {
+                const rightVarStart = codeOnlyLine.indexOf('$' + rightVar);
+                const range = new vscode.Range(
+                    i,
+                    rightVarStart,
+                    i,
+                    rightVarStart + rightVar.length + 1 // Include the $
+                );
+                
+                const conversionModifier = `to.${suggestedType === 'number' ? 'number' : suggestedType === 'boolean' ? 'boolean' : 'string'}`;
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Implicit type conversion detected. Consider using explicit conversion: | ${conversionModifier}`,
+                    vscode.DiagnosticSeverity.Hint
+                );
+                diagnostic.code = 'implicit-type-conversion';
+                (diagnostic as any).conversionModifier = conversionModifier;
+                (diagnostic as any).rightVar = '$' + rightVar;
+                diagnostics.push(diagnostic);
+            }
         }
     }
 }

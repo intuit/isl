@@ -390,6 +390,16 @@ fun calculateSummary($items) {
    $result: $items | map( $.id ) | filter( $ > 100 );
    ```
 
+6. **Modifiers inside math expressions are valid**
+    ```isl
+    $result = {{ $items | length + 5 }}
+    ```
+
+7. **if conditions returning true or false as valid**
+    Because ISL has a true-ish/false-ish condition this is valid `return $if( $value ) true else false` (or `!$value` for the negative).
+    This will test if `$value` is true-ish (e.g. not null, empty, zero or false)
+    and return a boolean true or false. 
+
 ### ❌ Don't Do This
 
 1. **Don't use naked math expressions**
@@ -424,6 +434,11 @@ fun calculateSummary($items) {
    ❌ items.map(x => x.id)
    ✅ $items | map($.id)
    ```
+
+6. **Don't complain about null access**
+    This syntax `$val = $object.property.property.property` is perfectly valid. 
+    ISL does not suffer from null references if a property in a chain is missing.
+    ISL will simply make $val null if any of the properties in the chain are null.
 
 ## File Structure
 

@@ -98,10 +98,14 @@ Will output:
 ### 🔧 Custom Extensions Support
 **NEW!** Define your own project-specific functions and modifiers:
 - Create a `.islextensions` file in your workspace root
+- **Or configure a global source** (URL or file path) shared across all projects
 - Define custom functions and modifiers with full type information
 - Get IntelliSense, hover documentation, and validation for your extensions
 - Auto-reload when definitions change
+- Workspace-local files override global source for project-specific extensions
 - [Learn more about ISL Extensions](docs/EXTENSIONS.md)
+
+**Built-in definitions:** All built-in functions and modifiers (e.g. `date.fromEpochSeconds`, `Math.sum`, `trim`) are defined in **`isl-language.json`** at the plugin root. Edit that file to add or change built-ins; completion, hover, signatures, and validation all use it as the single source of truth.
 
 ### 💡 IntelliSense & Code Completion
 Smart completion for:
@@ -167,9 +171,16 @@ Hover over any element for:
 
 Want IntelliSense for your project-specific functions and modifiers?
 
+**Option 1: Project-specific (workspace-local)**
 1. Create a `.islextensions` file in your workspace root
 2. Define your custom functions and modifiers in JSON format
 3. Enjoy full IDE support for your extensions!
+
+**Option 2: Global source (shared across projects)**
+1. Configure `isl.extensions.source` in VS Code settings
+2. Set to a URL (e.g., `https://example.com/extensions.json`) or file path
+3. All projects automatically use these extensions
+4. Override with workspace-local `.islextensions` when needed
 
 **Example `.islextensions`:**
 ```json
@@ -232,9 +243,15 @@ Available settings (all prefixed with `isl.`):
   "isl.formatting.useTabs": false,
   "isl.formatting.alignProperties": false,
   "isl.execution.islCommand": "isl",
-  "isl.execution.javaHome": ""
+  "isl.execution.javaHome": "",
+  "isl.extensions.source": "",
+  "isl.extensions.cacheTTL": 3600
 }
 ```
+
+**Extension Settings:**
+- `isl.extensions.source`: Global source for `.islextensions` (URL or file path). Workspace-local files take precedence.
+- `isl.extensions.cacheTTL`: Cache TTL in seconds for URL-based extensions (default: 3600 = 1 hour).
 
 ## Commands
 

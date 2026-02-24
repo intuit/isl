@@ -11,18 +11,27 @@ import { IslInlayHintsProvider } from './inlayhints';
 import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject } from './codeactions';
 import { IslDocumentHighlightProvider } from './highlights';
 import { IslExtensionsManager } from './extensions';
+import { initIslLanguage } from './language';
+
+const outputChannelName = 'ISL Language Support';
 
 export function activate(context: vscode.ExtensionContext) {
-    console.log('ISL Language Support is now active');
+    initIslLanguage(context.extensionPath);
+
+    const outputChannel = vscode.window.createOutputChannel(outputChannelName);
+    outputChannel.appendLine('[ISL Language Support] Extension is now active');
 
     const documentSelector: vscode.DocumentSelector = [
         { scheme: 'file', language: 'isl' },
         { scheme: 'untitled', language: 'isl' }
     ];
 
-    // Initialize extensions manager
-    const extensionsManager = new IslExtensionsManager();
+    // Initialize extensions manager with output channel for extension logs
+    const extensionsManager = new IslExtensionsManager(outputChannel);
     context.subscriptions.push(extensionsManager);
+
+    // Preload extensions so first completion/validation has a warm cache
+    extensionsManager.preloadExtensions().catch(() => {});
 
     // Register formatter
     const formatter = new IslDocumentFormatter();
@@ -31,8 +40,8 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerDocumentRangeFormattingEditProvider(documentSelector, formatter)
     );
 
-    // Register validator
-    const validator = new IslValidator(extensionsManager);
+    // Register validator (with output channel for validation logs)
+    const validator = new IslValidator(extensionsManager, { outputChannel });
     context.subscriptions.push(validator);
 
     // Validate on open, save, and change

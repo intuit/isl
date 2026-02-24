@@ -272,6 +272,25 @@ amount: $transaction.amount | to.decimal ?? 0.0;
 ❌ Don't access properties after modifiers: `($items | last).id`
 ❌ Don't put parentheses around modified values in conditions
 
+## Important Clarifications
+
+✅ **Modifiers inside math expressions are valid**:
+   ```isl
+   $result: {{ $items | length + 5 }}
+   ```
+
+✅ **if conditions returning true or false are valid**:
+   ```isl
+   return if ($value) true else false endif;
+   ```
+   This tests if `$value` is true-ish (not null, empty, zero or false) and returns a boolean true or false. Use `!$value` for the negative case.
+
+✅ **Null access is safe**:
+   ```isl
+   $val: $object.property.property.property
+   ```
+   ISL does not suffer from null references. If any property in a chain is missing, ISL will simply make `$val` null. Don't complain about or suggest null checks for property chains.
+
 ## Documentation
 - Critical that you ALSO read this guide: https://intuit.github.io/isl/ai/ this has more detailed guidelines.
 - Full Docs: https://intuit.github.io/isl/

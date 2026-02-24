@@ -7,10 +7,24 @@ The ISL Language Support extension allows you to define custom functions and mod
 Similar to how `.cspell.json` defines custom dictionary words or `.cursorrules` defines AI assistant rules, you can create a `.islextensions` file in your project root to define custom ISL functions and modifiers.
 
 When you open an ISL file, the extension automatically:
-1. Looks for a `.islextensions` file in the workspace root
-2. Loads and parses the custom definitions
-3. Integrates them into autocomplete, hover documentation, and validation
-4. Watches for changes and automatically reloads when the file is updated
+1. Looks for a `.islextensions` file in the workspace root (highest priority)
+2. If not found, loads from global source (URL or file path) if configured
+3. Loads and parses the custom definitions
+4. Integrates them into autocomplete, hover documentation, and validation
+5. Watches for changes and automatically reloads when the file is updated
+
+### Loading Priority
+
+The extension loads extensions in the following order (first match wins):
+
+1. **Workspace-local `.islextensions`** - Project-specific extensions that override global ones
+2. **Global source** - Shared extensions from URL or file path (configured in settings)
+3. **Empty** - No custom extensions
+
+This allows you to:
+- Share common extensions across all projects via a global source
+- Override or extend with project-specific extensions when needed
+- Keep projects in sync without duplicating the file in each project
 
 ## File Format
 
@@ -195,20 +209,88 @@ Once you define your extensions, you get:
 - Extension reloads definitions without restart
 - All open ISL files are revalidated
 
+## Global Extensions Source
+
+To avoid maintaining `.islextensions` files in every project, you can configure a global source that all projects will use automatically.
+
+### Configuration
+
+Open VS Code Settings (Ctrl+, / Cmd+,) and search for "ISL extensions source", or add to your `settings.json`:
+
+```json
+{
+  "isl.extensions.source": "https://example.com/shared-extensions.json",
+  "isl.extensions.cacheTTL": 3600
+}
+```
+
+### Options
+
+- **URL**: Download from a web URL (e.g., `https://your-company.com/isl-extensions.json`)
+  - Content is cached for the duration specified by `isl.extensions.cacheTTL` (default: 1 hour)
+  - Automatically re-downloads when cache expires
+  - Falls back to cached content if download fails
+
+- **File Path**: Load from a local file
+  - Absolute path: `/path/to/extensions.json` or `C:\path\to\extensions.json`
+  - Relative to home: `~/isl-extensions.json` or `~/.config/isl/extensions.json`
+  - Relative paths are resolved from your home directory
+
+### Use Cases
+
+**Team/Company Shared Extensions:**
+```json
+{
+  "isl.extensions.source": "https://your-company.github.io/isl-extensions/shared.json"
+}
+```
+
+**Local Shared File:**
+```json
+{
+  "isl.extensions.source": "~/isl-extensions.json"
+}
+```
+
+**Project Override:**
+- Create a `.islextensions` file in your project root
+- It will automatically override the global source for that project
+- Perfect for project-specific extensions while still using shared ones
+
+### Cache Management
+
+- URL downloads are cached in memory for performance
+- Cache duration is controlled by `isl.extensions.cacheTTL` (in seconds)
+- Cache is cleared when configuration changes
+- If download fails, expired cache is used as fallback
+
 ## Best Practices
 
 1. **Keep it organized**: Group related functions and modifiers together
 2. **Document thoroughly**: Add descriptions and examples - they appear in IDE tooltips
 3. **Use types**: Specify parameter and return types for better IntelliSense
-4. **Version control**: Commit `.islextensions` to your repository so the team shares the definitions
-5. **Validate JSON**: Use a JSON validator to ensure your file is valid before saving
+4. **Share globally**: Use `isl.extensions.source` to share extensions across all projects
+5. **Project overrides**: Use workspace-local `.islextensions` for project-specific extensions
+6. **Version control**: Commit `.islextensions` to your repository for project-specific extensions
+7. **Validate JSON**: Use a JSON validator to ensure your file is valid before saving
 
 ## Troubleshooting
 
 ### Extensions not showing up
-- Check that `.islextensions` is in the workspace root
+- Check that `.islextensions` is in the workspace root (if using workspace-local)
+- Verify global source is configured correctly in settings (if using global source)
+- Check that URL is accessible and returns valid JSON (if using URL)
+- Verify file path exists and is readable (if using file path)
 - Verify JSON syntax is valid (use a JSON validator)
+- Check Output panel (View > Output, select "ISL Language Support") for error messages
 - Reload VS Code window if needed
+
+### Global source not loading
+- Verify the URL is accessible (try opening in browser)
+- Check network connectivity if using URL
+- Verify file path is correct and file exists if using file path
+- Check cache TTL setting - may need to wait for cache to expire
+- Check Output panel for detailed error messages
 
 ### Validation errors
 - Ensure `name` field is present for all functions/modifiers

@@ -85,6 +85,16 @@ fun calculateTotal($items) {
    - ❌ `$id: ($items | last).id`
    - ✅ `$lastItem: $items | last; $id: $lastItem.id;`
 
+6. **Modifiers inside math expressions are valid**:
+   - ✅ `$result: {{ $items | length + 5 }}`
+
+7. **if conditions returning true or false are valid**:
+   - ✅ `return if ($value) true else false endif;` - Tests if `$value` is true-ish (not null, empty, zero or false) and returns boolean
+   - ✅ `!$value` for the negative case
+
+8. **Null access is safe**:
+   - ✅ `$val: $object.property.property.property` - ISL doesn't suffer from null references; returns null if any property in chain is missing
+
 ## File Structure Template
 
 ```isl
@@ -124,7 +134,8 @@ modifier calculateDiscount($price, $percent) {
 3. Don't use `.map()` method syntax (use `| map()` modifier)
 4. Don't forget `{{ }}` around math operations
 5. Don't use `return;` without a value (use `return {};`)
-6. Math expressions can only contain math operators, not function calls or modifiers
+6. Modifiers inside math expressions are valid: `{{ $items | length + 5 }}`
+7. Don't complain about null access - ISL safely handles null property chains: `$val: $object.property.property.property` is valid and returns null if any property is missing
 
 ## When Writing ISL Code
 
