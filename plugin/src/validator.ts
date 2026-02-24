@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from './extensions';
 import { validateControlFlowBalance as validateControlFlowBalanceUtil } from './controlFlowMatcher';
 import { getBuiltInModifiersSet, getBuiltInFunctionsSet, getBuiltInNamespacesSet } from './language';
+import type { IslTypeManager } from './types';
 
 export class IslValidator {
     private diagnosticCollection: vscode.DiagnosticCollection;
@@ -14,7 +15,10 @@ export class IslValidator {
     private readonly builtInFunctions: Set<string>;
     private readonly builtInNamespaces: Set<string>;
 
-    constructor(private extensionsManager: IslExtensionsManager, options?: { outputChannel?: vscode.OutputChannel }) {
+    constructor(
+        private extensionsManager: IslExtensionsManager,
+        options?: { outputChannel?: vscode.OutputChannel; typeManager?: IslTypeManager }
+    ) {
         this.builtInModifiers = getBuiltInModifiersSet();
         this.builtInFunctions = getBuiltInFunctionsSet();
         this.builtInNamespaces = getBuiltInNamespacesSet();
@@ -22,7 +26,10 @@ export class IslValidator {
         this.logValidation = options?.outputChannel
             ? (msg: string) => options.outputChannel!.appendLine(`[ISL Validation] ${msg}`)
             : () => {};
+        this.typeManager = options?.typeManager;
     }
+
+    private readonly typeManager?: IslTypeManager;
 
     public dispose() {
         this.diagnosticCollection.dispose();
@@ -107,6 +114,11 @@ export class IslValidator {
         
         // Check for functions that should be modifiers (multi-line check)
         this.checkFunctionToModifier(document, diagnostics);
+
+        // Check for extra properties in typed object literals ($var : Type = { ... })
+        if (this.typeManager) {
+            await this.checkTypedObjectExtraProperties(document, diagnostics);
+        }
 
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
@@ -1211,6 +1223,12 @@ export class IslValidator {
         const match = codeOnlyLine.match(colonAssignmentPattern);
 
         if (match) {
+            // Skip when this is typed assignment: $var : type = ... (colon is type separator, = is assignment)
+            const afterColon = codeOnlyLine.substring(match.index! + match[0].length);
+            if (/^\s*[a-zA-Z_][a-zA-Z0-9_.:]*\s*=/.test(afterColon)) {
+                return; // $val: type = { ... } is valid
+            }
+
             const colonPos = match.index! + match[1].length + match[2].length + match[3].length;
             const range = new vscode.Range(lineNumber, colonPos, lineNumber, colonPos + 1);
             
@@ -1560,7 +1578,7 @@ export class IslValidator {
     private checkNamingConvention(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
         // Get naming convention from configuration
         const config = vscode.workspace.getConfiguration('isl.naming');
-        const convention = config.get<string>('convention', 'PascalCase');
+        const convention = config.get<string>('convention', 'camelCase');
         
         // Skip if convention is not set or disabled
         if (!convention) {
@@ -1800,6 +1818,104 @@ export class IslValidator {
                 }
             }
         }
+    }
+
+    /**
+     * Checks typed object literals ($var : Type = { ... }) for properties not declared in the schema.
+     */
+    private async checkTypedObjectExtraProperties(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]): Promise<void> {
+        const text = document.getText();
+
+        // Find all { } pairs
+        const pairs: { start: number; end: number }[] = [];
+        const openBraces: number[] = [];
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (ch === '{') openBraces.push(i);
+            else if (ch === '}') {
+                if (openBraces.length > 0) {
+                    pairs.push({ start: openBraces.pop()!, end: i });
+                }
+            }
+        }
+
+        for (const { start, end } of pairs) {
+            const position = document.positionAt(start + 1);
+            const schemaAt = await this.typeManager!.getSchemaForObjectAt(document, position);
+            if (!schemaAt) continue;
+
+            const { schema } = schemaAt;
+            const content = text.substring(start + 1, end);
+            const propsWithRanges = this.getTopLevelPropertiesWithRanges(document, content, start + 1);
+
+            for (const { name, range } of propsWithRanges) {
+                if (!(name in schema.properties)) {
+                    diagnostics.push(new vscode.Diagnostic(
+                        range,
+                        `Property '${name}' does not seem declared on the schema.`,
+                        vscode.DiagnosticSeverity.Warning
+                    ));
+                }
+            }
+        }
+    }
+
+    /** Extracts top-level property names and their ranges from object content. */
+    private getTopLevelPropertiesWithRanges(
+        document: vscode.TextDocument,
+        content: string,
+        contentStartOffset: number
+    ): Array<{ name: string; range: vscode.Range }> {
+        const result: Array<{ name: string; range: vscode.Range }> = [];
+        let depth = 0;
+        let i = 0;
+        let inString = false;
+        let stringChar = '';
+
+        while (i < content.length) {
+            const c = content[i];
+            if (inString) {
+                if (c === '\\') {
+                    i += 2;
+                    continue;
+                }
+                if (c === stringChar) inString = false;
+                i++;
+                continue;
+            }
+            if (c === '"' || c === "'" || c === '`') {
+                inString = true;
+                stringChar = c;
+                i++;
+                continue;
+            }
+            if (c === '{' || c === '[' || c === '(') {
+                depth++;
+                i++;
+                continue;
+            }
+            if (c === '}' || c === ']' || c === ')') {
+                depth--;
+                i++;
+                continue;
+            }
+            if (depth === 0) {
+                const propMatch = content.slice(i).match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:/);
+                if (propMatch) {
+                    const name = propMatch[1];
+                    const nameStart = contentStartOffset + i;
+                    const nameEnd = nameStart + name.length;
+                    result.push({
+                        name,
+                        range: new vscode.Range(document.positionAt(nameStart), document.positionAt(nameEnd))
+                    });
+                    i += propMatch[0].length;
+                    continue;
+                }
+            }
+            i++;
+        }
+        return result;
     }
 
     private checkMathOutsideBraces(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {

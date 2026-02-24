@@ -1,10 +1,15 @@
 import * as vscode from 'vscode';
 import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from './extensions';
 import { getModifiersMap, getServicesMap, type BuiltInModifier } from './language';
+import { IslTypeManager } from './types';
+import type { SchemaInfo, SchemaProperty, TypeDeclaration } from './types';
 
 export class IslHoverProvider implements vscode.HoverProvider {
-    
-    constructor(private extensionsManager: IslExtensionsManager) {}
+
+    constructor(
+        private extensionsManager: IslExtensionsManager,
+        private typeManager?: IslTypeManager
+    ) {}
     
     async provideHover(
         document: vscode.TextDocument,
@@ -69,7 +74,124 @@ export class IslHoverProvider implements vscode.HoverProvider {
             }
         }
 
+        // Type name (e.g. idx:name in "type idx:name from '...'" or "$var: idx:name = { ... }")
+        const typeAtPos = this.getTypeNameAtPosition(line, col);
+        if (typeAtPos && this.typeManager) {
+            const decl = this.typeManager.getDeclarationForType(document, typeAtPos.typeName);
+            if (decl) {
+                const schema = await this.typeManager.getSchemaForType(document, typeAtPos.typeName);
+                const hoverRange = new vscode.Range(
+                    position.line, typeAtPos.start,
+                    position.line, typeAtPos.end
+                );
+                return this.getTypeHover(decl, schema, typeAtPos.typeName, hoverRange);
+            }
+        }
+
+        // Property name inside typed object literal ($var : Type = { propName: ... })
+        if (this.typeManager && range) {
+            const schemaAt = await this.typeManager.getSchemaForObjectAt(document, position);
+            if (schemaAt) {
+                const prop = schemaAt.schema.properties[word];
+                if (prop) {
+                    return this.getPropertyHover(word, prop, schemaAt.schema, range);
+                }
+            }
+        }
+
         return undefined;
+    }
+
+    /**
+     * Finds the full type name at the given column (e.g. idx:name) if the cursor is inside one.
+     * Type names appear after "type " or after ": " in variable declarations.
+     */
+    private getTypeNameAtPosition(line: string, col: number): { typeName: string; start: number; end: number } | null {
+        // After "type " (declaration)
+        const typeDeclRegex = /\btype\s+([a-zA-Z_][a-zA-Z0-9_.:]*)\s+(?:from|as)\b/g;
+        let m: RegExpExecArray | null;
+        while ((m = typeDeclRegex.exec(line)) !== null) {
+            const start = m.index + m[0].indexOf(m[1]);
+            const end = start + m[1].length;
+            if (col >= start && col <= end) {
+                return { typeName: m[1], start, end };
+            }
+        }
+        // After ": " (type annotation, e.g. $var: idx:name = or $var: idx:name)
+        const typeAnnotRegex = /:\s*([a-zA-Z_][a-zA-Z0-9_.:]*)(?:\s*[={]|\s*$)/g;
+        while ((m = typeAnnotRegex.exec(line)) !== null) {
+            const start = m.index + m[0].indexOf(m[1]);
+            const end = start + m[1].length;
+            if (col >= start && col <= end) {
+                return { typeName: m[1], start, end };
+            }
+        }
+        return null;
+    }
+
+    private getPropertyHover(propName: string, prop: SchemaProperty, schema: SchemaInfo, range: vscode.Range): vscode.Hover {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        const typeStr = prop.type ?? 'any';
+        const required = schema.required?.includes(propName) ? ' *(required)*' : '';
+        md.appendMarkdown(`**\`${propName}\`** \`${typeStr}\`${required}\n\n`);
+
+        if (prop.description) {
+            md.appendMarkdown(`${prop.description}\n\n`);
+        }
+
+        if (prop.enum && prop.enum.length > 0) {
+            md.appendMarkdown(`**Allowed values:** \`${prop.enum.join('`, `')}\`\n\n`);
+        }
+
+        const examples: string[] = [];
+        if (prop.example) examples.push(prop.example);
+        if (prop.examples) examples.push(...prop.examples);
+        if (examples.length > 0) {
+            md.appendMarkdown('**Examples:**\n');
+            for (const ex of examples) {
+                md.appendMarkdown('```\n' + ex + '\n```\n');
+            }
+            md.appendMarkdown('\n');
+        }
+
+        if (prop.extensions && Object.keys(prop.extensions).length > 0) {
+            md.appendMarkdown('**Extensions:**\n');
+            for (const [k, v] of Object.entries(prop.extensions)) {
+                const valStr = typeof v === 'object' && v !== null
+                    ? JSON.stringify(v, null, 2)
+                    : String(v);
+                if (valStr.includes('\n')) {
+                    md.appendMarkdown(`- \`${k}\`:\n\`\`\`\n${valStr}\n\`\`\`\n`);
+                } else {
+                    md.appendMarkdown(`- \`${k}\`: ${valStr}\n`);
+                }
+            }
+        }
+
+        return new vscode.Hover(md, range);
+    }
+
+    private getTypeHover(decl: TypeDeclaration, schema: SchemaInfo | null, typeName: string, range: vscode.Range): vscode.Hover {
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        md.appendMarkdown(`**\`${typeName}\`** *(type)*\n\n`);
+        if (decl.source === 'url' && decl.url) {
+            md.appendMarkdown(`**From:** [${decl.url}](${decl.url})\n\n`);
+        } else {
+            md.appendMarkdown('**From:** inline definition\n\n');
+        }
+        if (schema && Object.keys(schema.properties).length > 0) {
+            md.appendMarkdown('**Properties:**\n');
+            for (const [propName, prop] of Object.entries(schema.properties)) {
+                const typeStr = prop.type ?? 'any';
+                const required = schema.required?.includes(propName) ? ' *(required)*' : '';
+                md.appendMarkdown(`- \`${propName}\`: \`${typeStr}\`${required}\n`);
+            }
+        } else if (schema) {
+            md.appendMarkdown('*No properties.*\n');
+        }
+        return new vscode.Hover(md, range);
     }
 
     private getCustomFunctionHover(func: import('./extensions').IslFunctionDefinition): vscode.Hover {
@@ -208,7 +330,7 @@ export class IslHoverProvider implements vscode.HoverProvider {
         const docs: { [key: string]: string } = {
             'fun': '**Function Declaration**\n\nDefines a function that can be called within ISL.\n\n```isl\nfun myFunction($param) {\n    return $param | upperCase\n}\n\n// Call it:\n$result: @.This.myFunction($value);\n```',
             'modifier': '**Modifier Function**\n\nDefines a custom modifier that can be used with the pipe operator.\n\n```isl\nmodifier double($value) {\n    return {{ $value * 2 }}\n}\n\n// Use it:\n$result: $input | double;\n```',
-            'if': '**If Statement**\n\nConditional execution based on a boolean expression.\n\n```isl\nif ($value > 10)\n    result: "high"\nelse\n    result: "low"\nendif\n```\n\n**Inline if expression:**\n```isl\n$status: if ($active) "active" else "inactive" endif;\n```',
+            'if': '**If Statement**\n\nConditional execution based on a boolean expression.\n\n**Block form** (requires `endif`):\n```isl\nif ($value > 10)\n    result: "high"\nelse\n    result: "low"\nendif\n```\n\n**Inline / conditional modifier** (optional `endif` when used in assignment or property):\n```isl\n$status: if ($active) "active" else "inactive";\n$val: if ($ok) $a else $b;\n{ prop: if ($x) "yes" else "no" }\n```',
             'foreach': '**ForEach Loop**\n\nIterates over an array and transforms each element.\n\n```isl\nforeach $item in $array\n    { id: $item.id, name: $item.name }\nendfor\n```\n\n**With filtering:**\n```isl\nforeach $item in $array | filter($item.active)\n    $item.name | upperCase\nendfor\n```',
             'while': '**While Loop**\n\nRepeats a block while a condition is true. Max 50 iterations by default.\n\n```isl\n$counter = 0;\nwhile ($counter < 10)\n    $counter = {{ $counter + 1 }}\nendwhile\n```\n\n**With options:**\n```isl\nwhile ($condition, {maxLoops: 100})\n    // statements\nendwhile\n```',
             'switch': '**Switch Statement**\n\nMatches a value against multiple cases.\n\n```isl\nswitch ($status)\n    "active" -> "Active";\n    "pending" -> "Pending";\n    /^temp.*/ -> "Temporary";\n    < 100 -> "Low";\n    else -> "Unknown";\nendswitch\n```',

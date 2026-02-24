@@ -32,12 +32,121 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             return [];
         }
 
-        const text = document.getText(range);
-        const formatted = this.formatIslCode(text, options);
+        const selectionText = document.getText(range);
+        const contextRange = new vscode.Range(
+            document.positionAt(0),
+            range.start
+        );
+        const contextText = document.getText(contextRange);
+        const indentState = this.computeIndentState(contextText);
+        const formatted = this.formatIslCode(selectionText, options, indentState);
         return [vscode.TextEdit.replace(range, formatted)];
     }
 
-    private formatIslCode(code: string, options: vscode.FormattingOptions): string {
+    /**
+     * Computes the indent level and open control flow state at the end of the given code.
+     * Used for range formatting to preserve context-aware indentation.
+     */
+    private computeIndentState(code: string): { indentLevel: number; openInlineControlFlow: string[] } {
+        let indentLevel = 0;
+        let openInlineControlFlow: string[] = [];
+        const lines = code.split('\n');
+
+        const isInsideMultiLineString: boolean[] = new Array(lines.length).fill(false);
+        let inMultiLineString = false;
+        let backtickCount = 0;
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            let tempBacktickCount = 0;
+            for (let j = 0; j < line.length; j++) {
+                if (line[j] === '`' && (j === 0 || line[j - 1] !== '\\')) tempBacktickCount++;
+            }
+            if (!inMultiLineString && tempBacktickCount % 2 === 1) {
+                inMultiLineString = true;
+                backtickCount = tempBacktickCount;
+            } else if (inMultiLineString) {
+                isInsideMultiLineString[i] = true;
+                backtickCount += tempBacktickCount;
+                if (backtickCount % 2 === 0) {
+                    inMultiLineString = false;
+                    backtickCount = 0;
+                }
+            }
+        }
+
+        const processedLines: string[] = [];
+        for (let i = 0; i < lines.length; i++) {
+            if (isInsideMultiLineString[i]) {
+                processedLines.push(lines[i].trimEnd());
+                continue;
+            }
+            let line = lines[i].trim();
+            line = this.normalizePipeSpacing(line);
+            line = this.normalizeFunctionParameters(line);
+            line = this.normalizeControlFlowParameters(line);
+            line = this.collapseEmptyBrackets(line);
+            line = this.normalizePropertyAssignments(line);
+            line = this.normalizeVariableAssignments(line);
+            line = this.normalizeFunctionObjectParameters(line);
+            processedLines.push(line);
+        }
+
+        for (let i = 0; i < processedLines.length; i++) {
+            const trimmedLine = processedLines[i];
+            if (isInsideMultiLineString[i]) continue;
+            if (trimmedLine.match(/^(fun|modifier)\s/)) indentLevel = 0;
+            if (trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) continue;
+            if (trimmedLine === '') continue;
+            if (trimmedLine.match(/^[\}\]\)]/) && indentLevel > 0) indentLevel--;
+            if ((trimmedLine.match(/^[\}\]].*;$/) || trimmedLine.match(/^[\}\]],$/)) && openInlineControlFlow.length > 0) {
+                const top = openInlineControlFlow[openInlineControlFlow.length - 1];
+                if (top !== 'switch' && indentLevel > 0) {
+                    indentLevel--;
+                    openInlineControlFlow.pop();
+                }
+            }
+            if (openInlineControlFlow.length > 0 && trimmedLine.match(/\s+else\s+[^,;]+[,;]$/)) {
+                if (indentLevel > 0) {
+                    indentLevel--;
+                    openInlineControlFlow.pop();
+                }
+            }
+            if (trimmedLine.match(/^(endif|endfor|endwhile|endswitch)/)) {
+                if (indentLevel > 0) indentLevel--;
+                if (openInlineControlFlow.length > 0) openInlineControlFlow.pop();
+            }
+            if (openInlineControlFlow.length > 0 && /^\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*\s*[=:]/.test(trimmedLine)) {
+                if (indentLevel > 0) indentLevel--;
+                openInlineControlFlow.pop();
+            }
+            if (trimmedLine === 'else' && indentLevel > 0) {
+                indentLevel--;
+                indentLevel++;
+                continue;
+            }
+            if (trimmedLine.match(/[\{\[\(]$/)) indentLevel++;
+            const blockControlFlow = trimmedLine.match(/^(if|foreach|while|switch|parallel)[\s(]/);
+            const inlineControlFlow = trimmedLine.match(/[=:>]\s*(if|foreach|while|switch)[\s(]/);
+            if (blockControlFlow || inlineControlFlow) {
+                if (!trimmedLine.includes('endif') && !trimmedLine.includes('endfor') &&
+                    !trimmedLine.includes('endwhile') && !trimmedLine.includes('endswitch')) {
+                    const endsWithBrace = trimmedLine.endsWith('{');
+                    const endsWithTerminator = trimmedLine.endsWith(';') || trimmedLine.endsWith(',');
+                    const isCompleteLine = inlineControlFlow && endsWithTerminator;
+                    if (!endsWithBrace && !isCompleteLine) {
+                        indentLevel++;
+                        if (inlineControlFlow) {
+                            const controlFlowType = inlineControlFlow[0].match(/(if|foreach|while|switch)/)?.[1] || 'unknown';
+                            openInlineControlFlow.push(controlFlowType);
+                        }
+                    }
+                }
+            }
+        }
+        return { indentLevel, openInlineControlFlow };
+    }
+
+    private formatIslCode(code: string, options: vscode.FormattingOptions, initialIndentState?: { indentLevel: number; openInlineControlFlow: string[] }): string {
         const config = vscode.workspace.getConfiguration('isl.formatting');
         const indentSize = config.get<number>('indentSize', 4);
         const useTabs = config.get<boolean>('useTabs', false);
@@ -45,8 +154,8 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
         const alignProperties = config.get<boolean>('alignProperties', false);
 
         let formatted = '';
-        let indentLevel = 0;
-        let openInlineControlFlow: string[] = []; // Track stack of open inline control flow types
+        let indentLevel = initialIndentState?.indentLevel ?? 0;
+        let openInlineControlFlow: string[] = initialIndentState ? [...initialIndentState.openInlineControlFlow] : [];
 
         const lines = code.split('\n');
         
@@ -120,6 +229,8 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
         }
 
         // Indent and format
+        let prevLineIndent = '';
+        let prevLineEndsWithColon = false;
         for (let i = 0; i < processedLines.length; i++) {
             const trimmedLine = processedLines[i];
 
@@ -136,12 +247,16 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
 
             // Handle line comments
             if (trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) {
-                formatted += indentChar.repeat(indentLevel) + trimmedLine + '\n';
+                prevLineIndent = indentChar.repeat(indentLevel);
+                prevLineEndsWithColon = false;
+                formatted += prevLineIndent + trimmedLine + '\n';
                 continue;
             }
 
             // Skip empty lines but preserve them
             if (trimmedLine === '') {
+                prevLineIndent = '';
+                prevLineEndsWithColon = false;
                 formatted += '\n';
                 continue;
             }
@@ -181,10 +296,19 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                 if (openInlineControlFlow.length > 0) openInlineControlFlow.pop();
             }
 
+            // Inline if/switch used as conditional modifier don't require endif/endswitch.
+            // A new statement (e.g. $var = ... or $var: ... or endfor) closes the previous inline expression.
+            if (openInlineControlFlow.length > 0 && /^\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*\s*[=:]/.test(trimmedLine)) {
+                if (indentLevel > 0) indentLevel--;
+                openInlineControlFlow.pop();
+            }
+
             // Handle 'else' - decrease then increase indent
             if (trimmedLine === 'else' && indentLevel > 0) {
                 indentLevel--;
-                formatted += indentChar.repeat(indentLevel) + trimmedLine + '\n';
+                prevLineIndent = indentChar.repeat(indentLevel);
+                prevLineEndsWithColon = false;
+                formatted += prevLineIndent + trimmedLine + '\n';
                 indentLevel++;
                 continue;
             }
@@ -193,8 +317,19 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             const isModifierContinuation = trimmedLine.startsWith('|');
             const extraIndent = isModifierContinuation ? 1 : 0;
 
+            // For standalone '{' after a property key (line ending with :), use same indent as key
+            // to prevent drift when repeatedly formatting (e.g. format-on-Enter)
+            let lineIndent = indentChar.repeat(indentLevel + extraIndent);
+            if (trimmedLine === '{' && prevLineEndsWithColon && prevLineIndent !== '') {
+                lineIndent = prevLineIndent;
+            }
+
             // Add indentation (with extra indent for modifier continuations)
-            formatted += indentChar.repeat(indentLevel + extraIndent) + trimmedLine;
+            formatted += lineIndent + trimmedLine;
+
+            // Track for next iteration (property key with value on next line)
+            prevLineIndent = lineIndent;
+            prevLineEndsWithColon = trimmedLine.endsWith(':') && !trimmedLine.includes('?');
 
             // Adjust indent for opening braces/brackets
             if (trimmedLine.match(/[\{\[\(]$/)) {
@@ -551,8 +686,31 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                 }
                 
                 // Check if there's an identifier before (property name)
-                const beforeColon = result.match(/[a-zA-Z_$][a-zA-Z0-9_]*$/);
+                const beforeColon = result.match(/[a-zA-Z_$][a-zA-Z0-9_.]*$/);
                 if (beforeColon) {
+                    const trimmedResult = result.trimEnd();
+                    // Type name context: "type idx" / "type ns.idx" or "$var : idx" / "$var: idx" - colon is inside type name (e.g. idx:name)
+                    // Do not add space so we keep type names as one word: idx:name not idx: name
+                    const isTypeNameContext = /^type\s+[a-zA-Z_][a-zA-Z0-9_.]*$/.test(trimmedResult) ||
+                        /^\$[a-zA-Z_][a-zA-Z0-9_]*\s*:\s*[a-zA-Z_][a-zA-Z0-9_.:]*$/.test(trimmedResult);
+                    if (isTypeNameContext) {
+                        result += ':';
+                        i++;
+                        // Skip any spaces after colon, then copy the rest of the type name (e.g. name or ns:name)
+                        while (i < line.length && line[i] === ' ') {
+                            i++;
+                        }
+                        while (i < line.length) {
+                            const c = line[i];
+                            if (/[a-zA-Z0-9_]/.test(c) || c === '.' || (c === ':' && result.length > 0 && result[result.length - 1] !== ':')) {
+                                result += c;
+                                i++;
+                            } else {
+                                break;
+                            }
+                        }
+                        continue;
+                    }
                     // This looks like a property assignment
                     // Add colon without space, then ensure one space after
                     result += ': ';

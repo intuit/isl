@@ -143,6 +143,10 @@
         "title": "ISL: Format Document"
       },
       {
+        "command": "isl.formatBlockOnEnter",
+        "title": "ISL: Format Block on Enter"
+      },
+      {
         "command": "isl.showDocumentation",
         "title": "ISL: Open Documentation"
       }
@@ -184,6 +188,19 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "command": "runCommands",
+        "key": "enter",
+        "when": "editorTextFocus && editorLangId == isl && !suggestWidgetVisible",
+        "args": {
+          "commands": [
+            "isl.formatBlockOnEnter",
+            { "command": "type", "args": { "text": "\n" } }
+          ]
+        }
+      }
+    ],
     "snippets": [
       {
         "language": "isl",
@@ -202,6 +219,7 @@
     "publish:ovsx": "ovsx publish"
   },
   "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
     "@types/node": "^18.0.0",
     "@types/vscode": "^1.75.0",
     "@typescript-eslint/eslint-plugin": "^6.0.0",
@@ -212,6 +230,7 @@
     "typescript": "^5.0.0"
   },
   "dependencies": {
+    "js-yaml": "^4.1.0",
     "vscode-languageclient": "^8.1.0"
   },
   "extensionRecommendations": [

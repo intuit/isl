@@ -228,6 +228,25 @@ export function isInlineStatementComplete(line: string): boolean {
 }
 
 /**
+ * Returns true if the (trimmed) line looks like the start of a new statement.
+ * Used to implicitly close inline if/switch that don't use endif/endswitch:
+ * e.g. next line "$var = ..." or "return" or block "foreach"/"if" at line start.
+ */
+export function isNewStatementStart(trimmedLine: string): boolean {
+    if (!trimmedLine) return false;
+    // Assignment: $var = ... or $var: ...
+    if (/^\$[a-zA-Z_][a-zA-Z0-9_]*(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*\s*[=:]/.test(trimmedLine)) {
+        return true;
+    }
+    // return, or block-level control flow at start of line
+    if (/^return\s/.test(trimmedLine)) return true;
+    if (/^(foreach|if|while|switch)\s/.test(trimmedLine)) return true;
+    // End keywords start a new "statement" in the sense that we're done with previous
+    if (/^(endif|endfor|endwhile|endswitch)\b/.test(trimmedLine)) return true;
+    return false;
+}
+
+/**
  * Finds the matching control flow keyword by tracking depth
  * Works for multi-line statements and handles nested structures
  */
@@ -342,6 +361,22 @@ export function validateControlFlowBalance(
             continue;
         }
         
+        // Inline if/switch don't require endif/endswitch. When we see a new statement
+        // (e.g. next assignment or endfor), implicitly close any open inline items.
+        // BUT: don't pop an item if this line contains its matching end keyword
+        // (e.g. endswitch) - we'll handle that in the match processing below.
+        if (isNewStatementStart(codeLineTrimmed)) {
+            while (stack.length > 0 && !stack[stack.length - 1].isBlock) {
+                const top = stack[stack.length - 1];
+                const pair = CONTROL_FLOW_PAIRS[top.type];
+                if (pair && pair.endPattern.test(codeLineWithoutComments)) {
+                    // This line has the matching end keyword - don't pop, handle it below
+                    break;
+                }
+                stack.pop();
+            }
+        }
+        
         // Find all control flow keywords in this line
         const allMatches = findAllControlFlowKeywordsInLine(fullLine, i);
         
@@ -407,6 +442,10 @@ export function validateControlFlowBalance(
                 }
             } else {
                 // This is an end keyword
+                // Inline if/switch may be open without their own endif/endswitch; pop them first
+                while (stack.length > 0 && !stack[stack.length - 1].isBlock && stack[stack.length - 1].type !== type) {
+                    stack.pop();
+                }
                 // Pop from stack if there's a matching start
                 if (stack.length === 0 || stack[stack.length - 1].type !== type) {
                     // Unexpected end keyword

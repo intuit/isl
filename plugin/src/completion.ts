@@ -1,10 +1,16 @@
 import * as vscode from 'vscode';
 import { IslExtensionsManager, IslFunctionDefinition, IslModifierDefinition } from './extensions';
 import { getModifiersMap, getFunctionsByNamespace, getServicesMap, type BuiltInModifier, type BuiltInFunction } from './language';
+import { IslTypeManager } from './types';
+import type { SchemaInfo } from './types';
 
 export class IslCompletionProvider implements vscode.CompletionItemProvider {
     
-    constructor(private extensionsManager: IslExtensionsManager) {}
+    constructor(
+        private extensionsManager: IslExtensionsManager,
+        private typeManager?: IslTypeManager,
+        private outputChannel?: vscode.OutputChannel
+    ) {}
     
     async provideCompletionItems(
         document: vscode.TextDocument,
@@ -13,6 +19,18 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
         const linePrefix = document.lineAt(position).text.substr(0, position.character);
+        
+        // Type-based object literal completions (root and nested, e.g. billingAddress inside order)
+        if (this.typeManager) {
+            const schemaAt = await this.typeManager.getSchemaForObjectAt(document, position);
+            if (schemaAt) {
+                const { typeName, propertyPath, schema } = schemaAt;
+                const pathStr = propertyPath.length > 0 ? `.${propertyPath.join('.')}` : '';
+                const msg = `[ISL Completion] Schema at ${typeName}${pathStr}: ${Object.keys(schema.properties).length} properties`;
+                this.outputChannel?.appendLine(msg);
+                return this.getTypeBasedCompletions(document, position, schema, linePrefix);
+            }
+        }
         
         // Load custom extensions
         const extensions = await this.extensionsManager.getExtensionsForDocument(document);
@@ -206,7 +224,8 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             { label: 'switch', kind: vscode.CompletionItemKind.Keyword, detail: 'Switch statement', insertText: 'switch (${1:\\$var})\n\t${2:value} -> ${3:result};\n\telse -> ${4:default};\nendswitch' },
             { label: 'return', kind: vscode.CompletionItemKind.Keyword, detail: 'Return statement', insertText: 'return ${1:value}' },
             { label: 'import', kind: vscode.CompletionItemKind.Keyword, detail: 'Import module', insertText: 'import ${1:Module} from \'${2:file.isl}\';' },
-            { label: 'type', kind: vscode.CompletionItemKind.Keyword, detail: 'Type declaration', insertText: 'type ${1:TypeName} as {\n\t${2:prop}: ${3:String}\n};' },
+            { label: 'type', kind: vscode.CompletionItemKind.Keyword, detail: 'Type declaration (inline)', insertText: 'type ${1:TypeName} as {\n\t${2:prop}: ${3:String}\n};' },
+            { label: 'type from', kind: vscode.CompletionItemKind.Keyword, detail: 'Type from schema URL', insertText: 'type ${1:ns}:${2:TypeName} from \'${3:https://...}\';' },
             { label: 'parallel', kind: vscode.CompletionItemKind.Keyword, detail: 'Parallel execution', insertText: 'parallel ' },
             { label: 'cache', kind: vscode.CompletionItemKind.Keyword, detail: 'Cache function result', insertText: 'cache ' },
         ];
@@ -467,6 +486,165 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         }
 
         return Array.from(variables.values());
+    }
+
+    /**
+     * Completions when cursor is inside a typed object literal: $var : TypeName = { ... }
+     * Offers "Fill all mandatory fields" snippet and property name completions from the schema.
+     */
+    private getTypeBasedCompletions(
+        document: vscode.TextDocument,
+        position: vscode.Position,
+        schema: SchemaInfo,
+        linePrefix: string
+    ): vscode.CompletionItem[] {
+        const items: vscode.CompletionItem[] = [];
+        const existingProps = this.getExistingPropertiesInObjectLiteral(document, position);
+        const indent = this.getIndentAtPosition(document, position);
+        const indentUnit = this.getIndentUnit(document, indent);
+        const requiredSet = new Set(schema.required);
+        const missingRequired = schema.required.filter(p => !existingProps.has(p));
+
+        // "Fill all mandatory fields" – insert only required properties not yet present
+        if (missingRequired.length > 0) {
+            const fillItem = new vscode.CompletionItem('Fill all mandatory fields', vscode.CompletionItemKind.Snippet);
+            fillItem.detail = `Insert required: ${missingRequired.join(', ')}`;
+            fillItem.documentation = new vscode.MarkdownString('Inserts all required properties from the schema with placeholders.');
+            const snippetParts: string[] = [];
+            let tabIndex = 1;
+            for (const prop of missingRequired) {
+                const propInfo = schema.properties[prop];
+                if (propInfo?.schema) {
+                    snippetParts.push(`${indentUnit}${prop}: {\n${indent}${indentUnit}\${${tabIndex++}:}\n${indent}}`);
+                } else if (propInfo?.enum?.length) {
+                    snippetParts.push(`${indentUnit}${prop}: "\${${tabIndex++}:${propInfo.enum[0]}}"`);
+                } else {
+                    const placeholder = this.schemaTypeToPlaceholder(propInfo?.type ?? 'any');
+                    snippetParts.push(`${indentUnit}${prop}: \${${tabIndex++}:${placeholder}}`);
+                }
+            }
+            fillItem.insertText = new vscode.SnippetString(snippetParts.join(`\n${indent}`));
+            items.push(fillItem);
+        }
+
+        // Value completion: after "propName: " show enum values for that property
+        const valueCompletion = this.getEnumValueCompletions(linePrefix, schema, indent);
+        if (valueCompletion.length > 0) {
+            return valueCompletion;
+        }
+
+        // Property name completions (exclude already declared in this block)
+        const propPrefix = this.getPropertyNamePrefix(linePrefix);
+        for (const [propName, propInfo] of Object.entries(schema.properties)) {
+            if (existingProps.has(propName)) continue;
+            if (propPrefix && !propName.toLowerCase().startsWith(propPrefix.toLowerCase())) continue;
+            const isRequired = requiredSet.has(propName);
+            if (propInfo.enum && propInfo.enum.length > 0) {
+                for (const enumVal of propInfo.enum) {
+                    const item = new vscode.CompletionItem(`${propName}: ${enumVal}`, vscode.CompletionItemKind.EnumMember);
+                    item.detail = `${propInfo.type ?? 'string'}${isRequired ? ' (required)' : ' (optional)'}`;
+                    if (propInfo.description) item.documentation = new vscode.MarkdownString(propInfo.description);
+                    item.insertText = new vscode.SnippetString(`${propName}: "${enumVal}"`);
+                    item.filterText = `${propName} ${enumVal}`;
+                    items.push(item);
+                }
+            } else {
+                const item = new vscode.CompletionItem(propName, vscode.CompletionItemKind.Property);
+                item.detail = `${propInfo.type ?? 'any'}${isRequired ? ' (required)' : ' (optional)'}`;
+                if (propInfo.description) item.documentation = new vscode.MarkdownString(propInfo.description);
+                if (propInfo.schema) {
+                    item.insertText = new vscode.SnippetString(`${propName}: {\n${indent}${indentUnit}$0\n${indent}}`);
+                } else {
+                    item.insertText = new vscode.SnippetString(`${propName}: \${1:${this.schemaTypeToPlaceholder(propInfo.type ?? 'any')}}`);
+                }
+                items.push(item);
+            }
+        }
+
+        return items;
+    }
+
+    private schemaTypeToPlaceholder(type: string): string {
+        const t = type.toLowerCase();
+        if (t === 'string' || t === 'text') return '""';
+        if (t === 'number' || t === 'integer') return '0';
+        if (t === 'boolean') return 'true';
+        if (t === 'date' || t === 'datetime') return '""';
+        return '""';
+    }
+
+    private getIndentAtPosition(document: vscode.TextDocument, position: vscode.Position): string {
+        const line = document.lineAt(position).text;
+        const match = line.match(/^\s*/);
+        return match ? match[0] : '';
+    }
+
+    /** One indent level: tab if file uses tabs, else spaces per editor.tabSize. */
+    private getIndentUnit(document: vscode.TextDocument, baseIndent: string): string {
+        const config = vscode.workspace.getConfiguration('editor', document.uri);
+        const insertSpaces = config.get<boolean>('insertSpaces', true);
+        const tabSize = config.get<number>('tabSize', 4);
+        if (!insertSpaces || /\t/.test(baseIndent)) return '\t';
+        return ' '.repeat(tabSize);
+    }
+
+    /** Returns the partial property name being typed (e.g. "acc" from "  acc|") */
+    private getPropertyNamePrefix(linePrefix: string): string {
+        const m = linePrefix.match(/(?:^|[\s{,]\s*)([a-zA-Z_][a-zA-Z0-9_]*)$/);
+        return m ? m[1] : '';
+    }
+
+    /** When cursor is after "propName: " or "propName: partial", return enum value completions for that property. */
+    private getEnumValueCompletions(linePrefix: string, schema: SchemaInfo, indent: string): vscode.CompletionItem[] {
+        const match = linePrefix.match(/([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*([^\s]*)$/);
+        if (!match) return [];
+        const propName = match[1];
+        const valuePrefix = match[2].replace(/^["']|["']$/g, '');
+        const propInfo = schema.properties[propName];
+        if (!propInfo?.enum?.length) return [];
+        const items: vscode.CompletionItem[] = [];
+        for (const enumVal of propInfo.enum) {
+            if (valuePrefix && !enumVal.toLowerCase().startsWith(valuePrefix.toLowerCase())) continue;
+            const item = new vscode.CompletionItem(enumVal, vscode.CompletionItemKind.EnumMember);
+            item.detail = propInfo.type ?? 'string';
+            if (propInfo.description) item.documentation = new vscode.MarkdownString(propInfo.description);
+            item.insertText = `"${enumVal}"`;
+            items.push(item);
+        }
+        return items;
+    }
+
+    /** Collects property names already present in the object literal containing position */
+    private getExistingPropertiesInObjectLiteral(document: vscode.TextDocument, position: vscode.Position): Set<string> {
+        const text = document.getText();
+        const offset = document.offsetAt(position);
+        const containingPairs: { start: number; end: number }[] = [];
+        const openBraces: number[] = [];
+        for (let i = 0; i < text.length; i++) {
+            const ch = text[i];
+            if (ch === '{') openBraces.push(i);
+            else if (ch === '}') {
+                if (openBraces.length > 0) {
+                    const start = openBraces.pop()!;
+                    if (offset >= start && offset <= i) {
+                        containingPairs.push({ start, end: i });
+                    }
+                }
+            }
+        }
+        if (containingPairs.length === 0) return new Set();
+        let best = containingPairs[0];
+        for (const p of containingPairs) {
+            if (p.end - p.start < best.end - best.start) best = p;
+        }
+        const objectContent = text.substring(best.start + 1, best.end);
+        const names = new Set<string>();
+        const propRe = /([a-zA-Z_][a-zA-Z0-9_]*)\s*:/g;
+        let match;
+        while ((match = propRe.exec(objectContent)) !== null) {
+            names.add(match[1]);
+        }
+        return names;
     }
     
     private getPaginationType(document: vscode.TextDocument, varName: string): string | null {

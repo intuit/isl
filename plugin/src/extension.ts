@@ -12,8 +12,32 @@ import { IslCodeActionProvider, extractVariable, extractFunction, convertToTempl
 import { IslDocumentHighlightProvider } from './highlights';
 import { IslExtensionsManager } from './extensions';
 import { initIslLanguage } from './language';
+import { IslTypeManager } from './types';
 
 const outputChannelName = 'ISL Language Support';
+
+function findInnermostBlockRange(document: vscode.TextDocument, position: vscode.Position): vscode.Range | null {
+    const text = document.getText();
+    const offset = document.offsetAt(position);
+    const openBraces: number[] = [];
+    const containingPairs: { start: number; end: number }[] = [];
+    for (let i = 0; i < text.length; i++) {
+        const ch = text[i];
+        if (ch === '{') openBraces.push(i);
+        else if (ch === '}') {
+            if (openBraces.length > 0) {
+                const start = openBraces.pop()!;
+                if (offset >= start && offset <= i) containingPairs.push({ start, end: i });
+            }
+        }
+    }
+    if (containingPairs.length === 0) return null;
+    let best = containingPairs[0];
+    for (const p of containingPairs) {
+        if (p.end - p.start < best.end - best.start) best = p;
+    }
+    return new vscode.Range(document.positionAt(best.start), document.positionAt(best.end + 1));
+}
 
 export function activate(context: vscode.ExtensionContext) {
     initIslLanguage(context.extensionPath);
@@ -30,6 +54,9 @@ export function activate(context: vscode.ExtensionContext) {
     const extensionsManager = new IslExtensionsManager(outputChannel);
     context.subscriptions.push(extensionsManager);
 
+    const typeManager = new IslTypeManager(extensionsManager, outputChannel);
+    context.subscriptions.push(typeManager);
+
     // Preload extensions so first completion/validation has a warm cache
     extensionsManager.preloadExtensions().catch(() => {});
 
@@ -40,8 +67,30 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerDocumentRangeFormattingEditProvider(documentSelector, formatter)
     );
 
-    // Register validator (with output channel for validation logs)
-    const validator = new IslValidator(extensionsManager, { outputChannel });
+    // Format block on Enter - reformats the innermost block containing the cursor
+    context.subscriptions.push(
+        vscode.commands.registerCommand('isl.formatBlockOnEnter', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'isl') return;
+            const config = vscode.workspace.getConfiguration('isl.formatting');
+            if (!config.get<boolean>('enabled', true)) return;
+            const range = findInnermostBlockRange(editor.document, editor.selection.active);
+            if (!range) return;
+            const blockText = editor.document.getText(range);
+            // Skip formatting when block is empty (only whitespace) - prevents drift on Enter after completion
+            if (/^[\s\n\r]*$/.test(blockText.replace(/[{}[\]]/g, ''))) return;
+            const options = { tabSize: config.get<number>('indentSize', 4), insertSpaces: !config.get<boolean>('useTabs', false) };
+            const edits = formatter.provideDocumentRangeFormattingEdits(editor.document, range, options, new vscode.CancellationTokenSource().token);
+            if (edits?.length) {
+                const edit = new vscode.WorkspaceEdit();
+                for (const e of edits) edit.replace(editor.document.uri, e.range, e.newText);
+                await vscode.workspace.applyEdit(edit);
+            }
+        })
+    );
+
+    // Register validator (with output channel for validation logs and type manager for schema checks)
+    const validator = new IslValidator(extensionsManager, { outputChannel, typeManager });
     context.subscriptions.push(validator);
 
     // Validate on open, save, and change
@@ -70,14 +119,14 @@ export function activate(context: vscode.ExtensionContext) {
         }
     });
 
-    // Register completion provider
-    const completionProvider = new IslCompletionProvider(extensionsManager);
+    // Register completion provider (triggers: $ @ . | { - not , so user can type space/newline after comma)
+    const completionProvider = new IslCompletionProvider(extensionsManager, typeManager, outputChannel);
     context.subscriptions.push(
-        vscode.languages.registerCompletionItemProvider(documentSelector, completionProvider, '$', '@', '.', '|')
+        vscode.languages.registerCompletionItemProvider(documentSelector, completionProvider, '$', '@', '.', '|', '{')
     );
 
     // Register hover provider
-    const hoverProvider = new IslHoverProvider(extensionsManager);
+    const hoverProvider = new IslHoverProvider(extensionsManager, typeManager);
     context.subscriptions.push(
         vscode.languages.registerHoverProvider(documentSelector, hoverProvider)
     );

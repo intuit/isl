@@ -414,7 +414,10 @@ export class IslExtensionsManager {
 
         // Final fallback: direct download from raw URL
         this.log(`[ISL Extensions] Falling back to direct download from raw URL`);
-        const rawUrl = `https://${githubInfo.host === 'github.com' ? 'raw.githubusercontent.com' : githubInfo.host.replace('github', 'raw.githubusercontent')}/${githubInfo.owner}/${githubInfo.repo}/${githubInfo.ref}/${githubInfo.path}`;
+        const rawUrl =
+            githubInfo.host === 'github.com'
+                ? `https://raw.githubusercontent.com/${githubInfo.owner}/${githubInfo.repo}/${githubInfo.ref}/${githubInfo.path}`
+                : `https://${githubInfo.host}/${githubInfo.owner}/${githubInfo.repo}/raw/${githubInfo.ref}/${githubInfo.path}`;
         return await this.downloadUrl(rawUrl);
     }
 
@@ -457,85 +460,133 @@ export class IslExtensionsManager {
         });
     }
 
-    /**
-     * Downloads file using git checkout
-     */
-    private downloadViaGit(githubInfo: { host: string; owner: string; repo: string; ref: string; path: string }): Promise<string> {
-        return new Promise((resolve, reject) => {
-            // Create a temporary directory for git operations
-            const tempDir = path.join(os.tmpdir(), `isl-extensions-${Date.now()}`);
-            
-            const repoUrl = `https://${githubInfo.host}/${githubInfo.owner}/${githubInfo.repo}.git`;
-            const filePath = path.join(tempDir, githubInfo.path);
+    /** Cache dir for cloned repos: ~/.isl/cache/repos/<repoKey>. Reused across fetches with TTL. */
+    private getRepoCacheDir(): string {
+        return path.join(os.homedir(), '.isl', 'cache', 'repos');
+    }
 
-            this.log(`[ISL Extensions] Cloning ${repoUrl} to ${tempDir}`);
-
-            // Clone the repository (shallow, single branch)
-            cp.exec(`git clone --depth 1 --branch ${githubInfo.ref} ${repoUrl} ${tempDir}`, { timeout: 60000 }, (cloneError) => {
-                if (cloneError) {
-                    // Try without branch specification (some repos might not have the branch)
-                    this.log(`[ISL Extensions] Clone with branch failed, trying without branch`);
-                    cp.exec(`git clone --depth 1 ${repoUrl} ${tempDir}`, { timeout: 60000 }, (cloneError2) => {
-                        if (cloneError2) {
-                            // Cleanup
-                            try {
-                                fs.rmSync(tempDir, { recursive: true, force: true });
-                            } catch {}
-                            reject(new Error(`Git clone failed: ${cloneError2.message}`));
-                            return;
-                        }
-
-                        // Checkout the specific ref
-                        cp.exec(`git checkout ${githubInfo.ref}`, { cwd: tempDir, timeout: 30000 }, (checkoutError) => {
-                            if (checkoutError) {
-                                try {
-                                    fs.rmSync(tempDir, { recursive: true, force: true });
-                                } catch {}
-                                reject(new Error(`Git checkout failed: ${checkoutError.message}`));
-                                return;
-                            }
-
-                            this.readAndCleanup(tempDir, filePath, resolve, reject);
-                        });
-                    });
-                    return;
-                }
-
-                this.readAndCleanup(tempDir, filePath, resolve, reject);
-            });
-        });
+    private getRepoCacheKey(githubInfo: { host: string; owner: string; repo: string; ref: string }): string {
+        return `${githubInfo.host}-${githubInfo.owner}-${githubInfo.repo}-${githubInfo.ref}`.replace(/[/:]/g, '-');
     }
 
     /**
-     * Helper to read file and cleanup temp directory
+     * Downloads file using git checkout. Reuses cloned repos in ~/.isl/cache/repos with TTL
+     * to avoid hitting GitHub on every autocomplete.
      */
-    private readAndCleanup(tempDir: string, filePath: string, resolve: (value: string) => void, reject: (error: Error) => void) {
+    private downloadViaGit(githubInfo: { host: string; owner: string; repo: string; ref: string; path: string }): Promise<string> {
+        const cacheTTL = vscode.workspace.getConfiguration('isl').get<number>('extensions.cacheTTL', 3600) * 1000;
+        const repoKey = this.getRepoCacheKey(githubInfo);
+        const cacheDir = path.join(this.getRepoCacheDir(), repoKey);
+        const filePath = path.join(cacheDir, githubInfo.path);
+
+        const tryReadFromCache = (): string | null => {
+            try {
+                if (!fs.existsSync(filePath)) return null;
+                const content = fs.readFileSync(filePath, 'utf-8');
+                this.log(`[ISL Extensions] Repo cache hit: ${githubInfo.path} from ${cacheDir}`);
+                return content;
+            } catch {
+                return null;
+            }
+        };
+
+        const checkCacheFresh = (): boolean => {
+            try {
+                const gitDir = path.join(cacheDir, '.git');
+                if (!fs.existsSync(gitDir)) return false;
+                const stat = fs.statSync(gitDir);
+                return Date.now() - stat.mtimeMs < cacheTTL;
+            } catch {
+                return false;
+            }
+        };
+
+        const content = tryReadFromCache();
+        if (content !== null && checkCacheFresh()) {
+            this.log(`[ISL Extensions] Using cached repo (TTL ${cacheTTL / 1000}s): ${repoKey}`);
+            return Promise.resolve(content);
+        }
+
+        if (content !== null && !checkCacheFresh()) {
+            this.log(`[ISL Extensions] Repo cache expired, re-cloning: ${repoKey}`);
+        }
+
+        return new Promise((resolve, reject) => {
+            const repoUrl = `https://${githubInfo.host}/${githubInfo.owner}/${githubInfo.repo}.git`;
+
+            const doClone = (targetDir: string) => {
+                this.log(`[ISL Extensions] Cloning ${repoUrl} to ${targetDir} (with submodules, will cache)`);
+                cp.exec(`git clone --depth 1 --recurse-submodules --branch ${githubInfo.ref} ${repoUrl} ${targetDir}`, { timeout: 120000 }, (cloneError) => {
+                    if (cloneError) {
+                        this.log(`[ISL Extensions] Clone with branch failed, trying without branch`);
+                        cp.exec(`git clone --depth 1 --recurse-submodules ${repoUrl} ${targetDir}`, { timeout: 120000 }, (cloneError2) => {
+                            if (cloneError2) {
+                                reject(new Error(`Git clone failed: ${cloneError2.message}`));
+                                return;
+                            }
+                            cp.exec(`git checkout ${githubInfo.ref}`, { cwd: targetDir, timeout: 30000 }, (checkoutError) => {
+                                if (checkoutError) {
+                                    reject(new Error(`Git checkout failed: ${checkoutError.message}`));
+                                    return;
+                                }
+                                cp.exec(`git submodule update --init --recursive`, { cwd: targetDir, timeout: 60000 }, (submoduleError) => {
+                                    if (submoduleError) this.log(`[ISL Extensions] Submodule update failed (continuing): ${submoduleError.message}`, 'warn');
+                                    this.readFromRepo(targetDir, path.join(targetDir, githubInfo.path), resolve, reject);
+                                });
+                            });
+                        });
+                        return;
+                    }
+                    cp.exec(`git submodule update --init --recursive`, { cwd: targetDir, timeout: 60000 }, (submoduleError) => {
+                        if (submoduleError) this.log(`[ISL Extensions] Submodule update failed (continuing): ${submoduleError.message}`, 'warn');
+                        this.readFromRepo(targetDir, path.join(targetDir, githubInfo.path), resolve, reject);
+                    });
+                });
+            };
+
+            if (fs.existsSync(cacheDir)) {
+                try {
+                    fs.rmSync(cacheDir, { recursive: true, force: true });
+                } catch (e) {
+                    this.log(`[ISL Extensions] Failed to clear stale cache dir: ${e}`, 'warn');
+                }
+            }
+            fs.mkdirSync(path.dirname(cacheDir), { recursive: true });
+            doClone(cacheDir);
+        });
+    }
+
+    /** Read file from repo (no cleanup - repo is cached). */
+    private readFromRepo(repoDir: string, filePath: string, resolve: (value: string) => void, reject: (error: Error) => void) {
         try {
             if (!fs.existsSync(filePath)) {
-                try {
-                    fs.rmSync(tempDir, { recursive: true, force: true });
-                } catch {}
                 reject(new Error(`File not found in repository: ${filePath}`));
                 return;
             }
-
             const content = fs.readFileSync(filePath, 'utf-8');
-            
-            // Cleanup
-            try {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            } catch (cleanupError) {
-                this.log(`[ISL Extensions] Failed to cleanup temp directory: ${cleanupError}`, 'warn');
-            }
-
+            this.log(`[ISL Extensions] Read ${filePath} from cached repo`);
             resolve(content);
         } catch (readError) {
-            // Cleanup on error
-            try {
-                fs.rmSync(tempDir, { recursive: true, force: true });
-            } catch {}
             reject(new Error(`Failed to read file: ${readError instanceof Error ? readError.message : String(readError)}`));
         }
+    }
+
+    /**
+     * Fetches content from a URL. For GitHub URLs (github.com or github.*.com), uses
+     * gh CLI or git checkout like global extensions, then falls back to raw URL.
+     * Use this for schema imports (type X from 'url') so GitHub URLs are retrieved consistently.
+     */
+    public async fetchContentFromUrl(urlString: string): Promise<string> {
+        if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
+            throw new Error('URL must start with http:// or https://');
+        }
+        const githubInfo = this.parseGitHubUrl(urlString);
+        if (githubInfo) {
+            this.log(`[ISL Extensions] Fetching schema from GitHub: ${urlString}`);
+            return await this.downloadFromGitHub(githubInfo);
+        }
+        this.log(`[ISL Extensions] Fetching from URL: ${urlString}`);
+        return await this.downloadUrl(urlString);
     }
 
     /**

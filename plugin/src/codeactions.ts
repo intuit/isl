@@ -798,6 +798,11 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
             const match = codeOnlyLine.match(colonAssignmentPattern);
 
             if (match) {
+                // Skip typed assignment: $var : type = ... (colon is type separator)
+                const afterColon = codeOnlyLine.substring(match[0].length);
+                if (/^\s*[a-zA-Z_][a-zA-Z0-9_.:]*\s*=/.test(afterColon)) {
+                    continue;
+                }
                 const colonPos = match[1].length + match[2].length + match[3].length;
                 const range = new vscode.Range(i, colonPos, i, colonPos + 1);
                 edit.replace(document.uri, range, '=');
