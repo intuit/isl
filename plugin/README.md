@@ -285,7 +285,7 @@ When developing the extension with ISL changes, rebuild and copy the fat JAR:
 
 ```bash
 # From the repository root
-./gradlew copyIslToPlugin
+./gradlew buildIslRuntimeLocal
 ```
 
 See [lib/README.md](lib/README.md) for details.

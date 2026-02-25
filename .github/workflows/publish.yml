@@ -210,7 +210,7 @@ jobs:
           echo ""
           echo "---"
           echo ""
-          echo "**Maven Central:** \`com.intuit.isl:isl-transform:${VERSION}\`, \`isl-validation\`, \`isl-cmd\`"
+          echo "**Maven Central:** \`com.intuit.isl:isl-transform:${VERSION}\`, \`isl-validation\`, \`isl-cmd\`, \`isl-test\`"
         } > release_notes.md
 
     - name: Create GitHub Release

@@ -23,7 +23,7 @@ subprojects {
     apply(plugin = "jacoco")
     // Apply publishing plugin to library modules only
 
-    if (name in listOf("isl-transform", "isl-validation", "isl-cmd")) {
+    if (name in listOf("isl-transform", "isl-validation", "isl-cmd", "isl-test")) {
         apply(plugin = "com.vanniktech.maven.publish")
     }
 
@@ -66,7 +66,7 @@ subprojects {
 //   - Root gradle.properties: mavenCentralUsername, mavenCentralPassword (we set project.ext from these).
 // Signing: env SIGNING_KEY (or SIGNING_KEY_FILE) and SIGNING_PASSWORD (or SIGNING_PASSWORD_FILE)
 
-val publishModules = listOf("isl-transform", "isl-validation", "isl-cmd")
+val publishModules = listOf("isl-transform", "isl-validation", "isl-cmd", "isl-test")
 
 configure(subprojects.filter { it.name in publishModules }) {
     afterEvaluate {
@@ -116,17 +116,11 @@ configure(subprojects.filter { it.name in publishModules }) {
 
 tasks.register<Copy>("buildIslRuntimeLocal") {
     group = "build"
-    description = "Build isl-cmd shadow JAR from local source and copy to plugin/lib/isl-cmd-all.jar"
+    description = "Build isl-cmd fat JAR and copy to plugin/lib for extension use"
     dependsOn(":isl-cmd:shadowJar")
-
-    val shadowJar = project(":isl-cmd").tasks.named<Jar>("shadowJar").get()
-    from(shadowJar.archiveFile)
-    into(layout.projectDirectory.dir("plugin/lib"))
+    from(project(":isl-cmd").tasks.named("shadowJar").map { (it as org.gradle.api.tasks.bundling.Jar).archiveFile })
+    into(file("plugin/lib"))
     rename { "isl-cmd-all.jar" }
-
-    doLast {
-        logger.lifecycle("✓ Built isl-cmd-all.jar from local source -> plugin/lib/isl-cmd-all.jar")
-    }
 }
 
 tasks.register("publishToMavenCentral") {
