@@ -1,3 +1,8 @@
+## [1.1.1-SNAPSHOT] - 2026-02-25
+
+- Added support for isl-level testing (#10) (db7ec6a)
+- chore: update CHANGELOG for v1.1.0 (f289549)
+
 ## [1.1.0] - 2026-02-13
 
 - chore: update CHANGELOG for v1.1.1-SNAPSHOT (81e598e)
