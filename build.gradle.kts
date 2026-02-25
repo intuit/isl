@@ -23,7 +23,7 @@ subprojects {
     apply(plugin = "jacoco")
     // Apply publishing plugin to library modules only
 
-    if (name in listOf("isl-transform", "isl-validation", "isl-cmd")) {
+    if (name in listOf("isl-transform", "isl-validation", "isl-cmd", "isl-test")) {
         apply(plugin = "com.vanniktech.maven.publish")
     }
 
@@ -66,7 +66,7 @@ subprojects {
 //   - Root gradle.properties: mavenCentralUsername, mavenCentralPassword (we set project.ext from these).
 // Signing: env SIGNING_KEY (or SIGNING_KEY_FILE) and SIGNING_PASSWORD (or SIGNING_PASSWORD_FILE)
 
-val publishModules = listOf("isl-transform", "isl-validation", "isl-cmd")
+val publishModules = listOf("isl-transform", "isl-validation", "isl-cmd", "isl-test")
 
 configure(subprojects.filter { it.name in publishModules }) {
     afterEvaluate {
