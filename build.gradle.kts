@@ -114,6 +114,15 @@ configure(subprojects.filter { it.name in publishModules }) {
     }
 }
 
+tasks.register<Copy>("copyIslToPlugin") {
+    group = "build"
+    description = "Build isl-cmd fat JAR and copy to plugin/lib for extension use"
+    dependsOn(":isl-cmd:shadowJar")
+    from(project(":isl-cmd").tasks.named("shadowJar").map { (it as org.gradle.api.tasks.bundling.Jar).archiveFile })
+    into(file("plugin/lib"))
+    rename { "isl-cmd-all.jar" }
+}
+
 tasks.register("publishToMavenCentral") {
     group = "publishing"
     description = "Publish all modules to Maven Central"

@@ -17,6 +17,7 @@ dependencies {
     // ISL modules
     implementation(project(":isl-transform"))
     implementation(project(":isl-validation"))
+    implementation(project(":isl-test"))
     
     // Kotlin
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8:$kotlinVersion")
@@ -74,11 +75,17 @@ tasks.register<JavaExec>("runIsl") {
     description = "Run ISL CLI with arguments"
     classpath = sourceSets.main.get().runtimeClasspath
     mainClass.set("com.intuit.isl.cmd.IslCommandLineKt")
+    workingDir = project.findProperty("runWorkingDir")?.toString()?.takeIf { it.isNotBlank() }?.let { file(it) } ?: rootProject.projectDir
     
     // Allow passing arguments: ./gradlew :isl-cmd:runIsl --args="script.isl"
     if (project.hasProperty("args")) {
         args = (project.property("args") as String).split("\\s+".toRegex())
     }
+}
+
+// Application run task: use invocation directory when set (e.g. from isl.bat/isl.sh)
+tasks.named<JavaExec>("run").configure {
+    workingDir = project.findProperty("runWorkingDir")?.toString()?.takeIf { it.isNotBlank() }?.let { file(it) } ?: rootProject.projectDir
 }
 
 // Configure JAR manifest
