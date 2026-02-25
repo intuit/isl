@@ -21,11 +21,12 @@ if [ -f "$JAR_FILE" ]; then
     # Use the pre-built JAR
     java -jar "$JAR_FILE" "$@"
 else
-    # Fall back to Gradle
+    # Fall back to Gradle (pass invocation dir so test/search use it)
+    INVOCATION_DIR="$(pwd)"
     echo "Shadow JAR not found. Building and running via Gradle..."
     echo "Run './gradlew :isl-cmd:shadowJar' to build the JAR for faster startup."
     echo ""
     cd "$SCRIPT_DIR"
-    ./gradlew :isl-cmd:run --quiet --console=plain --args="$*"
+    ./gradlew :isl-cmd:run --quiet --console=plain -PrunWorkingDir="$INVOCATION_DIR" --args="$*"
 fi
 
