@@ -1,3 +1,8 @@
+## [1.1.1-SNAPSHOT] - 2026-02-25
+
+- updating build to publish isl-test (bd4ad8d)
+- chore: update CHANGELOG for v1.1.1 (4278244)
+
 ## [1.1.1] - 2026-02-25
 
 - chore: update CHANGELOG for v1.1.1-SNAPSHOT (f77371b)
