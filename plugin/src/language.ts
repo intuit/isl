@@ -60,11 +60,19 @@ export interface ServiceInfo {
     documentation?: string;
 }
 
+export interface AnnotationInfo {
+    name: string;
+    detail?: string;
+    insertText?: string;
+    documentation?: string;
+}
+
 export interface IslLanguageData {
     modifierValidationPatterns: string[];
     modifiers: BuiltInModifier[];
     functions: BuiltInFunction[];
     services: ServiceInfo[];
+    annotations?: AnnotationInfo[];
 }
 
 let cachedData: IslLanguageData | null = null;
@@ -96,6 +104,7 @@ function loadData(): IslLanguageData {
         if (!cachedData.modifiers) cachedData.modifiers = [];
         if (!cachedData.functions) cachedData.functions = [];
         if (!cachedData.services) cachedData.services = [];
+        if (!cachedData.annotations) cachedData.annotations = [];
         if (!cachedData.modifierValidationPatterns) cachedData.modifierValidationPatterns = [];
         return cachedData;
     } catch (e) {
@@ -188,4 +197,12 @@ export function getServicesMap(): Map<string, ServiceInfo> {
     const map = new Map<string, ServiceInfo>();
     data.services.forEach(s => map.set(s.name, s));
     return map;
+}
+
+/**
+ * Get annotations (e.g. @test, @setup) for completion and hover.
+ */
+export function getAnnotations(): AnnotationInfo[] {
+    const data = loadData();
+    return data.annotations ?? [];
 }

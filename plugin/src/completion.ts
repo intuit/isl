@@ -1,6 +1,6 @@
 import * as vscode from 'vscode';
 import { IslExtensionsManager, IslFunctionDefinition, IslModifierDefinition } from './extensions';
-import { getModifiersMap, getFunctionsByNamespace, getServicesMap, type BuiltInModifier, type BuiltInFunction } from './language';
+import { getModifiersMap, getFunctionsByNamespace, getServicesMap, getAnnotations, type BuiltInModifier, type BuiltInFunction } from './language';
 import { IslTypeManager } from './types';
 import type { SchemaInfo } from './types';
 
@@ -59,6 +59,10 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         // @. -> built-in services (Date, Math, This, ...) + global extension function names (called as @.name())
         else if (linePrefix.endsWith('@.')) {
             return this.getServiceCompletions(extensions);
+        }
+        // @ at line start -> annotations (@test, @setup)
+        else if (linePrefix.match(/^\s*@(\w*)$/)) {
+            return this.getAnnotationCompletions(linePrefix);
         } else if (linePrefix.match(/\|\s*[\w.]*$/)) {
             return this.getModifierCompletions(document, extensions);
         } else if (linePrefix.match(/\$\w*$/)) {
@@ -211,6 +215,22 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             }
         }
         return docs.length > 0 ? docs.join('\n') : undefined;
+    }
+
+    /** @ at line start -> @test, @setup annotations */
+    private getAnnotationCompletions(linePrefix: string): vscode.CompletionItem[] {
+        const match = linePrefix.match(/^\s*@(\w*)$/);
+        const prefix = match ? match[1].toLowerCase() : '';
+        const annotations = getAnnotations();
+        return annotations
+            .filter(a => a.name.toLowerCase().startsWith(prefix))
+            .map(a => {
+                const item = new vscode.CompletionItem(`@${a.name}`, vscode.CompletionItemKind.Property);
+                item.detail = a.detail;
+                item.documentation = a.documentation ? new vscode.MarkdownString(a.documentation) : undefined;
+                item.insertText = a.insertText ? `@${a.insertText}` : `@${a.name}`;
+                return item;
+            });
     }
 
     private getKeywordCompletions(): vscode.CompletionItem[] {

@@ -5,6 +5,7 @@
   "patterns": [
     { "include": "#comments" },
     { "include": "#imports" },
+    { "include": "#test-annotations" },
     { "include": "#types" },
     { "include": "#functions" },
     { "include": "#keywords" },
@@ -46,6 +47,22 @@
             "4": { "name": "punctuation.definition.string.begin.isl" },
             "5": { "name": "string.quoted.isl" }
           }
+        }
+      ]
+    },
+    "test-annotations": {
+      "patterns": [
+        {
+          "name": "entity.name.annotation.test.isl",
+          "match": "@test\\s*\\([^)]*\\)"
+        },
+        {
+          "name": "entity.name.annotation.test.isl",
+          "match": "@test\\b"
+        },
+        {
+          "name": "entity.name.annotation.setup.isl",
+          "match": "@setup\\b"
         }
       ]
     },

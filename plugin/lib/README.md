@@ -1,6 +1,6 @@
 # ISL Runtime Library
 
-This directory contains the embedded ISL command-line runtime that allows the extension to execute ISL transformations without requiring users to build the project.
+This directory contains the embedded ISL command-line runtime that allows the extension to execute ISL transformations and run tests without requiring users to build the project.
 
 ## Contents
 
@@ -12,8 +12,10 @@ When you click the "▶ Run" button above an ISL function, the extension:
 
 1. Prompts for input JSON
 2. Saves the input to a temporary file
-3. Executes: `java -jar isl-cmd-all.jar <file>.isl -i input.json -f <function>`
+3. Executes: `java -jar isl-cmd-all.jar transform <file>.isl -i input.json -f <function>`
 4. Shows the output in the terminal
+
+The ISL CLI also supports running tests: `java -jar isl-cmd-all.jar test [path]`
 
 ## Requirements
 
@@ -22,17 +24,25 @@ When you click the "▶ Run" button above an ISL function, the extension:
 
 ## Building
 
-This JAR is built from the ISL project using:
+Build the fat JAR and copy it here using:
 
 ```bash
-./gradlew :isl-cmd:build
+./gradlew copyIslToPlugin
 ```
 
-The shadow JAR (`isl-2.4.20-SNAPSHOT.jar`) from `isl-cmd/build/libs/` is copied here as `isl-cmd-all.jar`.
+This builds the shadow JAR from `isl-cmd` and copies it to `plugin/lib/isl-cmd-all.jar`.
+
+To build only the JAR (without copying):
+
+```bash
+./gradlew :isl-cmd:shadowJar
+```
+
+The output is `isl-cmd/build/libs/isl-<version>-all.jar`.
 
 ## Version
 
-Built from ISL version: **2.4.20-SNAPSHOT**
+Built from ISL version: **1.1.0**
 
 ## Distribution
 

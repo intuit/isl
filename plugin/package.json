@@ -1,6 +1,6 @@
 {
   "name": "isl-language-support",
-  "displayName": "ISL Language Support",
+  "displayName": "ISL - Intuitive Scripting Language",
   "description": "Comprehensive language support for ISL (Intuitive Scripting Language) - JSON transformation language",
   "version": "1.1.0",
   "publisher": "isl-team",
@@ -25,7 +25,6 @@
     "jolt"
   ],
   "activationEvents": [
-    "onLanguage:isl",
     "workspaceContains:**/*.isl"
   ],
   "main": "./out/extension.js",
@@ -143,10 +142,6 @@
         "title": "ISL: Format Document"
       },
       {
-        "command": "isl.formatBlockOnEnter",
-        "title": "ISL: Format Block on Enter"
-      },
-      {
         "command": "isl.showDocumentation",
         "title": "ISL: Open Documentation"
       }
@@ -188,19 +183,6 @@
         }
       ]
     },
-    "keybindings": [
-      {
-        "command": "runCommands",
-        "key": "enter",
-        "when": "editorTextFocus && editorLangId == isl && !suggestWidgetVisible",
-        "args": {
-          "commands": [
-            "isl.formatBlockOnEnter",
-            { "command": "type", "args": { "text": "\n" } }
-          ]
-        }
-      }
-    ],
     "snippets": [
       {
         "language": "isl",
@@ -209,9 +191,10 @@
     ]
   },
   "scripts": {
-    "vscode:prepublish": "npm run compile",
-    "compile": "tsc -p ./",
-    "watch": "tsc -watch -p ./",
+    "vscode:prepublish": "npm run compile:production",
+    "compile": "tsc --noEmit && node esbuild.js",
+    "compile:production": "tsc --noEmit && node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
     "pretest": "npm run compile",
     "lint": "eslint src --ext ts",
     "package": "vsce package",
@@ -225,6 +208,7 @@
     "@typescript-eslint/eslint-plugin": "^6.0.0",
     "@typescript-eslint/parser": "^6.0.0",
     "@vscode/vsce": "^2.32.0",
+    "esbuild": "^0.24.0",
     "eslint": "^8.40.0",
     "ovsx": "^0.10.7",
     "typescript": "^5.0.0"

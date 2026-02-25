@@ -123,6 +123,22 @@ export class IslValidator {
         this.diagnosticCollection.set(document.uri, diagnostics);
     }
 
+    private checkImportStatement(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[]) {
+        const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
+        if (!importMatch) return;
+
+        const filePath = importMatch[2];
+        if (filePath.toLowerCase().endsWith('.isl')) {
+            const pathStartInLine = importMatch.index! + importMatch[0].indexOf(filePath);
+            const range = new vscode.Range(lineNumber, pathStartInLine, lineNumber, pathStartInLine + filePath.length);
+            diagnostics.push(new vscode.Diagnostic(
+                range,
+                'Import path should not end with .isl',
+                vscode.DiagnosticSeverity.Error
+            ));
+        }
+    }
+
     private checkBraceMatching(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
         // Skip this check - it causes false positives on multi-line constructs
         // The overall balance check in checkBalancedBraces handles this better

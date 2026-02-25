@@ -261,11 +261,34 @@ Available settings (all prefixed with `isl.`):
 - **ISL: Format Document** - Format code
 - **ISL: Open Documentation** - Open ISL docs
 
+## Windsurf Troubleshooting
+
+If the extension doesn't work in Windsurf (commands not found, no Output panel):
+
+1. **Check Developer Tools** – Open **Help → Toggle Developer Tools** (or **Developer: Toggle Developer Tools** from Command Palette). Check the Console tab for errors when loading the extension or when activating it.
+
+2. **Check Extension Host** – In the Output panel, select **Extension Host** from the dropdown. Look for activation errors or stack traces.
+
+3. **Verify installation** – Ensure you're using Windsurf 1.89+ if required. Reinstall the extension: uninstall, then install from the `.vsix` file again.
+
+4. **Activation errors** – If activation fails, the extension now shows an error message. Check **Output → ISL Language Support** for details.
+
 ## Requirements
 
 To execute ISL transformations:
 - Java Runtime Environment (JRE) 11+
-- ISL runtime from [ISL repository](https://github.com/intuit/isl)
+- The extension bundles an embedded ISL CLI (`plugin/lib/isl-cmd-all.jar`) — no separate install needed
+
+### Updating the Embedded ISL Runtime
+
+When developing the extension with ISL changes, rebuild and copy the fat JAR:
+
+```bash
+# From the repository root
+./gradlew copyIslToPlugin
+```
+
+See [lib/README.md](lib/README.md) for details.
 
 ## 🤖 AI Assistant Support
 

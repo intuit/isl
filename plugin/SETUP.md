@@ -105,6 +105,9 @@ plugin/
 ### Building & Packaging
 
 ```bash
+# Update embedded ISL CLI (when ISL runtime changes)
+./gradlew copyIslToPlugin   # from repo root
+
 # Compile
 npm run compile
 
