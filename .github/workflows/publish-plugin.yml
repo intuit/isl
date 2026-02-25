@@ -9,7 +9,10 @@ on:
       version:
         description: 'Version to publish (e.g., 1.0.0)'
         required: true
-
+      islversion:
+          description: 'Version of ISL to include in the publish (e.g., 1.0.0)'
+          required: true
+  
 jobs:
   publish:
     runs-on: ubuntu-latest
@@ -17,6 +20,32 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+
+    - name: Resolve ISL version
+      id: isl-version
+      run: |
+        if [ -n "${{ github.event.inputs.islversion }}" ]; then
+          echo "islVersion=${{ github.event.inputs.islversion }}" >> $GITHUB_OUTPUT
+        elif [[ "${{ github.ref }}" == refs/tags/plugin-v* ]]; then
+          ISL_VER="${GITHUB_REF#refs/tags/plugin-v}"
+          echo "islVersion=$ISL_VER" >> $GITHUB_OUTPUT
+        else
+          ISL_VER=$(grep "^version=" gradle.properties 2>/dev/null | cut -d'=' -f2 | tr -d '\r' || echo "1.1.0")
+          echo "islVersion=$ISL_VER" >> $GITHUB_OUTPUT
+        fi
+        echo "Using ISL version: $(grep islVersion $GITHUB_OUTPUT | cut -d'=' -f2)"
+
+    - name: Set up JDK 21
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: 'corretto'
+
+    - name: Grant execute permission for gradlew
+      run: chmod +x gradlew
+
+    - name: Build ISL runtime from Maven Central
+      run: ./gradlew :plugin:build-isl-runtime:buildIslRuntime -PislVersion=${{ steps.isl-version.outputs.islVersion }} --no-daemon
       
     - name: Set up Node.js
       uses: actions/setup-node@v4
