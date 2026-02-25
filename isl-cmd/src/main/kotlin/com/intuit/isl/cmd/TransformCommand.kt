@@ -7,13 +7,16 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
-import com.intuit.isl.runtime.TransformCompiler
+import com.intuit.isl.runtime.FileInfo
+import com.intuit.isl.runtime.TransformPackageBuilder
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
 import picocli.CommandLine.Parameters
 import java.io.File
+import java.nio.file.Path
+import java.nio.file.Paths
 import kotlin.system.exitProcess
 
 /**
@@ -126,10 +129,20 @@ class TransformCommand : Runnable {
                 variables["input"] = inputData
             }
             
-            // Execute transformation
-            val compiler = TransformCompiler()
-            val transformer = compiler.compileIsl("script", scriptContent)
-            
+            // Execute transformation using TransformPackageBuilder so relative imports (e.g. ../customer.isl) resolve correctly
+            val basePath = scriptFile.parentFile?.toPath()?.normalize() ?: Paths.get(".").toAbsolutePath().normalize()
+            val moduleName = scriptFile.name
+            val fileInfos = mutableListOf(FileInfo(moduleName, scriptContent))
+            val findExternalModule = java.util.function.BiFunction<String, String, String> { fromModule, dependentModule ->
+                resolveExternalModule(basePath, fromModule, dependentModule)
+                    ?: throw com.intuit.isl.runtime.TransformCompilationException(
+                        "Could not find module '$dependentModule' (imported from $fromModule). Searched relative to ${basePath.resolve(fromModule).parent}"
+                    )
+            }
+            val transformPackage = TransformPackageBuilder().build(fileInfos, findExternalModule)
+            val transformer = transformPackage.getModule(moduleName)
+                ?: throw IllegalStateException("Compiled module '$moduleName' not found in package")
+
             // Create operation context with variables and CLI extensions (e.g. Log)
             val context = OperationContext()
             LogExtensions.registerExtensions(context)
@@ -196,6 +209,33 @@ class TransformCommand : Runnable {
         }
     }
     
+    /**
+     * Resolves an import path (e.g. "../customer.isl") relative to the current module's directory.
+     * Enables relative imports like `import Customer from "../customer.isl"` when running from the command line.
+     */
+    private fun resolveExternalModule(basePath: Path, fromModule: String, dependentModule: String): String? {
+        val fromDir = basePath.resolve(fromModule).parent ?: basePath
+        val candidateNames = if (dependentModule.endsWith(".isl", ignoreCase = true)) {
+            listOf(dependentModule)
+        } else {
+            listOf("$dependentModule.isl", "$dependentModule.ISL")
+        }
+        for (name in candidateNames) {
+            val candidatePath = fromDir.resolve(name).normalize()
+            val file = candidatePath.toFile()
+            if (file.exists() && file.isFile) return file.readText()
+        }
+        val moduleBaseName = if (dependentModule.endsWith(".isl", ignoreCase = true)) {
+            dependentModule.dropLast(4)
+        } else {
+            dependentModule
+        }
+        return basePath.toFile().walkTopDown()
+            .filter { it.isFile && it.extension.equals("isl", true) }
+            .find { it.nameWithoutExtension.equals(moduleBaseName, true) }
+            ?.readText()
+    }
+
     private fun formatOutput(result: Any?, format: String, pretty: Boolean): String {
         val mapper = when (format.lowercase()) {
             "yaml", "yml" -> ObjectMapper(YAMLFactory())

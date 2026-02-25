@@ -48,6 +48,12 @@ class TestCommand : Runnable {
     )
     var outputFile: File? = null
 
+    @Option(
+        names = ["-f", "--function"],
+        description = ["Run only the specified test function(s). Can be specified multiple times. Use 'file:function' to target a specific file (e.g. sample.isl:test_customer)"]
+    )
+    var functions: Array<String> = emptyArray()
+
     override fun run() {
         try {
             val basePath = (path?.absoluteFile ?: File(System.getProperty("user.dir"))).toPath().normalize()
@@ -78,9 +84,30 @@ class TestCommand : Runnable {
                     searchBase,
                     listOf { LogExtensions.registerExtensions(it) }
                 )
-                testPackage.runAllTests()
+                val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                if (functionFilter.isEmpty()) {
+                    testPackage.runAllTests()
+                } else {
+                    testPackage.runFilteredTests { file, func ->
+                        functionFilter.any { filter ->
+                            when {
+                                filter.contains(":") -> {
+                                    val parts = filter.split(":", limit = 2)
+                                    val fileMatch = parts[0].equals(file, true) ||
+                                        parts[0].equals(file.removeSuffix(".isl"), true)
+                                    fileMatch && parts[1].equals(func, true)
+                                }
+                                else -> filter.equals(func, true)
+                            }
+                        }
+                    }
+                }
             } catch (e: Exception) {
                 createErrorResult(e, fileInfos)
+            }
+            if (functions.isNotEmpty() && result.testResults.isEmpty()) {
+                System.err.println(red("No tests matched the specified function(s): ${functions.joinToString(", ")}"))
+                exitProcess(1)
             }
             reportResults(result)
             outputFile?.let { writeResultsToJson(result, it) }

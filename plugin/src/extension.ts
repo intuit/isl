@@ -8,7 +8,7 @@ import { IslDefinitionProvider } from './definition';
 import { IslCodeLensProvider, runIslFunction, showUsages, testFunction } from './codelens';
 import { IslSignatureHelpProvider } from './signature';
 import { IslInlayHintsProvider } from './inlayhints';
-import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject } from './codeactions';
+import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject, renameDuplicateFunction } from './codeactions';
 import { IslDocumentHighlightProvider } from './highlights';
 import { IslExtensionsManager } from './extensions';
 import { initIslLanguage } from './language';
@@ -147,6 +147,19 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(documentSelector, codeLensProvider)
     );
+    // Refresh CodeLens when ISL documents change (e.g. after rename, copy-paste) - debounced
+    let codeLensRefreshTimeout: NodeJS.Timeout | undefined;
+    context.subscriptions.push(
+        vscode.workspace.onDidChangeTextDocument(event => {
+            if (event.document.languageId === 'isl') {
+                if (codeLensRefreshTimeout) clearTimeout(codeLensRefreshTimeout);
+                codeLensRefreshTimeout = setTimeout(() => {
+                    codeLensRefreshTimeout = undefined;
+                    codeLensProvider.refresh();
+                }, 1500);
+            }
+        })
+    );
 
     // Register executor
     const executor = new IslExecutor();
@@ -207,7 +220,11 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.commands.registerCommand('isl.improvement.useCoalesceOperator', useCoalesceOperator),
         vscode.commands.registerCommand('isl.improvement.useMathSum', useMathSum),
         vscode.commands.registerCommand('isl.improvement.formatChain', formatChain),
-        vscode.commands.registerCommand('isl.improvement.formatObject', formatObject)
+        vscode.commands.registerCommand('isl.improvement.formatObject', formatObject),
+
+        // Quick fix commands
+        vscode.commands.registerCommand('isl.quickFix.renameDuplicateFunction', (uri: vscode.Uri, lineNumber: number, functionName: string, kind: 'fun' | 'modifier') =>
+            renameDuplicateFunction(uri, lineNumber, functionName, kind))
     );
 
     // Enhanced status bar item

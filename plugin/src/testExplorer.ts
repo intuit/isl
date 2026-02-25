@@ -85,7 +85,8 @@ export function parseIslTests(uri: vscode.Uri, content: string): { tests: IslTes
                     }
                 }
 
-                const id = `${uri.toString()}#${functionName}`;
+                // Include line number in id so copy-pasted functions (same name) get unique ids
+                const id = `${uri.toString()}#${functionName}#${i}`;
                 const start = new vscode.Position(i, line.indexOf('@test'));
                 const end = new vscode.Position(i, line.length);
 
@@ -133,11 +134,15 @@ export function isTestFile(uri: vscode.Uri, workspaceFolder: vscode.WorkspaceFol
 /**
  * ISL Test Explorer - discovers @test and @setup in tests folder and registers with VS Code Test API.
  */
+/** Debounce delay for document change handlers (ms) */
+const DOCUMENT_CHANGE_DEBOUNCE_MS = 1500;
+
 export class IslTestController {
     private readonly controller: vscode.TestController;
     private readonly watchers: vscode.FileSystemWatcher[] = [];
     private readonly outputChannel: vscode.OutputChannel;
     private readonly extensionPath: string;
+    private documentChangeTimeouts = new Map<string, NodeJS.Timeout>();
 
     constructor(outputChannel: vscode.OutputChannel, extensionPath: string) {
         this.outputChannel = outputChannel;
@@ -148,6 +153,17 @@ export class IslTestController {
             if (!item) {
                 await this.discoverAllTestFiles();
             } else {
+                await this.parseTestsInFile(item);
+            }
+        };
+
+        // Refresh button - re-discover and re-parse all test files
+        this.controller.refreshHandler = async () => {
+            this.documentChangeTimeouts.forEach(t => clearTimeout(t));
+            this.documentChangeTimeouts.clear();
+            this.controller.items.replace([]);
+            await this.discoverAllTestFiles();
+            for (const [, item] of this.controller.items) {
                 await this.parseTestsInFile(item);
             }
         };
@@ -164,7 +180,23 @@ export class IslTestController {
         // Parse open documents
         vscode.workspace.textDocuments.forEach(doc => this.parseTestsInDocument(doc));
         vscode.workspace.onDidOpenTextDocument(doc => this.parseTestsInDocument(doc));
-        vscode.workspace.onDidChangeTextDocument(e => this.parseTestsInDocument(e.document));
+        vscode.workspace.onDidChangeTextDocument(e => this.debouncedParseTestsInDocument(e.document));
+    }
+
+    private debouncedParseTestsInDocument(doc: vscode.TextDocument): void {
+        if (doc.uri.scheme !== 'file' || !doc.uri.fsPath.endsWith('.isl')) return;
+        const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+        if (!folder || !isTestFile(doc.uri, folder)) return;
+
+        const key = doc.uri.toString();
+        const existing = this.documentChangeTimeouts.get(key);
+        if (existing) clearTimeout(existing);
+
+        const timeout = setTimeout(() => {
+            this.documentChangeTimeouts.delete(key);
+            this.parseTestsInDocument(doc);
+        }, DOCUMENT_CHANGE_DEBOUNCE_MS);
+        this.documentChangeTimeouts.set(key, timeout);
     }
 
     private setupWatchers(): void {
@@ -312,17 +344,36 @@ export class IslTestController {
         }
 
         const isFile = fs.existsSync(runPath) && fs.statSync(runPath).isFile();
+        const searchBase = isFile ? path.dirname(runPath) : runPath;
+
+        // Build function filter for ISL CLI -f/--function (run only selected tests)
+        const functionFilters: string[] = [];
+        for (const t of testsToRun) {
+            const fn = t.id.split('#')[1] ?? t.label;
+            if (!t.uri) {
+                functionFilters.push(fn);
+            } else if (filePaths.length === 1) {
+                functionFilters.push(fn);
+            } else {
+                const relPath = path.relative(searchBase, t.uri.fsPath).replace(/\\/g, '/');
+                functionFilters.push(`${relPath}:${fn}`);
+            }
+        }
+
         run.appendOutput(`=== ISL Test Run ===\r\n`);
         run.appendOutput(`Path: ${runPath}\r\n`);
         run.appendOutput(`Mode: ${isFile ? 'single file' : 'directory'}\r\n`);
         run.appendOutput(`Tests to run: ${testsToRun.map(t => t.id.split('#')[1] ?? t.label).join(', ')}\r\n`);
-        run.appendOutput(`Command: java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}"\r\n`);
+        const cmdLine = functionFilters.length > 0
+            ? `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" ${functionFilters.map(f => `-f "${f}"`).join(' ')}`
+            : `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}"`;
+        run.appendOutput(`Command: ${cmdLine}\r\n`);
         run.appendOutput(`\r\n`);
 
         let execStdout = '';
         let execStderr = '';
         try {
-            const execResult = await this.execJavaTest(javaPath, jarPath, runPath, outputFile, env);
+            const execResult = await this.execJavaTest(javaPath, jarPath, runPath, outputFile, functionFilters, env);
             execStdout = execResult.stdout;
             execStderr = execResult.stderr;
         } catch (err: unknown) {
@@ -452,8 +503,8 @@ export class IslTestController {
         const resultFileBase = path.basename(resultFile);
 
         for (const [id, test] of testById) {
-            const hashIdx = id.indexOf('#');
-            const idFn = hashIdx >= 0 ? id.slice(hashIdx + 1) : '';
+            // Id format: uri#functionName or uri#functionName#line
+            const idFn = id.split('#')[1] ?? '';
             if (idFn.toLowerCase() !== fnLower) continue;
 
             if (!test.uri) return test;
@@ -476,9 +527,12 @@ export class IslTestController {
         return undefined;
     }
 
-    private execJavaTest(javaPath: string, jarPath: string, runPath: string, outputFile: string, env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
+    private execJavaTest(javaPath: string, jarPath: string, runPath: string, outputFile: string, functionFilters: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
             const args = ['-jar', jarPath, 'test', runPath, '-o', outputFile];
+            for (const f of functionFilters) {
+                args.push('-f', f);
+            }
             const cwd = fs.existsSync(runPath) && fs.statSync(runPath).isFile()
                 ? path.dirname(runPath)
                 : runPath;
@@ -512,6 +566,8 @@ export class IslTestController {
     }
 
     dispose(): void {
+        this.documentChangeTimeouts.forEach(t => clearTimeout(t));
+        this.documentChangeTimeouts.clear();
         this.watchers.forEach(w => w.dispose());
         this.controller.dispose();
     }

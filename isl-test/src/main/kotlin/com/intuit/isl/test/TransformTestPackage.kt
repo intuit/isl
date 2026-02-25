@@ -38,13 +38,23 @@ class TransformTestPackage(
     }
 
     fun runAllTests(testResultContext: TestResultContext? = null) : TestResultContext {
+        return runFilteredTests(testResultContext) { _, _ -> true }
+    }
+
+    /**
+     * Run only tests that match the given predicate.
+     * @param includeTest Predicate (file, function) -> true to run the test
+     */
+    fun runFilteredTests(
+        testResultContext: TestResultContext? = null,
+        includeTest: (file: String, function: String) -> Boolean
+    ): TestResultContext {
         val context = testResultContext ?: TestResultContext()
         testFiles.forEach { (_, file) ->
-            file.testFunctions.forEach { function ->
+            file.testFunctions.filter { includeTest(file.fileName, it) }.forEach { function ->
                 runTest(file.fileName, function, context)
             }
         }
-
         return context
     }
 

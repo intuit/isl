@@ -1,5 +1,36 @@
 import * as vscode from 'vscode';
 
+export async function renameDuplicateFunction(uri: vscode.Uri, lineNumber: number, functionName: string, kind: 'fun' | 'modifier') {
+    const document = await vscode.workspace.openTextDocument(uri);
+    const newName = await vscode.window.showInputBox({
+        prompt: `Enter a unique name for the duplicate ${kind} (ISL is case-insensitive, so changing casing won't fix the duplicate)`,
+        value: `${functionName}2`,
+        validateInput: (text) => {
+            if (!text.match(/^[a-zA-Z_][a-zA-Z0-9_]*$/)) {
+                return 'Invalid name - use letters, numbers, and underscores';
+            }
+            return null;
+        }
+    });
+    if (!newName) return;
+
+    const line = document.lineAt(lineNumber);
+    const funPattern = new RegExp(`^(\\s*${kind}\\s+)(${escapeRegex(functionName)})(\\s*\\()`);
+    const match = line.text.match(funPattern);
+    if (!match) return;
+
+    const nameStartCol = match.index! + match[1].length;
+    const range = new vscode.Range(lineNumber, nameStartCol, lineNumber, nameStartCol + functionName.length);
+
+    const edit = new vscode.WorkspaceEdit();
+    edit.replace(uri, range, newName);
+    await vscode.workspace.applyEdit(edit);
+}
+
+function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 export class IslCodeActionProvider implements vscode.CodeActionProvider {
     
     public static readonly providedCodeActionKinds = [
@@ -19,7 +50,7 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
         
         // Add quick fixes for diagnostics
         for (const diagnostic of context.diagnostics) {
-            actions.push(...this.createQuickFixes(document, diagnostic));
+            actions.push(...this.createQuickFixes(document, diagnostic, context.diagnostics));
         }
         
         // Add refactoring actions when text is selected
@@ -34,7 +65,7 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
         return actions;
     }
     
-    private createQuickFixes(document: vscode.TextDocument, diagnostic: vscode.Diagnostic): vscode.CodeAction[] {
+    private createQuickFixes(document: vscode.TextDocument, diagnostic: vscode.Diagnostic, allDiagnostics: readonly vscode.Diagnostic[]): vscode.CodeAction[] {
         const actions: vscode.CodeAction[] = [];
         const line = document.lineAt(diagnostic.range.start.line).text;
         
@@ -304,13 +335,43 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
             }
         }
 
-        // Fix naming convention
+        // Fix duplicate function - rename to unique name (changing casing won't fix it since ISL is case-insensitive)
+        if (diagnostic.code === 'duplicate-function') {
+            const functionName = (diagnostic as any).functionName as string | undefined;
+            const kind = (diagnostic as any).kind as 'fun' | 'modifier' | undefined;
+            
+            if (functionName && kind) {
+                const action = new vscode.CodeAction(
+                    'Rename to unique name',
+                    vscode.CodeActionKind.QuickFix
+                );
+                action.command = {
+                    command: 'isl.quickFix.renameDuplicateFunction',
+                    title: 'Rename duplicate to unique name',
+                    arguments: [document.uri, diagnostic.range.start.line, functionName, kind]
+                };
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                actions.push(action);
+            }
+        }
+
+        // Fix naming convention (skip when it's a casing-only change and there's a duplicate - casing won't fix duplicates)
         if (diagnostic.code === 'naming-convention') {
             const originalName = (diagnostic as any).originalName as string | undefined;
             const correctName = (diagnostic as any).correctName as string | undefined;
             const type = (diagnostic as any).type as 'function' | 'modifier' | undefined;
             
-            if (originalName && correctName && type) {
+            // Don't offer casing-only rename when there's a duplicate - it won't fix the duplicate
+            const isCasingOnlyChange = originalName && correctName && originalName.toLowerCase() === correctName.toLowerCase();
+            const hasDuplicateOnSameRange = isCasingOnlyChange && allDiagnostics.some(d =>
+                d.code === 'duplicate-function' &&
+                d.range.start.line === diagnostic.range.start.line &&
+                d.range.start.character === diagnostic.range.start.character
+            );
+            if (hasDuplicateOnSameRange) {
+                // Skip - the duplicate quick fix is the right one
+            } else if (originalName && correctName && type) {
                 // Rename in declaration
                 const action = new vscode.CodeAction(
                     `Rename ${type} to '${correctName}'`,

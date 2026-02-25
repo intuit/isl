@@ -106,6 +106,7 @@ export class IslValidator {
         }
         
         // Multi-line checks
+        this.checkDuplicateFunctionNames(document, diagnostics);
         this.checkForeachVariableScoping(document, diagnostics);
         this.checkTypeConversion(document, diagnostics);
         
@@ -195,11 +196,6 @@ export class IslValidator {
         const funPattern = /^\s*(fun|modifier)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/;
         const match = line.match(funPattern);
         
-        if (match) {
-            const funcName = match[2];
-            // Could add more validation here (e.g., duplicate function names)
-        }
-
         // Check for return statements outside functions
         if (line.trim().startsWith('return ') && !this.isInsideFunction(document, lineNumber)) {
             const range = new vscode.Range(lineNumber, line.indexOf('return'), lineNumber, line.indexOf('return') + 6);
@@ -348,6 +344,47 @@ export class IslValidator {
         const errors = validateControlFlowBalanceUtil(document);
         for (const { diagnostic } of errors) {
             diagnostics.push(diagnostic);
+        }
+    }
+
+    /**
+     * Checks for duplicate function/modifier names in the file.
+     * ISL is case-insensitive for function names, so 'foo' and 'Foo' are duplicates.
+     * Adds a red squiggle (Error diagnostic) on the second and subsequent occurrences.
+     */
+    private checkDuplicateFunctionNames(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const funPattern = /^\s*(fun|modifier)\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/;
+        const seenFun = new Map<string, { line: number; originalName: string }>();   // lowerName -> { line, originalName }
+        const seenModifier = new Map<string, { line: number; originalName: string }>();
+
+        const lines = document.getText().split('\n');
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const match = line.match(funPattern);
+            if (!match) continue;
+
+            const kind = match[1] as 'fun' | 'modifier';
+            const name = match[2];
+            const nameLower = name.toLowerCase();
+            const nameStartCol = match.index! + match[0].indexOf(name);
+            const range = new vscode.Range(i, nameStartCol, i, nameStartCol + name.length);
+
+            const seen = kind === 'fun' ? seenFun : seenModifier;
+            if (seen.has(nameLower)) {
+                const first = seen.get(nameLower)!;
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Duplicate ${kind} '${name}' - already defined at line ${first.line + 1} (as '${first.originalName}')`,
+                    vscode.DiagnosticSeverity.Error
+                );
+                diagnostic.code = 'duplicate-function';
+                (diagnostic as any).functionName = name;
+                (diagnostic as any).kind = kind;
+                (diagnostic as any).firstDefinitionLine = first.line;
+                diagnostics.push(diagnostic);
+            } else {
+                seen.set(nameLower, { line: i, originalName: name });
+            }
         }
     }
 

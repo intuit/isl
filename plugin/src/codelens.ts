@@ -541,6 +541,5 @@ async function findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array
 
 
 export async function testFunction(uri: vscode.Uri, functionName: string, params: string, context: vscode.ExtensionContext) {
-    // Same as runFunction but with test data
     await runIslFunction(uri, functionName, params, context);
 }
