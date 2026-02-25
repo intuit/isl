@@ -33,42 +33,55 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
         // Add CodeLens for each function
         for (const func of functions) {
             const range = new vscode.Range(func.line, 0, func.line, lines[func.line].length);
-            
-            // Count usages including imports (async)
-            const usageCount = await this.countUsagesAsync(document, func.name, func.type);
-            
-            // Add "Run" button
-            const runCommand: vscode.Command = {
-                title: `▶ Run`,
-                command: 'isl.runFunction',
-                arguments: [document.uri, func.name, func.params]
-            };
-            codeLenses.push(new vscode.CodeLens(range, runCommand));
-            
-            // Add usage count
-            if (usageCount > 0) {
-                const usageCommand: vscode.Command = {
-                    title: `📊 ${usageCount} ${usageCount === 1 ? 'usage' : 'usages'}`,
-                    command: 'isl.showUsages',
-                    arguments: [document.uri, func.name, func.type]
+            const isTestOrSetup = this.isTestOrSetupFunction(lines, func.line);
+
+            if (!isTestOrSetup) {
+                // Count usages including imports (async)
+                const usageCount = await this.countUsagesAsync(document, func.name, func.type);
+
+                // Add "Run" button
+                const runCommand: vscode.Command = {
+                    title: `▶ Run`,
+                    command: 'isl.runFunction',
+                    arguments: [document.uri, func.name, func.params]
                 };
-                codeLenses.push(new vscode.CodeLens(range, usageCommand));
-            } else if (func.name !== 'run') {
-                // Show "No usages" for functions other than 'run'
-                const noUsageCommand: vscode.Command = {
-                    title: `⚠️ No usages found`,
-                    command: '',
-                    tooltip: 'This function is not being called anywhere'
-                };
-                codeLenses.push(new vscode.CodeLens(range, noUsageCommand));
+                codeLenses.push(new vscode.CodeLens(range, runCommand));
+
+                // Add usage count
+                if (usageCount > 0) {
+                    const usageCommand: vscode.Command = {
+                        title: `📊 ${usageCount} ${usageCount === 1 ? 'usage' : 'usages'}`,
+                        command: 'isl.showUsages',
+                        arguments: [document.uri, func.name, func.type]
+                    };
+                    codeLenses.push(new vscode.CodeLens(range, usageCommand));
+                } else if (func.name !== 'run') {
+                    // Show "No usages" for functions other than 'run'
+                    const noUsageCommand: vscode.Command = {
+                        title: `⚠️ No usages found`,
+                        command: '',
+                        tooltip: 'This function is not being called anywhere'
+                    };
+                    codeLenses.push(new vscode.CodeLens(range, noUsageCommand));
+                }
             }
-            
-            // Test button removed - not doing much
         }
 
         return codeLenses;
     }
     
+    /**
+     * Returns true if the function at the given line is annotated with @setup or @test.
+     */
+    private isTestOrSetupFunction(lines: string[], functionLine: number): boolean {
+        for (let i = Math.max(0, functionLine - 5); i < functionLine; i++) {
+            const trimmed = lines[i].trim();
+            if (/^@setup\s*$/.test(trimmed)) return true;
+            if (/^@test\s*(?:\([^)]*\))?\s*$/.test(trimmed)) return true;
+        }
+        return false;
+    }
+
     private countUsages(text: string, functionName: string, functionType: string): number {
         let count = 0;
         

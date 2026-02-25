@@ -114,6 +114,21 @@ configure(subprojects.filter { it.name in publishModules }) {
     }
 }
 
+tasks.register<Copy>("buildIslRuntimeLocal") {
+    group = "build"
+    description = "Build isl-cmd shadow JAR from local source and copy to plugin/lib/isl-cmd-all.jar"
+    dependsOn(":isl-cmd:shadowJar")
+
+    val shadowJar = project(":isl-cmd").tasks.named<Jar>("shadowJar").get()
+    from(shadowJar.archiveFile)
+    into(layout.projectDirectory.dir("plugin/lib"))
+    rename { "isl-cmd-all.jar" }
+
+    doLast {
+        logger.lifecycle("✓ Built isl-cmd-all.jar from local source -> plugin/lib/isl-cmd-all.jar")
+    }
+}
+
 tasks.register("publishToMavenCentral") {
     group = "publishing"
     description = "Publish all modules to Maven Central"

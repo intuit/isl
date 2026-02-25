@@ -52,5 +52,19 @@ val buildIslRuntime by tasks.registering(Copy::class) {
     doLast {
         val dest = project.rootProject.file("plugin/lib/isl-cmd-all.jar")
         logger.lifecycle("✓ Built isl-cmd-all.jar (ISL $islVersion) -> ${dest.absolutePath}")
+
+        val deps = configurations.runtimeClasspath.get()
+            .resolvedConfiguration
+            .lenientConfiguration
+            .allModuleDependencies
+            .sortedBy { "${it.moduleGroup}:${it.moduleName}" }
+
+        logger.lifecycle("")
+        logger.lifecycle("Packages joined into isl-cmd-all.jar (${deps.size} total):")
+        logger.lifecycle("-".repeat(60))
+        deps.forEach { dep ->
+            logger.lifecycle("  ${dep.moduleGroup}:${dep.moduleName}:${dep.moduleVersion}")
+        }
+        logger.lifecycle("-".repeat(60))
     }
 }

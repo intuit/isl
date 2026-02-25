@@ -51,6 +51,11 @@ This updates `package.json` and creates a git tag.
 
 ### Publish to VSCode Marketplace
 
+Before publishing make sure you rebuild the ISL and download the [latest ISL Library](https://central.sonatype.com/search?namespace=com.intuit.isl)
+```bash
+./gradlew :plugin:build-isl-runtime:buildIslRuntime -PislVersion=1.1.0
+```
+
 ```bash
 cd plugin
 vsce publish

@@ -22,12 +22,18 @@ The ISL CLI also supports running tests: `java -jar isl-cmd-all.jar test [path]`
 - **Java 11 or later** must be installed and available in PATH
 - Or configure `isl.execution.javaHome` in VS Code settings
 
+## Publishing
+Before publishing package the [latest ISL](https://central.sonatype.com/search?namespace=com.intuit.isl) into the lib of the plugin.
+```bash
+./gradlew :plugin:build-isl-runtime:buildIslRuntime -PislVersion=X.X.X
+```
+
 ## Building
 
 Build the fat JAR and copy it here using:
 
 ```bash
-./gradlew copyIslToPlugin
+./gradlew buildIslRuntimeLocal
 ```
 
 This builds the shadow JAR from `isl-cmd` and copies it to `plugin/lib/isl-cmd-all.jar`.
