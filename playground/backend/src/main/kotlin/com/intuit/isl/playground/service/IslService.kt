@@ -1,6 +1,8 @@
 package com.intuit.isl.playground.service
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.registerKotlinModule
 import com.intuit.isl.common.OperationContext
 import com.intuit.isl.playground.model.*
@@ -11,13 +13,34 @@ import org.springframework.stereotype.Service
 
 @Service
 class IslService {
-    
-    private val mapper = ObjectMapper().registerKotlinModule()
+
+    private val jsonMapper = ObjectMapper().registerKotlinModule()
+    private val yamlMapper = ObjectMapper(YAMLFactory()).registerKotlinModule()
+
+    private fun parseInput(input: String, format: String): JsonNode {
+        val normalized = (format ?: "json").lowercase()
+        return when (normalized) {
+            "yaml" -> yamlMapper.readTree(input)
+            else -> jsonMapper.readTree(input)
+        }
+    }
+
+    private fun writeOutput(result: Any?, format: String): String {
+        val normalized = (format ?: "json").lowercase()
+        val value = result ?: jsonMapper.createObjectNode()
+        return when (normalized) {
+            "yaml" -> yamlMapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
+            else -> jsonMapper.writerWithDefaultPrettyPrinter().writeValueAsString(value)
+        }
+    }
     
     fun transform(request: TransformRequest): TransformResponse {
         return try {
-            // Parse the input JSON to JsonNode
-            val inputJson = mapper.readTree(request.input)
+            val inputFmt = request.inputFormat?.lowercase() ?: "json"
+            val outputFmt = request.outputFormat?.lowercase() ?: "json"
+
+            // Parse the input (JSON or YAML) to JsonNode
+            val inputJson = parseInput(request.input, inputFmt)
             
             // Compile the ISL script
             val compiler = TransformCompiler()
@@ -41,8 +64,8 @@ class IslService {
             // Execute the transformation
             val result = transformer.runTransformSync(functionToRun, context)
             
-            // Convert result to JSON string
-            val output = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result)
+            // Convert result to requested output format (JSON or YAML)
+            val output = writeOutput(result, outputFmt)
             
             TransformResponse(
                 success = true,

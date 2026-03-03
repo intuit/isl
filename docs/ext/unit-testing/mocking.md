@@ -102,6 +102,77 @@ fun assert_mock() {
 }
 ```
 
+### Indexed mocking (sequential returns)
+
+When a function is called multiple times with the same parameters, you can return different values per call by appending `#1`, `#2`, `#3`, etc. to the function name. Each index corresponds to the Nth invocation.
+
+- **Standard behaviour** – `@.Mock.Func("Data.GetData", value)` returns the same value on every call.
+- **Indexed behaviour** – `@.Mock.Func("Data.GetData#1", value1)` returns `value1` on the first call, `@.Mock.Func("Data.GetData#2", value2)` on the second, and so on.
+
+On exhaustion (when the function is called more times than defined), the mock fails with a clear error.
+
+#### Example
+
+```kotlin
+@test
+fun assert_indexed_mock() {
+ @.Mock.Func("Data.GetData#1", [ { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 } ])
+ @.Mock.Func("Data.GetData#2", [ { id: 1 }, { id: 2 }, { id: 3 } ])
+ @.Mock.Func("Data.GetData#3", [])
+
+ $r1 : @.Data.GetData()
+ $r2 : @.Data.GetData()
+ $r3 : @.Data.GetData()
+
+ @.Assert.equal(5, $r1 | length)
+ @.Assert.equal(3, $r2 | length)
+ @.Assert.equal(0, $r3 | length)
+}
+```
+
+Indexed mocking works for both `@.Mock.Func` and `@.Mock.Annotation`. When using `@.Mock.GetFuncCaptures` or `@.Mock.GetAnnotationCaptures`, you can pass the base name (with or without `#index`); captures are associated with the base function.
+
+### Loading mocks from a file
+
+Use `@.Mock.Load(relativeFileName)` to load mocks from a YAML or JSON file. The path is resolved relative to the directory of the current ISL file (same as `@.Load.From`).
+
+The file format mirrors the existing mock functions:
+
+```yaml
+func:
+  - name: "Data.GetData#1"
+    return: [ { id: 1 }, { id: 2 }, { id: 3 }, { id: 4 }, { id: 5 } ]
+  - name: "Data.GetData#2"
+    return: [ { id: 1 }, { id: 2 }, { id: 3 } ]
+  - name: "Data.GetData#3"
+    return: []
+  - name: "Api.Call"
+    return: { status: 200, body: "ok" }
+    params: [ "https://example.com" ]   # optional parameter matching
+
+annotation:
+  - name: "cache#1"
+    return: "cached-value"
+```
+
+- `func` and `annotation` are arrays of mock entries.
+- Each entry has `name` (required), `return` (required), and optionally `params` (array of values to match).
+- Use `#1`, `#2`, etc. in the name for indexed (sequential) returns.
+- Supports `.yaml`, `.yml`, and `.json` files.
+
+#### Example
+
+```kotlin
+@test
+fun test_with_loaded_mocks() {
+ @.Mock.Load("mocks/api-mocks.yaml")
+ $r1 : @.Data.GetData()
+ $r2 : @.Data.GetData()
+ @.Assert.equal(5, $r1 | length)
+ @.Assert.equal(3, $r2 | length)
+}
+```
+
 ### Capturing parameter inputs
 
 We can also obtain all of the parameters passed into the function during the test. The parameters are stored in chronological order.
@@ -142,6 +213,30 @@ $allPublished = @.Mock.GetFuncCaptures('Event.Publish')
 
 ## Functions
 
+### Load
+
+#### Description
+
+Loads mocks from a YAML or JSON file. The path is relative to the directory of the current ISL file.
+
+#### Syntax
+
+`@.Mock.Load($fileName)`
+
+- `$fileName`: Relative path to the mock file (e.g. `"mocks/api.yaml"`). Supports `.yaml`, `.yml`, and `.json`.
+- `Returns`: null
+
+#### Example
+
+```kotlin
+@test
+fun test_with_mocks() {
+ @.Mock.Load("mocks/api-mocks.yaml")
+ $result = @.Api.Call("https://example.com")
+ @.Assert.equal(200, $result.status)
+}
+```
+
 ### Func
 
 #### Description
@@ -152,10 +247,10 @@ Creates a mock of an ISL function.
 
 `@.Mock.Func($funcToMock, $returnValue, ...$paramsToMatch)`
 
-- `$funcToMock`: ISL function to mock.
+- `$funcToMock`: ISL function to mock. Use `Function.Name#1`, `Function.Name#2`, etc. for indexed (sequential) returns per call.
 - `$returnValue`: Return value of mock.
-- `$paramsToMatch`:  Optional error message to show if assertion fails.
-- `Returns`: Unique id of the mock.
+- `$paramsToMatch`:  Optional parameters to match. When omitted, matches any parameters.
+- `Returns`: Unique id of the mock (null for default mocks).
 
 #### Example
 
@@ -186,10 +281,10 @@ Currently has no functionality, but can be used to:
 
 `@.Mock.Annotation($funcToMock, $returnValue, ...$paramsToMatch)`
 
-- `$funcToMock`: ISL annotation to mock.
+- `$funcToMock`: ISL annotation to mock. Use `AnnotationName#1`, `AnnotationName#2`, etc. for indexed (sequential) returns per call.
 - `$returnValue`: Return value of mock.
-- `$paramsToMatch`:  Optional error message to show if assertion fails.
-- `Returns`: Unique id of the mock.
+- `$paramsToMatch`:  Optional parameters to match. When omitted, matches any parameters.
+- `Returns`: Unique id of the mock (null for default mocks).
 
 #### Example
 

@@ -186,6 +186,39 @@ body {
   color: #cccccc;
 }
 
+.format-toggle {
+  display: flex;
+  gap: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  border: 1px solid #555;
+}
+
+.format-toggle .format-btn {
+  padding: 0.35rem 0.85rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  background-color: #3c3c3c;
+  color: #888;
+  border: none;
+  border-radius: 0;
+  cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+
+.format-toggle .format-btn:first-child {
+  border-right: 1px solid #555;
+}
+
+.format-toggle .format-btn:hover {
+  color: #cccccc;
+}
+
+.format-toggle .format-btn.active {
+  background-color: #3c8dd5;
+  color: white;
+}
+
 .button-group {
   display: flex;
   gap: 0.75rem;

@@ -4,8 +4,13 @@ REM Example usage scripts for ISL CLI on Windows
 echo === ISL CLI Examples ===
 echo.
 
+REM Read version from gradle.properties
+for /f "tokens=1,2 delims==" %%a in (..\..\gradle.properties) do (
+    if "%%a"=="version" set VERSION=%%b
+)
+
 REM Check if JAR exists
-set JAR=..\build\libs\isl-2.4.20-SNAPSHOT.jar
+set JAR=..\build\libs\isl-%VERSION%.jar
 if not exist "%JAR%" (
     echo Building ISL CLI...
     cd ..

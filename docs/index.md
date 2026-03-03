@@ -124,6 +124,7 @@ Will output:
 - Support for [parsing XML](./types/xml.md#xml-processing) and [outputting XML](./types/xml.md#xml-output), [parsing CSV](./types/csv.md#csv-processing) or yaml.
 - Support for advanced String Interpolation `Hi there $name. Today is ${ @.Date.Now() | to.string("yyyy MM dd") }. `.
 - Support for [`find`, `match` and `replace` using Regular Expressions](./language/modifiers.md#regex-processing).
+- [Unit Testing](./ext/unit-testing/index.md) – Write and run tests in ISL with `@test`, assertions, fixtures (`@.Load.From`), and mocking.
 
 ## Learning And Support
 

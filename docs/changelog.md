@@ -3,7 +3,7 @@ title: Changelog
 nav_order: 100
 ---
 
-## [Unreleased] - Performance Benchmarks
+## [1.1.0] - First public release
 
 ### Performance Metrics
 
@@ -85,5 +85,4 @@ Added comprehensive JMH (Java Microbenchmark Harness) benchmarking framework to 
 
 ---
 
-**2.4.20** - First public release
 

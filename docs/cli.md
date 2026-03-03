@@ -97,7 +97,7 @@ For development, you can run directly with Gradle:
 
 ## Basic Usage
 
-The ISL CLI has three main commands:
+The ISL CLI has four main commands:
 
 ### 1. Transform Command
 
@@ -138,7 +138,38 @@ isl validate script.isl
 # If invalid, shows error details and exit code 1
 ```
 
-### 3. Info Command
+### 3. Test Command
+
+Run ISL unit tests. Discovers `.isl` files containing `@test` or `@setup` annotations and executes them.
+
+```bash
+# Run tests in current directory (default: **/*.isl)
+isl test
+
+# Run tests in a specific path (directory, file, or glob)
+isl test tests/
+isl test tests/sample.isl
+
+# Custom glob pattern
+isl test tests/ --glob "**/*.test.isl"
+
+# Write results to JSON file
+isl test -o results.json
+```
+
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `path` | Directory, file, or glob to search (default: current directory) |
+| `--glob PATTERN` | Glob to filter files when path is a directory (default: `**/*.isl`) |
+| `-o, --output FILE` | Write test results to JSON file |
+
+Exit code: 0 if all tests pass, 1 if any fail.
+
+See [Unit Testing](../ext/unit-testing/index.md) for writing tests, assertions, and loading fixtures.
+
+### 4. Info Command
 
 Display version and system information:
 
@@ -175,6 +206,27 @@ isl info
 # Enable debug mode
 debug=true isl transform script.isl -i input.json
 ```
+
+### Logging from ISL Scripts
+
+When running transforms or tests from the CLI, you can log messages from your ISL scripts:
+
+```isl
+@.Log.Info("Processing started")
+@.Log.Info("Item count:", $count)
+@.Log.Warn("Unexpected value:", $value)
+@.Log.Error("Failed:", $error)
+@.Log.Debug("Debug info")   // Only outputs when -Ddebug=true
+```
+
+| Function | Output | When |
+|----------|--------|------|
+| `@.Log.Debug(...)` | stdout | Only when `-Ddebug=true` |
+| `@.Log.Info(...)` | stdout | Always |
+| `@.Log.Warn(...)` | stderr | Always |
+| `@.Log.Error(...)` | stderr | Always |
+
+All functions accept multiple arguments (strings, variables, expressions); they are joined with spaces. JSON objects are pretty-printed.
 
 ## Working with Input Data
 

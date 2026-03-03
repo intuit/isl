@@ -130,8 +130,9 @@ class TransformCommand : Runnable {
             val compiler = TransformCompiler()
             val transformer = compiler.compileIsl("script", scriptContent)
             
-            // Create operation context with variables
+            // Create operation context with variables and CLI extensions (e.g. Log)
             val context = OperationContext()
+            LogExtensions.registerExtensions(context)
             variables.forEach { (key, value) ->
                 val varName = if (key.startsWith("$")) key else "$$key"
                 val varValue = JsonConvert.convert(value);

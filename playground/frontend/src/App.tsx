@@ -7,6 +7,8 @@ import type { editor } from 'monaco-editor';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://isl-playground.up.railway.app/api';
 
+type DataFormat = 'json' | 'yaml';
+
 interface TransformResponse {
   success: boolean;
   output?: string;
@@ -113,6 +115,8 @@ function App() {
   const [loading, setLoading] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [validationSuccess, setValidationSuccess] = useState(false);
+  const [inputFormat, setInputFormat] = useState<DataFormat>('json');
+  const [outputFormat, setOutputFormat] = useState<DataFormat>('json');
   
   // Ref to store Monaco editor instance
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
@@ -185,6 +189,8 @@ function App() {
       const response = await axios.post<TransformResponse>(`${API_BASE_URL}/transform`, {
         isl: codeToRun,
         input: inputJson,
+        inputFormat,
+        outputFormat,
       });
 
       if (response.data.success) {
@@ -206,7 +212,7 @@ function App() {
     } finally {
       setLoading(false);
     }
-  }, [islCode, inputJson, loading]);
+  }, [islCode, inputJson, inputFormat, outputFormat, loading]);
 
   const handleValidate = useCallback(async () => {
     if (loading) return;
@@ -322,12 +328,30 @@ function App() {
       <div className="editor-container">
         <div className="editor-panel">
           <div className="panel-header">
-            <h3>Input JSON</h3>
+            <h3>Input</h3>
+            <div className="format-toggle">
+              <button
+                type="button"
+                className={inputFormat === 'json' ? 'format-btn active' : 'format-btn'}
+                onClick={() => setInputFormat('json')}
+                aria-pressed={inputFormat === 'json'}
+              >
+                JSON
+              </button>
+              <button
+                type="button"
+                className={inputFormat === 'yaml' ? 'format-btn active' : 'format-btn'}
+                onClick={() => setInputFormat('yaml')}
+                aria-pressed={inputFormat === 'yaml'}
+              >
+                YAML
+              </button>
+            </div>
           </div>
           <div className="editor-wrapper">
             <Editor
               height="100%"
-              language="json"
+              language={inputFormat}
               theme="vs-dark"
               value={inputJson}
               onChange={(value) => setInputJson(value || '')}
@@ -396,23 +420,41 @@ function App() {
         <div className="editor-panel">
           <div className="panel-header">
             <h3>Output</h3>
-          </div>
-            <div className="editor-wrapper">
-              <Editor
-                height="100%"
-                language="json"
-                theme="vs-dark"
-                value={output}
-                options={{
-                  minimap: { enabled: false },
-                  fontSize: 14,
-                  lineNumbers: 'on',
-                  scrollBeyondLastLine: false,
-                  automaticLayout: true,
-                  readOnly: true,
-                }}
-              />
+            <div className="format-toggle">
+              <button
+                type="button"
+                className={outputFormat === 'json' ? 'format-btn active' : 'format-btn'}
+                onClick={() => setOutputFormat('json')}
+                aria-pressed={outputFormat === 'json'}
+              >
+                JSON
+              </button>
+              <button
+                type="button"
+                className={outputFormat === 'yaml' ? 'format-btn active' : 'format-btn'}
+                onClick={() => setOutputFormat('yaml')}
+                aria-pressed={outputFormat === 'yaml'}
+              >
+                YAML
+              </button>
             </div>
+          </div>
+          <div className="editor-wrapper">
+            <Editor
+              height="100%"
+              language={outputFormat}
+              theme="vs-dark"
+              value={output}
+              options={{
+                minimap: { enabled: false },
+                fontSize: 14,
+                lineNumbers: 'on',
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                readOnly: true,
+              }}
+            />
+          </div>
         </div>
       </div>
 

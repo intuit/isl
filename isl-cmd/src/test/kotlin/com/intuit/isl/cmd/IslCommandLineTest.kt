@@ -115,6 +115,35 @@ class IslCommandLineTest {
     }
 
     @Test
+    fun `test transform with Log extensions`(@TempDir tempDir: Path) {
+        val scriptFile = tempDir.resolve("log-test.isl").toFile()
+        scriptFile.writeText("""
+            fun run(${'$'}input) {
+                @.Log.Info("Processing", ${'$'}input.name)
+                result: { message: "done" }
+            }
+        """.trimIndent())
+
+        val inputFile = tempDir.resolve("input.json").toFile()
+        inputFile.writeText("""{"name": "test"}""")
+
+        val outputStream = ByteArrayOutputStream()
+        System.setOut(PrintStream(outputStream))
+
+        val cmd = CommandLine(IslCommandLine())
+        val exitCode = cmd.execute(
+            "transform",
+            scriptFile.absolutePath,
+            "-i", inputFile.absolutePath,
+            "--pretty"
+        )
+
+        assertEquals(0, exitCode)
+        val output = outputStream.toString()
+        assertTrue(output.contains("[INFO]") && output.contains("Processing"), "Expected [INFO] in output: $output")
+    }
+
+    @Test
     fun `test validate command with valid script`(@TempDir tempDir: Path) {
         val scriptFile = tempDir.resolve("valid.isl").toFile()
         scriptFile.writeText("""

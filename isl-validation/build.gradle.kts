@@ -1,9 +1,10 @@
 plugins {
     kotlin("jvm")
     id("jacoco")
-    id("maven-publish")
     id("org.gradle.test-retry") version "1.6.0"
 }
+
+// Publishing is configured globally for library modules
 
 val kotlinVersion: String = "2.1.10"
 val kotlinCoroutinesVersion: String = "1.10.1"
@@ -51,7 +52,7 @@ sourceSets {
 
 // Configure JaCoCo
 tasks.jacocoTestReport {
-    dependsOn(tasks.test)
+    dependsOn(tasks.test, tasks.processResources, tasks.classes)
     
     classDirectories.setFrom(
         files(classDirectories.files.map {
@@ -63,6 +64,8 @@ tasks.jacocoTestReport {
 }
 
 tasks.jacocoTestCoverageVerification {
+    dependsOn(tasks.jacocoTestReport, tasks.classes)
+
     violationRules {
         rule {
             limit {
@@ -111,12 +114,14 @@ artifacts {
     archives(testJar)
 }
 
-// Add test JAR to published artifacts
-configure<PublishingExtension> {
-    publications {
-        named<MavenPublication>("maven") {
-            artifact(testJar)
-        }
-    }
-}
+// Test JAR is available locally but not published to Maven Central
+// configure<PublishingExtension> {
+//     publications {
+//         named<MavenPublication>("maven") {
+//             artifact(testJar) {
+//                 classifier = "tests"
+//             }
+//         }
+//     }
+// }
 

@@ -2,7 +2,9 @@ package com.intuit.isl.playground.model
 
 data class TransformRequest(
     val isl: String,
-    val input: String
+    val input: String,
+    val inputFormat: String? = "json",   // "json" | "yaml"
+    val outputFormat: String? = "json"  // "json" | "yaml"
 )
 
 data class ValidationRequest(

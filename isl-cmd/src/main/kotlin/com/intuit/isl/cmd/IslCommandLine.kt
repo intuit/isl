@@ -18,7 +18,8 @@ import kotlin.system.exitProcess
     subcommands = [
         TransformCommand::class,
         ValidateCommand::class,
-        InfoCommand::class
+        InfoCommand::class,
+        TestCommand::class
     ]
 )
 class IslCommandLine : Runnable {   
