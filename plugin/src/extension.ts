@@ -162,7 +162,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // Register executor
-    const executor = new IslExecutor();
+    const executor = new IslExecutor(context.extensionPath);
 
     // Register commands
     context.subscriptions.push(
@@ -185,6 +185,13 @@ export function activate(context: vscode.ExtensionContext) {
             const editor = vscode.window.activeTextEditor;
             if (editor && editor.document.languageId === 'isl') {
                 await executor.runWithInput(editor.document);
+            }
+        }),
+
+        vscode.commands.registerCommand('isl.compile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor && editor.document.languageId === 'isl') {
+                await executor.compile(editor.document);
             }
         }),
 

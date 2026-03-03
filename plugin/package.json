@@ -51,6 +51,14 @@
         "language": "isl",
         "scopeName": "source.isl",
         "path": "./syntaxes/isl.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.isl.codeblock",
+        "path": "./syntaxes/isl-markdown-injection.tmLanguage.json",
+        "injectTo": ["text.html.markdown"],
+        "embeddedLanguages": {
+          "meta.embedded.block.isl": "isl"
+        }
       }
     ],
     "configuration": {
@@ -94,8 +102,8 @@
         },
         "isl.execution.islCommand": {
           "type": "string",
-          "default": "isl",
-          "description": "Path to ISL command line tool (isl.sh or isl.bat)"
+          "default": "",
+          "description": "Optional. External ISL executable (isl.bat or isl.sh). Only used when the extension's embedded CLI (lib/isl-cmd-all.jar) is not present. Most users leave this empty."
         },
         "isl.execution.javaHome": {
           "type": "string",
@@ -144,13 +152,25 @@
       {
         "command": "isl.showDocumentation",
         "title": "ISL: Open Documentation"
+      },
+      {
+        "command": "isl.compile",
+        "title": "ISL: Compile (Validate) File",
+        "icon": "$(run-all)"
       }
     ],
     "menus": {
+      "editor/title": [
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.compile",
+          "group": "navigation"
+        }
+      ],
       "editor/context": [
         {
           "when": "resourceLangId == isl",
-          "command": "isl.validate",
+          "command": "isl.compile",
           "group": "isl@1"
         },
         {
@@ -179,6 +199,10 @@
         },
         {
           "command": "isl.format",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.compile",
           "when": "resourceLangId == isl"
         }
       ]

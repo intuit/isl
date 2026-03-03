@@ -103,6 +103,7 @@ export class IslValidator {
             this.checkNamingConvention(line, i, diagnostics, document);
             this.checkMathOutsideBraces(line, i, diagnostics, document);
             this.checkInconsistentSpacing(line, i, diagnostics, document);
+            this.checkPlusStringConcatenation(line, i, diagnostics, document);
         }
         
         // Multi-line checks
@@ -1179,6 +1180,39 @@ export class IslValidator {
                 diagnostics.push(diagnostic);
             }
         }
+    }
+
+    /**
+     * ISL does not support + for string concatenation. Use template literals with ${ } instead.
+     * Example: $val = "a=" + $x + "&b=" + $y  →  $val = `a=${ $x }&b=${ $y }`
+     */
+    private checkPlusStringConcatenation(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex).trimEnd() : line;
+        // Require assignment: $var = <rhs> and rhs contains both a string literal and +
+        const assignMatch = codeOnlyLine.match(/^\s*(\$[a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*(.+)$/);
+        if (!assignMatch) return;
+        const rhs = assignMatch[2].trim();
+        // Must contain at least one quoted string and a + (concatenation)
+        const hasQuotedString = /["'][^"']*["']/.test(rhs);
+        const hasConcatPlus = /["'][^"']*["']\s*\+|\+\s*["'][^"']*["']/.test(rhs) ||
+            /\$[a-zA-Z_][a-zA-Z0-9_.]*\s*\+|\+\s*\$[a-zA-Z_][a-zA-Z0-9_.]*/.test(rhs);
+        if (!hasQuotedString || !hasConcatPlus) return;
+        const eqIdx = codeOnlyLine.indexOf('=');
+        let rhsStart = eqIdx + 1;
+        while (rhsStart < codeOnlyLine.length && /\s/.test(codeOnlyLine[rhsStart])) rhsStart++;
+        const rhsEnd = codeOnlyLine.length;
+        const range = new vscode.Range(lineNumber, rhsStart, lineNumber, rhsEnd);
+        const diagnostic = new vscode.Diagnostic(
+            range,
+            'ISL does not support + for string concatenation. Use string interpolation: `...${ expr }...` (backtick template literals).',
+            vscode.DiagnosticSeverity.Error
+        );
+        diagnostic.code = 'no-plus-concatenation';
+        diagnostics.push(diagnostic);
     }
 
     private checkDefaultModifier(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {

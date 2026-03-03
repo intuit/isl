@@ -166,35 +166,8 @@ class TestCommand : Runnable {
         return java.util.function.BiFunction { fromModule: String, dependentModule: String ->
             fileByFullName[dependentModule]
                 ?: fileByModuleName[dependentModule]
-                ?: resolveExternalModule(searchBase, fromModule, dependentModule)
+                ?: IslModuleResolver.resolveExternalModule(searchBase, fromModule, dependentModule)
         }
-    }
-
-    private fun resolveExternalModule(searchBase: Path, fromModule: String, dependentModule: String): String? {
-        val fromDir = searchBase.resolve(fromModule).parent ?: searchBase
-        val candidateNames = if (dependentModule.endsWith(".isl", ignoreCase = true)) {
-            listOf(dependentModule)
-        } else {
-            listOf("$dependentModule.isl", "$dependentModule.ISL")
-        }
-        val searchedPaths = mutableListOf<Path>()
-        for (name in candidateNames) {
-            val candidatePath = fromDir.resolve(name)
-            searchedPaths.add(candidatePath.toAbsolutePath())
-            val file = candidatePath.toFile()
-            if (file.exists()) return file.readText()
-        }
-        val moduleBaseName = if (dependentModule.endsWith(".isl", ignoreCase = true)) {
-            dependentModule.dropLast(4)
-        } else {
-            dependentModule
-        }
-        val found = searchBase.toFile().walkTopDown()
-            .filter { it.isFile && it.extension.equals("isl", true) }
-            .find { it.nameWithoutExtension.equals(moduleBaseName, true) }
-        if (found != null) return found.readText()
-        searchedPaths.forEach { System.err.println("Module not found. Searched: $it") }
-        return null
     }
 
     private fun reportResults(result: TestResultContext) {

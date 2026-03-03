@@ -127,6 +127,9 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             if (trimmedLine.match(/[\{\[\(]$/)) indentLevel++;
             const blockControlFlow = trimmedLine.match(/^(if|foreach|while|switch|parallel)[\s(]/);
             const inlineControlFlow = trimmedLine.match(/[=:>]\s*(if|foreach|while|switch)[\s(]/);
+            const returnSwitchBlock = !blockControlFlow && !inlineControlFlow &&
+                trimmedLine.match(/\bswitch\s*\(/) &&
+                !trimmedLine.endsWith(';') && !trimmedLine.endsWith(',') && !trimmedLine.endsWith('{');
             if (blockControlFlow || inlineControlFlow) {
                 if (!trimmedLine.includes('endif') && !trimmedLine.includes('endfor') &&
                     !trimmedLine.includes('endwhile') && !trimmedLine.includes('endswitch')) {
@@ -141,6 +144,9 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                         }
                     }
                 }
+            } else if (returnSwitchBlock) {
+                indentLevel++;
+                openInlineControlFlow.push('switch');
             }
         }
         return { indentLevel, openInlineControlFlow };
@@ -341,9 +347,13 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             // Match either space or opening paren after keyword: if( or if (
             const blockControlFlow = trimmedLine.match(/^(if|foreach|while|switch|parallel)[\s(]/);
             const inlineControlFlow = trimmedLine.match(/[=:>]\s*(if|foreach|while|switch)[\s(]/);
-            
+            // "return switch ( ... )" or other leading token + switch: body and endswitch get indented
+            const returnSwitchBlock = !blockControlFlow && !inlineControlFlow &&
+                trimmedLine.match(/\bswitch\s*\(/) &&
+                !trimmedLine.endsWith(';') && !trimmedLine.endsWith(',') && !trimmedLine.endsWith('{');
+
             if (blockControlFlow || inlineControlFlow) {
-                if (!trimmedLine.includes('endif') && !trimmedLine.includes('endfor') && 
+                if (!trimmedLine.includes('endif') && !trimmedLine.includes('endfor') &&
                     !trimmedLine.includes('endwhile') && !trimmedLine.includes('endswitch')) {
                     // Don't increase indent if line ends with { (brace handles it)
                     // Don't increase indent if inline expression is complete on one line (; or , at end)
@@ -364,6 +374,9 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                         }
                     }
                 }
+            } else if (returnSwitchBlock) {
+                indentLevel++;
+                openInlineControlFlow.push('switch');
             }
             
             // Note: fun/modifier declarations don't increase indent themselves

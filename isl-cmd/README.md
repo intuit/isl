@@ -66,10 +66,25 @@ isl transform script.isl --function processData -i input.json
 
 ### Validate Command
 
-Check if a script is syntactically valid:
+Check if a script is syntactically valid (supports relative imports like `../customer.isl`):
 
 ```bash
 isl validate script.isl
+```
+
+### Test Command
+
+Run ISL tests from files with `@setup` and `@test` annotations:
+
+```bash
+# Run all tests in current directory
+isl test .
+
+# Run specific test functions
+isl test . -f test_customer -f test_simpleAssertion
+
+# Target a specific file:function
+isl test . -f sample.isl:test_customer
 ```
 
 ### Info Command
@@ -312,6 +327,21 @@ isl transform step3.isl -i temp2.json -o final-result.json
 ### Environment Variables
 
 - `debug=true` - Enable debug output and stack traces
+
+### Command Comparison: transform, validate, test
+
+All three commands use the same **module resolution** via `IslModuleResolver`, so relative imports (e.g. `import Customer from "../customer.isl"`) work consistently:
+
+| Aspect | transform | validate | test |
+|--------|-----------|----------|------|
+| **Input** | Single script file | Single script file | Directory or file (discovers .isl with @test) |
+| **Compilation** | `IslModuleResolver.compileSingleFile()` | Same | `TransformTestPackageBuilder` with `createModuleResolver()` (uses `IslModuleResolver.resolveExternalModule`) |
+| **Module resolution** | Relative to script dir | Same | Relative to search base; checks discovered files first |
+| **Execution** | Runs specified function (default: `run`) | Runs `run` to validate | Runs @test functions (with @setup) |
+| **Context** | OperationContext + vars, input, Log | Empty OperationContext | TestOperationContext + Log, Assert, Mock |
+| **Output** | JSON/YAML result | Success message | Test results (pass/fail) |
+
+**Shared behavior:** All commands resolve `../module.isl` and `./module.isl` relative to the current script's directory. Test additionally resolves against already-discovered test files.
 
 ## Development
 

@@ -182,6 +182,23 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
             }
         }
 
+        // Convert + string concatenation to template literal (ISL string interpolation)
+        if (diagnostic.code === 'no-plus-concatenation') {
+            const rhs = document.getText(diagnostic.range).trim();
+            const converted = this.convertPlusConcatenationToInterpolation(rhs);
+            if (converted !== null) {
+                const action = new vscode.CodeAction(
+                    'Convert to string interpolation (template literal)',
+                    vscode.CodeActionKind.QuickFix
+                );
+                action.edit = new vscode.WorkspaceEdit();
+                action.edit.replace(document.uri, diagnostic.range, converted);
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                actions.push(action);
+            }
+        }
+
         // Use coalesce operator
         if (diagnostic.code === 'use-coalesce-operator') {
             const line = document.lineAt(diagnostic.range.start.line);
@@ -778,6 +795,60 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
         return actions;
     }
     
+    /**
+     * Parse RHS like "accountId=" + $acc.accountId + "&startTime=" + $startTime
+     * and convert to `accountId=${ $acc.accountId }&startTime=${ $startTime }`
+     */
+    private convertPlusConcatenationToInterpolation(rhs: string): string | null {
+        type Segment = { type: 'string'; value: string } | { type: 'expr'; value: string };
+        const segments: Segment[] = [];
+        let i = 0;
+        const s = rhs.trim();
+        while (i < s.length) {
+            while (i < s.length && /\s/.test(s[i])) i++;
+            if (i >= s.length) break;
+            if (s[i] === '+') {
+                i++;
+                continue;
+            }
+            if (s[i] === '"' || s[i] === "'") {
+                const q = s[i];
+                i++;
+                let lit = '';
+                while (i < s.length && s[i] !== q) {
+                    if (s[i] === '\\') {
+                        i++;
+                        if (i < s.length) lit += s[i++];
+                    } else {
+                        lit += s[i++];
+                    }
+                }
+                if (i < s.length) i++;
+                segments.push({ type: 'string', value: lit });
+                continue;
+            }
+            if (s[i] === '$') {
+                const exprStart = i;
+                i++;
+                while (i < s.length && /[a-zA-Z0-9_.]/.test(s[i])) i++;
+                const expr = s.substring(exprStart, i).trim();
+                if (expr) segments.push({ type: 'expr', value: expr });
+                continue;
+            }
+            return null;
+        }
+        let out = '`';
+        for (const seg of segments) {
+            if (seg.type === 'string') {
+                out += seg.value.replace(/\\/g, '\\\\').replace(/`/g, '\\`');
+            } else {
+                out += '${ ' + seg.value + ' }';
+            }
+        }
+        out += '`';
+        return out;
+    }
+
     private createFix(
         title: string,
         document: vscode.TextDocument,
