@@ -99,8 +99,17 @@
     },
     "keywords": {
       "patterns": [
-        { "include": "#inline-if-expression" },
         { "include": "#block-if-statement" },
+        { "include": "#block-switch-statement" },
+        { "include": "#inline-if-expression" },
+        {
+          "name": "keyword.control.conditional.else.isl",
+          "match": "\\b(else)\\b"
+        },
+        {
+          "name": "keyword.control.conditional.end.isl",
+          "match": "\\b(endif|endswitch)\\b"
+        },
         {
           "name": "keyword.control.loop.isl",
           "match": "\\b(foreach|endfor|while|endwhile|parallel)\\b"
@@ -310,7 +319,7 @@
         },
         {
           "name": "entity.name.function.isl",
-          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()"
+          "match": "\\b(?!(if|switch|while|foreach)\\b)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()"
         }
       ]
     },
@@ -407,7 +416,7 @@
       "patterns": [
         {
           "name": "meta.block-if-statement.isl",
-          "begin": "^\\s*(if)\\s*(\\()",
+          "begin": "\\b(if)\\s*(\\()",
           "end": "\\b(endif)\\b",
           "beginCaptures": {
             "1": { "name": "keyword.control.conditional.if.isl" },
@@ -445,6 +454,8 @@
               "name": "keyword.control.conditional.else.isl",
               "match": "\\b(else)\\b"
             },
+            { "include": "#block-if-statement" },
+            { "include": "#block-switch-statement" },
             {
               "include": "#comments"
             },
@@ -470,10 +481,70 @@
               "include": "#modifiers"
             }
           ]
-        },
+        }
+      ]
+    },
+    "block-switch-statement": {
+      "patterns": [
         {
-          "name": "keyword.control.conditional.switch.isl",
-          "match": "\\b(switch|endswitch)\\b"
+          "name": "meta.block-switch-statement.isl",
+          "begin": "\\b(switch)\\s*(\\()",
+          "end": "\\b(endswitch)\\b",
+          "beginCaptures": {
+            "1": { "name": "keyword.control.conditional.switch.isl" },
+            "2": { "name": "punctuation.definition.condition.begin.isl" }
+          },
+          "endCaptures": {
+            "1": { "name": "keyword.control.conditional.endswitch.isl" }
+          },
+          "patterns": [
+            {
+              "name": "meta.condition.isl",
+              "begin": "\\G",
+              "end": "\\)",
+              "endCaptures": {
+                "0": { "name": "punctuation.definition.condition.end.isl" }
+              },
+              "patterns": [
+                { "include": "#variables" },
+                { "include": "#operators" },
+                { "include": "#function-calls" },
+                { "include": "#constants" },
+                { "include": "#numbers" },
+                { "include": "#strings" }
+              ]
+            },
+            {
+              "name": "keyword.control.conditional.else.isl",
+              "match": "\\b(else)\\b"
+            },
+            { "include": "#block-if-statement" },
+            { "include": "#block-switch-statement" },
+            {
+              "include": "#comments"
+            },
+            {
+              "include": "#strings"
+            },
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#constants"
+            },
+            {
+              "include": "#variables"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#function-calls"
+            },
+            {
+              "include": "#modifiers"
+            }
+          ]
         }
       ]
     }

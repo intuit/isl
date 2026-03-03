@@ -6,7 +6,12 @@ import com.intuit.isl.test.annotations.TestResultContext
 import com.intuit.isl.test.assertions.AssertFunction
 import com.intuit.isl.common.*
 import com.intuit.isl.test.mocks.MockFunction
+import com.intuit.isl.runtime.TransformException
+import com.intuit.isl.utils.JsonConvert
 import java.nio.file.Path
+
+/** Sentinel used to register a fallback handler for any function call that is not mocked. */
+private const val FALLBACK_METHOD_NAME = "*"
 
 class TestOperationContext : BaseOperationContext {
     /** Current ISL file path (module name, e.g. "tests/sample.isl") for resolving relative paths in @.Load.From() */
@@ -17,11 +22,16 @@ class TestOperationContext : BaseOperationContext {
     var basePath: Path? = null
         internal set
 
+    /** Mock file name (e.g. from setup.mockSource) for error messages when an unmocked function is called. */
+    var mockFileName: String? = null
+        internal set
+
     companion object {
         fun create(
             testResultContext: TestResultContext,
             currentFile: String? = null,
             basePath: Path? = null,
+            mockFileName: String? = null,
             contextCustomizers: List<(IOperationContext) -> Unit> = emptyList()
         ): TestOperationContext {
             val context = TestOperationContext()
@@ -33,12 +43,53 @@ class TestOperationContext : BaseOperationContext {
             LoadFunction.registerExtensions(context)
             MockFunction.registerExtensions(context)
 
+            context.registerExtensionMethod(FALLBACK_METHOD_NAME) { functionContext ->
+                throw buildUnmockedCallException(functionContext)
+            }
+
             contextCustomizers.forEach { it(context) }
 
             context.currentFile = currentFile
             context.basePath = basePath
+            context.mockFileName = mockFileName
 
             return context
+        }
+
+        private fun buildUnmockedCallException(context: FunctionExecuteContext): TransformException {
+            val functionName = context.functionName
+            val position = context.command.token.position
+            val place = "file=${position.file}, line=${position.line}, column=${position.column}" +
+                (position.endLine?.let { ", endLine=$it" } ?: "") +
+                (position.endColumn?.let { ", endColumn=$it" } ?: "")
+
+            val paramsJson = context.parameters
+                .map { JsonConvert.convert(it) }
+                .let { nodes -> JsonConvert.mapper.writeValueAsString(nodes) }
+
+            val testContext = context.executionContext.operationContext as? TestOperationContext
+            val mockFile = testContext?.mockFileName ?: "your-mocks.yaml"
+
+            val yamlSnippet = buildString {
+                appendLine("- name: \"$functionName\"")
+                if (context.parameters.isNotEmpty()) {
+                    appendLine("  params: $paramsJson")
+                }
+                appendLine("  result: <replace with expected return value>")
+            }
+
+            val message = buildString {
+                appendLine("Unmocked function was called. The test must only call functions that are mocked.")
+                appendLine("Function: @.$functionName")
+                appendLine("Called from: $place")
+                appendLine("Parameters: $paramsJson")
+                appendLine("")
+                appendLine("To mock this function add this to your [$mockFile] then rerun the tests:")
+                appendLine("func:")
+                append(yamlSnippet)
+            }
+
+            return TransformException(message.trimEnd(), position)
         }
     }
 
@@ -51,11 +102,13 @@ class TestOperationContext : BaseOperationContext {
         annotations: HashMap<String, AsyncExtensionAnnotation>,
         statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>,
         internalExtensions: HashMap<String, AsyncContextAwareExtensionMethod>,
-        mockExtensions: TestOperationMockExtensions
+        mockExtensions: TestOperationMockExtensions,
+        mockFileName: String? = null
     ) : super(
         extensions, annotations, statementExtensions, internalExtensions, HashMap<String, ConditionalExtension>()
     ) {
         this.mockExtensions = mockExtensions
+        this.mockFileName = mockFileName
     }
 
     val mockExtensions : TestOperationMockExtensions
@@ -86,7 +139,7 @@ class TestOperationContext : BaseOperationContext {
 
     override fun clone(newInternals: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
         return TestOperationContext(
-            this.extensions, this.annotations, this.statementExtensions, newInternals, this.mockExtensions
+            this.extensions, this.annotations, this.statementExtensions, newInternals, this.mockExtensions, this.mockFileName
         )
     }
 }

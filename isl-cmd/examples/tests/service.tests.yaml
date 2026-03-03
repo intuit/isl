@@ -1,0 +1,65 @@
+# YAML-driven unit tests for service.isl (uses mocks)
+# Run: isl test .   or   isl test service.tests.yaml
+#
+# mockSource is loaded first; mocks below override or add.
+
+category: service
+setup:
+  islSource: service.isl
+  mockSource: ../mocks/sample-mocks.yaml
+  mocks:
+    func:
+      - name: "Api.Call"
+        return: { status: 200, body: "overridden" }
+
+tests:
+  - name: run returns mocked Api.Call response
+    functionName: run
+    input: "https://example.com"
+    expected:
+      status: 200
+      body: "overridden"
+
+  - name: getConfigLimit returns mocked scalar
+    functionName: getConfigLimit
+    expected: 100
+
+  - name: getItems returns indexed mock results
+    functionName: getItems
+    expected:
+      first: [ { id: 1 }, { id: 2 }, { id: 3 } ]
+      second: [ { id: 4 }, { id: 5 } ]
+      third: []
+
+  - name: computeSum two params match first mock (10, 32)
+    functionName: computeSum
+    input:
+      a: 10
+      b: 32
+    expected: 42
+
+  - name: computeSum two params match second mock (50, 50)
+    functionName: computeSum
+    input:
+      a: 50
+      b: 50
+    expected: 100
+
+  - name: lookup three params returns user
+    functionName: lookup
+    input:
+      table: "users"
+      key: "id"
+      id: "u-1"
+    expected:
+      id: "u-1"
+      name: "Alice"
+      role: "admin"
+
+  - name: lookup three params returns null for unknown
+    functionName: lookup
+    input:
+      table: "users"
+      key: "id"
+      id: "unknown"
+    expected: null

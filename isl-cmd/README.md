@@ -74,11 +74,17 @@ isl validate script.isl
 
 ### Test Command
 
-Run ISL tests from files with `@setup` and `@test` annotations:
+Run ISL tests from:
+
+- **.isl files** with `@setup` and `@test` annotations
+- **\*.tests.yaml files** (YAML-driven unit test suites)
 
 ```bash
-# Run all tests in current directory
+# Run all tests in current directory (both .isl and *.tests.yaml)
 isl test .
+
+# Run a specific YAML suite
+isl test path/to/suite.tests.yaml
 
 # Run specific test functions
 isl test . -f test_customer -f test_simpleAssertion
@@ -86,6 +92,24 @@ isl test . -f test_customer -f test_simpleAssertion
 # Target a specific file:function
 isl test . -f sample.isl:test_customer
 ```
+
+**YAML test suite format** (e.g. `mymodule.tests.yaml`):
+
+```yaml
+category: name of test group
+setup:
+  islSource: name of ISL file to test (e.g. mymodule.isl)
+  mockSource: optional mock file(s) — single path (e.g. mymocks.yaml) or array (e.g. [commonMocks.yaml, otherMocks.yaml]); loaded in order, each overrides the previous; same format as @.Mock.Load; paths relative to suite directory
+  mocks: optional inline mocks (func/annotation arrays); applied after mockSource so they override
+tests:
+  - name: unit test name
+    functionName: function to call
+    byPassAnnotations: false   # optional
+    input: 42                   # single value for single-param; or object with param names as keys
+    expected: { "result": 42 }   # expected JSON result
+```
+
+Paths in `setup` (`islSource`, `mockSource` file names) are relative to the directory containing the `.tests.yaml` file.
 
 ### Info Command
 

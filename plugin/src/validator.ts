@@ -96,6 +96,7 @@ export class IslValidator {
             this.checkPaginationPropertyAccess(line, i, diagnostics, document, paginationVariables);
             this.checkLongObjectDeclaration(line, i, diagnostics, document);
             this.checkUnnecessaryStringInterpolation(line, i, diagnostics, document);
+            this.checkUnnecessarySingleInterpolationTemplate(line, i, diagnostics, document);
             this.checkDefaultModifier(line, i, diagnostics, document);
             this.checkColonAssignment(line, i, diagnostics, document);
             this.checkMathInTemplateString(line, i, diagnostics, document);
@@ -113,6 +114,9 @@ export class IslValidator {
         
         // Check for foreach loops that can be converted to map (multi-line check)
         this.checkForeachToMap(document, diagnostics);
+
+        // Check for array declared as [] and only used once with | push(...) -> suggest [ item ] instead
+        this.checkSinglePushArray(document, diagnostics);
         
         // Check for functions that should be modifiers (multi-line check)
         this.checkFunctionToModifier(document, diagnostics);
@@ -1183,6 +1187,78 @@ export class IslValidator {
     }
 
     /**
+     * Flags template literals that contain only one ${ ... } and no other text.
+     * E.g. ` ${ $var.abc }` is valid (space in front). ` ${ $var.abc } ` is unnecessary.
+     */
+    private checkUnnecessarySingleInterpolationTemplate(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
+
+        const backtickPattern = /`(?:[^`\\]|\\.)*`/g;
+        let backtickMatch;
+
+        while ((backtickMatch = backtickPattern.exec(codeOnlyLine)) !== null) {
+            const templateString = backtickMatch[0];
+            const templateStart = backtickMatch.index;
+            const content = templateString.slice(1, -1);
+
+            const inner = this.parseSingleInterpolationOnly(content);
+            if (inner !== null) {
+                const range = new vscode.Range(
+                    lineNumber,
+                    templateStart,
+                    lineNumber,
+                    templateStart + templateString.length
+                );
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    'Unnecessary template literal: string has only one interpolation. Use the expression directly.',
+                    vscode.DiagnosticSeverity.Warning
+                );
+                diagnostic.code = 'unnecessary-template-literal';
+                (diagnostic as vscode.Diagnostic & { innerExpression?: string }).innerExpression = inner;
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+
+    /**
+     * If content (between backticks) is exactly one ${ ... } with no other text (including no space before/after),
+     * returns the inner expression; otherwise null. Handles nested braces inside ${ }.
+     * E.g. ` ${ ... }` has a space in front so is valid (returns null).
+     */
+    private parseSingleInterpolationOnly(content: string): string | null {
+        const open = content.indexOf('${');
+        if (open === -1) return null;
+        if (open > 0) return null; // any character (including space) before ${ means valid "extra text"
+
+        let depth = 1;
+        let i = open + 2;
+        while (i < content.length) {
+            const c = content[i];
+            if (c === '\\') {
+                i += 2;
+                continue;
+            }
+            if (c === '{') depth++;
+            else if (c === '}') {
+                depth--;
+                if (depth === 0) {
+                    const inner = content.substring(open + 2, i).trim();
+                    const after = content.substring(i + 1);
+                    if (after.length > 0) return null; // any character (including space) after } means valid
+                    return inner;
+                }
+            }
+            i++;
+        }
+        return null;
+    }
+
+    /**
      * ISL does not support + for string concatenation. Use template literals with ${ } instead.
      * Example: $val = "a=" + $x + "&b=" + $y  →  $val = `a=${ $x }&b=${ $y }`
      */
@@ -1527,8 +1603,8 @@ export class IslValidator {
             const arrayVar = foreachMatch[2].trim();
             const foreachStartLine = i;
             
-            // Find the matching endfor
-            let braceDepth = 0;
+            // Find the matching endfor (track foreach/endfor nesting so inner loops don't close outer)
+            let foreachDepth = 1;
             let foundEndfor = false;
             let endforLine = -1;
             
@@ -1541,16 +1617,17 @@ export class IslValidator {
                     currentLine.indexOf('//') !== -1 ? currentLine.indexOf('//') : Infinity,
                     currentLine.indexOf('#') !== -1 ? currentLine.indexOf('#') : Infinity
                 );
-                const codeLine = commentIndex !== Infinity ? currentLine.substring(0, commentIndex) : currentLine;
+                const codeOnly = commentIndex !== Infinity ? currentLine.substring(0, commentIndex).trim() : currentTrimmed;
                 
-                // Count braces to handle nested structures
-                braceDepth += (codeLine.match(/\{/g) || []).length;
-                braceDepth -= (codeLine.match(/\}/g) || []).length;
-                
-                if (currentTrimmed === 'endfor' && braceDepth === 0) {
-                    foundEndfor = true;
-                    endforLine = j;
-                    break;
+                if (/^foreach\s/.test(codeOnly)) {
+                    foreachDepth++;
+                } else if (codeOnly === 'endfor') {
+                    foreachDepth--;
+                    if (foreachDepth === 0) {
+                        foundEndfor = true;
+                        endforLine = j;
+                        break;
+                    }
                 }
             }
             
@@ -1660,6 +1737,100 @@ export class IslValidator {
             (diagnostic as any).endforLine = endforLine;
             diagnostics.push(diagnostic);
         }
+    }
+
+    /**
+     * Warn when a variable is declared as empty array [] and only used once with | push(...).
+     * Better pattern is to use [ item ] directly and remove the intermediary variable.
+     */
+    private checkSinglePushArray(document: vscode.TextDocument, diagnostics: vscode.Diagnostic[]) {
+        const text = document.getText();
+        const lines = text.split('\n');
+
+        // Find all variables declared as [] ($var = [] or $var: [])
+        const arrayDeclarations: { varName: string; lineIndex: number }[] = [];
+        for (let i = 0; i < lines.length; i++) {
+            const codeLine = this.getCodeOnlyLine(lines[i]);
+            const declMatch = codeLine.match(/\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]\s*\[\s*\]/);
+            if (declMatch) {
+                arrayDeclarations.push({ varName: declMatch[1], lineIndex: i });
+            }
+        }
+
+        for (const { varName, lineIndex: initLineIndex } of arrayDeclarations) {
+            const varPattern = new RegExp(`\\$${varName}\\b`, 'g');
+            let usageCount = 0;
+            let pushMatch: { startOffset: number; endOffset: number; pushArgument: string } | null = null;
+
+            let lastIndex = 0;
+            let match: RegExpExecArray | null;
+            while ((match = varPattern.exec(text)) !== null) {
+                // Skip the declaration line
+                const matchLine = document.positionAt(match.index).line;
+                if (matchLine === initLineIndex) {
+                    continue;
+                }
+                usageCount++;
+                if (usageCount > 1) break;
+
+                // Check if this usage is in pattern $var | push ( ... )
+                const afterVar = text.slice(match.index);
+                const pushRegex = new RegExp(`^\\$${varName}\\b\\s*\\|\\s*push\\s*\\(`, '');
+                const pushStart = afterVar.match(pushRegex);
+                if (pushStart) {
+                    const openParenOffset = match.index + pushStart[0].length;
+                    const closeParenOffset = this.findMatchingCloseParen(text, openParenOffset);
+                    if (closeParenOffset !== -1) {
+                        const pushArgument = text.slice(openParenOffset, closeParenOffset).trim();
+                        pushMatch = {
+                            startOffset: match.index,
+                            endOffset: closeParenOffset + 1,
+                            pushArgument
+                        };
+                    }
+                }
+            }
+
+            if (usageCount === 1 && pushMatch) {
+                const range = new vscode.Range(
+                    document.positionAt(pushMatch.startOffset),
+                    document.positionAt(pushMatch.endOffset)
+                );
+                const diagnostic = new vscode.Diagnostic(
+                    range,
+                    `Variable '$${varName}' is declared as [] and only used once with | push(). Use [ ${pushMatch.pushArgument} ] instead.`,
+                    vscode.DiagnosticSeverity.Warning
+                );
+                diagnostic.code = 'single-push-array';
+                (diagnostic as any).arrayVarName = varName;
+                (diagnostic as any).initLineIndex = initLineIndex;
+                (diagnostic as any).pushArgument = pushMatch.pushArgument;
+                (diagnostic as any).usageStartOffset = pushMatch.startOffset;
+                (diagnostic as any).usageEndOffset = pushMatch.endOffset;
+                diagnostics.push(diagnostic);
+            }
+        }
+    }
+
+    /** Return offset of matching closing ')' for the '(' at openOffset, or -1. */
+    private findMatchingCloseParen(text: string, openOffset: number): number {
+        let depth = 1;
+        let i = openOffset + 1;
+        while (i < text.length && depth > 0) {
+            const ch = text[i];
+            if (ch === '(') depth++;
+            else if (ch === ')') depth--;
+            i++;
+        }
+        return depth === 0 ? i - 1 : -1;
+    }
+
+    private getCodeOnlyLine(line: string): string {
+        const commentIndex = Math.min(
+            line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
+            line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
+        );
+        return commentIndex !== Infinity ? line.substring(0, commentIndex).trim() : line.trim();
     }
 
     private checkNamingConvention(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument) {
@@ -2189,8 +2360,8 @@ export class IslValidator {
                 const loopVar = foreachMatch[1];
                 const foreachStartLine = i;
                 
-                // Find the matching endfor
-                let braceDepth = 0;
+                // Find the matching endfor (track foreach/endfor nesting so inner loops don't close outer)
+                let foreachDepth = 1;
                 let foundEndfor = false;
                 let endforLine = -1;
                 
@@ -2202,15 +2373,17 @@ export class IslValidator {
                         currentLine.indexOf('//') !== -1 ? currentLine.indexOf('//') : Infinity,
                         currentLine.indexOf('#') !== -1 ? currentLine.indexOf('#') : Infinity
                     );
-                    const codeLine = commentIndex !== Infinity ? currentLine.substring(0, commentIndex) : currentLine;
+                    const codeOnly = commentIndex !== Infinity ? currentLine.substring(0, commentIndex).trim() : currentTrimmed;
                     
-                    braceDepth += (codeLine.match(/\{/g) || []).length;
-                    braceDepth -= (codeLine.match(/\}/g) || []).length;
-                    
-                    if (currentTrimmed === 'endfor' && braceDepth === 0) {
-                        foundEndfor = true;
-                        endforLine = j;
-                        break;
+                    if (/^foreach\s/.test(codeOnly)) {
+                        foreachDepth++;
+                    } else if (codeOnly === 'endfor') {
+                        foreachDepth--;
+                        if (foreachDepth === 0) {
+                            foundEndfor = true;
+                            endforLine = j;
+                            break;
+                        }
                     }
                 }
                 

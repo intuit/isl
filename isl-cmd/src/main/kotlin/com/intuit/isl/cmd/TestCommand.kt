@@ -16,11 +16,14 @@ import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.isRegularFile
+import kotlin.io.path.nameWithoutExtension
 import kotlin.system.exitProcess
 
 /**
  * Command to execute ISL tests.
- * Discovers .isl files containing @setup or @test annotations and runs them.
+ * Discovers and runs:
+ * - .isl files containing @setup or @test annotations
+ * - *.tests.yaml files (YAML-driven unit test suites with setup.islSource, mockSource, mocks, and tests with functionName, input, expected)
  */
 @Command(
     name = "test",
@@ -66,47 +69,62 @@ class TestCommand : Runnable {
                 }
             }
             val testFiles = discoverTestFiles(basePath)
-            if (testFiles.isEmpty()) {
-                System.err.println(red("No test files found (looking for .isl files with @setup or @test)"))
+            val yamlSuites = discoverYamlTestSuites(basePath)
+            if (testFiles.isEmpty() && yamlSuites.isEmpty()) {
+                System.err.println(red("No test files found (looking for .isl files with @setup or @test, or *.tests.yaml)"))
                 exitProcess(1)
             }
-            println("Found ${testFiles.size} test file(s)")
-            val fileInfos = testFiles.map { (filePath, content) ->
-                val moduleName = searchBase.relativize(filePath).toString().replace("\\", "/")
-                FileInfo(moduleName, content)
-            }.toMutableList()
-            val findExternalModule = createModuleResolver(testFiles, searchBase)
-            val result = try {
-                @Suppress("UNCHECKED_CAST")
-                val testPackage = TransformTestPackageBuilder().build(
-                    fileInfos,
-                    findExternalModule as java.util.function.BiFunction<String, String, String>,
-                    searchBase,
-                    listOf { LogExtensions.registerExtensions(it) }
-                )
-                val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
-                if (functionFilter.isEmpty()) {
-                    testPackage.runAllTests()
-                } else {
-                    testPackage.runFilteredTests { file, func ->
-                        functionFilter.any { filter ->
-                            when {
-                                filter.contains(":") -> {
-                                    val parts = filter.split(":", limit = 2)
-                                    val fileMatch = parts[0].equals(file, true) ||
-                                        parts[0].equals(file.removeSuffix(".isl"), true)
-                                    fileMatch && parts[1].equals(func, true)
+            val result = TestResultContext()
+            val contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit> = listOf { ctx -> LogExtensions.registerExtensions(ctx) }
+
+            if (testFiles.isNotEmpty()) {
+                println("Found ${testFiles.size} ISL test file(s)")
+                val fileInfos = testFiles.map { (filePath, content) ->
+                    val moduleName = searchBase.relativize(filePath).toString().replace("\\", "/")
+                    FileInfo(moduleName, content)
+                }.toMutableList()
+                val findExternalModule = createModuleResolver(testFiles, searchBase)
+                try {
+                    @Suppress("UNCHECKED_CAST")
+                    val testPackage = TransformTestPackageBuilder().build(
+                        fileInfos,
+                        findExternalModule as java.util.function.BiFunction<String, String, String>,
+                        searchBase,
+                        contextCustomizers
+                    )
+                    val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+                    if (functionFilter.isEmpty()) {
+                        testPackage.runAllTests(result)
+                    } else {
+                        testPackage.runFilteredTests(result) { file, func ->
+                            functionFilter.any { filter ->
+                                when {
+                                    filter.contains(":") -> {
+                                        val parts = filter.split(":", limit = 2)
+                                        val fileMatch = parts[0].equals(file, true) ||
+                                            parts[0].equals(file.removeSuffix(".isl"), true)
+                                        fileMatch && parts[1].equals(func, true)
+                                    }
+                                    else -> filter.equals(func, true)
                                 }
-                                else -> filter.equals(func, true)
                             }
                         }
                     }
+                } catch (e: Exception) {
+                    result.testResults.addAll(createErrorResult(e, fileInfos).testResults)
                 }
-            } catch (e: Exception) {
-                createErrorResult(e, fileInfos)
             }
-            if (functions.isNotEmpty() && result.testResults.isEmpty()) {
-                System.err.println(red("No tests matched the specified function(s): ${functions.joinToString(", ")}"))
+
+            if (yamlSuites.isNotEmpty()) {
+                println("Found ${yamlSuites.size} YAML test suite(s)")
+                for (yamlPath in yamlSuites) {
+                    val suiteBase = if (yamlPath.toFile().isFile) yamlPath.parent else yamlPath
+                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers)
+                }
+            }
+
+            if (result.testResults.isEmpty()) {
+                System.err.println(red("No tests ran. Check path and --function filter."))
                 exitProcess(1)
             }
             reportResults(result)
@@ -153,6 +171,36 @@ class TestCommand : Runnable {
                     path to content
                 } else null
             }
+    }
+
+    private fun discoverYamlTestSuites(basePath: Path): List<Path> {
+        return when {
+            basePath.toFile().isFile -> {
+                if (basePath.toString().endsWith(".tests.yaml", true) || basePath.toString().endsWith(".tests.yml", true)) {
+                    listOf(basePath)
+                } else emptyList()
+            }
+            basePath.toFile().isDirectory -> {
+                val pattern = globPattern ?: "**/*.tests.yaml"
+                val matcher = FileSystems.getDefault().getPathMatcher("glob:$pattern")
+                Files.walk(basePath)
+                    .use { stream ->
+                        stream
+                            .filter { it.isRegularFile() }
+                            .filter { path ->
+                                val ext = path.extension.lowercase()
+                                (ext == "yaml" || ext == "yml") && path.nameWithoutExtension.endsWith(".tests", ignoreCase = true)
+                            }
+                            .filter { path ->
+                                val relative = basePath.relativize(path)
+                                val normalized = relative.toString().replace("\\", "/")
+                                globPattern == null || matcher.matches(FileSystems.getDefault().getPath(normalized))
+                            }
+                            .toList()
+                    }
+            }
+            else -> emptyList()
+        }
     }
 
     private fun createModuleResolver(testFiles: List<Pair<Path, String>>, searchBase: Path): java.util.function.BiFunction<String, String, String?> {

@@ -98,6 +98,7 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             if (trimmedLine.startsWith('//') || trimmedLine.startsWith('#')) continue;
             if (trimmedLine === '') continue;
             if (trimmedLine.match(/^[\}\]\)]/) && indentLevel > 0) indentLevel--;
+            else if (trimmedLine.match(/\}[;,]?\s*$/) && indentLevel > 0) indentLevel--;
             if ((trimmedLine.match(/^[\}\]].*;$/) || trimmedLine.match(/^[\}\]],$/)) && openInlineControlFlow.length > 0) {
                 const top = openInlineControlFlow[openInlineControlFlow.length - 1];
                 if (top !== 'switch' && indentLevel > 0) {
@@ -120,11 +121,15 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                 openInlineControlFlow.pop();
             }
             if (trimmedLine === 'else' && indentLevel > 0) {
-                indentLevel--;
-                indentLevel++;
+                const inSwitch = openInlineControlFlow.length > 0 && openInlineControlFlow[openInlineControlFlow.length - 1] === 'switch';
+                if (!inSwitch) {
+                    indentLevel--;
+                    indentLevel++;
+                }
                 continue;
             }
             if (trimmedLine.match(/[\{\[\(]$/)) indentLevel++;
+            else if (trimmedLine.match(/[=:]\s*\{/) || trimmedLine.match(/[=:]\s*\[/)) indentLevel++;
             const blockControlFlow = trimmedLine.match(/^(if|foreach|while|switch|parallel)[\s(]/);
             const inlineControlFlow = trimmedLine.match(/[=:>]\s*(if|foreach|while|switch)[\s(]/);
             const returnSwitchBlock = !blockControlFlow && !inlineControlFlow &&
@@ -267,8 +272,11 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                 continue;
             }
 
-            // Adjust indent for closing braces/brackets
+            // Adjust indent for closing braces/brackets (line starts with } ] ) or ends with } }; },
             if (trimmedLine.match(/^[\}\]\)]/) && indentLevel > 0) {
+                indentLevel--;
+            } else if (trimmedLine.match(/\}[;,]?\s*$/) && indentLevel > 0) {
+                // Line ends with } or }; or }, but doesn't start with } (fallback so we still close the block)
                 indentLevel--;
             }
             
@@ -309,14 +317,17 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
                 openInlineControlFlow.pop();
             }
 
-            // Handle 'else' - decrease then increase indent
+            // Handle 'else' - decrease then increase indent (align else with if). Skip inside switch where else is a case.
             if (trimmedLine === 'else' && indentLevel > 0) {
-                indentLevel--;
-                prevLineIndent = indentChar.repeat(indentLevel);
-                prevLineEndsWithColon = false;
-                formatted += prevLineIndent + trimmedLine + '\n';
-                indentLevel++;
-                continue;
+                const inSwitch = openInlineControlFlow.length > 0 && openInlineControlFlow[openInlineControlFlow.length - 1] === 'switch';
+                if (!inSwitch) {
+                    indentLevel--;
+                    prevLineIndent = indentChar.repeat(indentLevel);
+                    prevLineEndsWithColon = false;
+                    formatted += prevLineIndent + trimmedLine + '\n';
+                    indentLevel++;
+                    continue;
+                }
             }
 
             // Check if this line is a continuation of a modifier chain (starts with |)
@@ -337,8 +348,11 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
             prevLineIndent = lineIndent;
             prevLineEndsWithColon = trimmedLine.endsWith(':') && !trimmedLine.includes('?');
 
-            // Adjust indent for opening braces/brackets
+            // Adjust indent for opening braces/brackets (at end of line or assignment-style in middle, e.g. $var: { key: value )
             if (trimmedLine.match(/[\{\[\(]$/)) {
+                indentLevel++;
+            } else if (trimmedLine.match(/[=:]\s*\{/) || trimmedLine.match(/[=:]\s*\[/)) {
+                // Assignment/colon then { or [ on same line -> block content continues on next lines
                 indentLevel++;
             }
 

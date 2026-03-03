@@ -182,6 +182,22 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
             }
         }
 
+        // Unnecessary template literal (whole string is only one ${ ... }) -> replace with inner expression
+        if (diagnostic.code === 'unnecessary-template-literal') {
+            const innerExpression = (diagnostic as vscode.Diagnostic & { innerExpression?: string }).innerExpression;
+            if (innerExpression !== undefined) {
+                const action = new vscode.CodeAction(
+                    'Use expression directly (remove unnecessary interpolation)',
+                    vscode.CodeActionKind.QuickFix
+                );
+                action.edit = new vscode.WorkspaceEdit();
+                action.edit.replace(document.uri, diagnostic.range, innerExpression);
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                actions.push(action);
+            }
+        }
+
         // Convert + string concatenation to template literal (ISL string interpolation)
         if (diagnostic.code === 'no-plus-concatenation') {
             const rhs = document.getText(diagnostic.range).trim();
@@ -297,6 +313,36 @@ export class IslCodeActionProvider implements vscode.CodeActionProvider {
                 );
                 action.edit = new vscode.WorkspaceEdit();
                 action.edit.replace(document.uri, diagnostic.range, replacement);
+                action.diagnostics = [diagnostic];
+                action.isPreferred = true;
+                actions.push(action);
+            }
+        }
+
+        // Replace single-push-array pattern with [ item ] and remove intermediary variable
+        if (diagnostic.code === 'single-push-array') {
+            const arrayVarName = (diagnostic as any).arrayVarName as string | undefined;
+            const initLineIndex = (diagnostic as any).initLineIndex as number | undefined;
+            const pushArgument = (diagnostic as any).pushArgument as string | undefined;
+            const usageStartOffset = (diagnostic as any).usageStartOffset as number | undefined;
+            const usageEndOffset = (diagnostic as any).usageEndOffset as number | undefined;
+            if (arrayVarName !== undefined && initLineIndex !== undefined && pushArgument !== undefined &&
+                usageStartOffset !== undefined && usageEndOffset !== undefined) {
+                const action = new vscode.CodeAction(
+                    'Use [ item ] instead of variable and push()',
+                    vscode.CodeActionKind.QuickFix
+                );
+                action.edit = new vscode.WorkspaceEdit();
+                const usageRange = new vscode.Range(
+                    document.positionAt(usageStartOffset),
+                    document.positionAt(usageEndOffset)
+                );
+                action.edit.replace(document.uri, usageRange, `[ ${pushArgument} ]`);
+                const initLine = document.lineAt(initLineIndex);
+                const deleteEnd = initLineIndex + 1 < document.lineCount
+                    ? new vscode.Position(initLineIndex + 1, 0)
+                    : new vscode.Position(initLineIndex, initLine.text.length);
+                action.edit.delete(document.uri, new vscode.Range(initLine.range.start, deleteEnd));
                 action.diagnostics = [diagnostic];
                 action.isPreferred = true;
                 actions.push(action);

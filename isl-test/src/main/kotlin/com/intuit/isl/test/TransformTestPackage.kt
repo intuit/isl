@@ -66,7 +66,7 @@ class TransformTestPackage(
 
     private fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext, setupFunc: String? = null) {
         val fullFunctionName = TransformPackage.toFullFunctionName(testFile, testFunc)
-        val context = TestOperationContext.create(testResultContext, testFile, basePath, contextCustomizers)
+        val context = TestOperationContext.create(testResultContext, testFile, basePath, mockFileName = null, contextCustomizers = contextCustomizers)
         // Run setup function if it exists
         if (setupFunc != null) {
             val fullSetupFunctionName = TransformPackage.toFullFunctionName(testFile, setupFunc)

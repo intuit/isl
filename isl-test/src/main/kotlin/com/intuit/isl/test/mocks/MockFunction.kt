@@ -89,9 +89,18 @@ object MockFunction {
             throw IllegalArgumentException("Mock file must have a root object with 'func' and/or 'annotation' keys")
         }
 
-        val obj = root as ObjectNode
-        val funcMocks = obj.get("func")
-        val annotationMocks = obj.get("annotation")
+        applyMocksFromNode(context, root as ObjectNode)
+        return null
+    }
+
+    /**
+     * Applies mocks from a parsed object (e.g. from YAML/JSON) to the test context.
+     * Root must have "func" and/or "annotation" arrays in the same format as @.Mock.Load file.
+     * Used by the test command when loading inline mocks from a .tests.yaml suite.
+     */
+    fun applyMocksFromNode(context: TestOperationContext, root: ObjectNode) {
+        val funcMocks = root.get("func")
+        val annotationMocks = root.get("annotation")
 
         if (funcMocks != null && funcMocks.isArray) {
             funcMocks.forEach { entry ->
@@ -107,8 +116,6 @@ object MockFunction {
                 }
             }
         }
-
-        return null
     }
 
     private fun resolvePath(basePath: Path, currentFile: String, fileName: String): Path {
@@ -132,7 +139,7 @@ object MockFunction {
             throw IllegalArgumentException("Invalid mock name: $name")
         }
 
-        val returnNode = node.get("return")
+        val returnNode = node.get("result") ?: node.get("return")
         val returnValue: Any? = when {
             returnNode == null || returnNode.isNull -> null
             else -> returnNode
