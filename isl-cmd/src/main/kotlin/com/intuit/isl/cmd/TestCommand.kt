@@ -28,20 +28,20 @@ import kotlin.system.exitProcess
 @Command(
     name = "test",
     aliases = ["tests"],
-    description = ["Execute ISL tests from the specified path or current folder"]
+    description = ["Execute ISL tests from the specified path or current folder. Runs .isl files with @setup/@test and *.tests.yaml suites. Examples: isl test .  |  isl test tests/  |  isl test calculator.tests.yaml  |  isl test . -f add"]
 )
 class TestCommand : Runnable {
 
     @Parameters(
         index = "0",
         arity = "0..1",
-        description = ["Path to search for tests: directory, file, or glob pattern (e.g. tests/**/*.isl). Default: current directory"]
+        description = ["Path to search for tests: directory, single file, or glob. Examples: . (current dir), tests/, calculator.tests.yaml. Default: current directory"]
     )
     var path: File? = null
 
     @Option(
         names = ["--glob"],
-        description = ["Glob pattern to filter files (e.g. **/*.isl). Used when path is a directory"]
+        description = ["Glob for .isl files when path is a directory (e.g. **/*.isl). YAML suites (*.tests.yaml) use **/*.tests.yaml when not set"]
     )
     var globPattern: String? = null
 
@@ -62,23 +62,24 @@ class TestCommand : Runnable {
             val basePath = (path?.absoluteFile ?: File(System.getProperty("user.dir"))).toPath().normalize()
             val searchBase = if (basePath.toFile().isDirectory) basePath else basePath.parent
             when {
-                basePath.toFile().isFile -> println("Searching: ${basePath.toAbsolutePath()}")
+                basePath.toFile().isFile -> println("[ISL Search] Searching: ${basePath.toAbsolutePath()}")
                 else -> {
-                    val pattern = globPattern ?: "**/*.isl"
-                    println("Searching: ${basePath.toAbsolutePath()} (glob: $pattern)")
+                    val islGlob = globPattern ?: "**/*.isl"
+                    println("[ISL Search] Searching: ${basePath.toAbsolutePath()} (ISL: $islGlob, YAML: **/*.tests.yaml)")
                 }
             }
             val testFiles = discoverTestFiles(basePath)
             val yamlSuites = discoverYamlTestSuites(basePath)
             if (testFiles.isEmpty() && yamlSuites.isEmpty()) {
-                System.err.println(red("No test files found (looking for .isl files with @setup or @test, or *.tests.yaml)"))
+                System.err.println(red("[ISL Error] No test files found (looking for .isl with @setup/@test, or *.tests.yaml). Try: isl test <dir>  or  isl test path/to/suite.tests.yaml"))
                 exitProcess(1)
             }
             val result = TestResultContext()
             val contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit> = listOf { ctx -> LogExtensions.registerExtensions(ctx) }
+            val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
             if (testFiles.isNotEmpty()) {
-                println("Found ${testFiles.size} ISL test file(s)")
+                println("[ISL Loading] Found ${testFiles.size} ISL test file(s)")
                 val fileInfos = testFiles.map { (filePath, content) ->
                     val moduleName = searchBase.relativize(filePath).toString().replace("\\", "/")
                     FileInfo(moduleName, content)
@@ -92,7 +93,6 @@ class TestCommand : Runnable {
                         searchBase,
                         contextCustomizers
                     )
-                    val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
                     if (functionFilter.isEmpty()) {
                         testPackage.runAllTests(result)
                     } else {
@@ -116,15 +116,15 @@ class TestCommand : Runnable {
             }
 
             if (yamlSuites.isNotEmpty()) {
-                println("Found ${yamlSuites.size} YAML test suite(s)")
+                println("[ISL Loading] Found ${yamlSuites.size} YAML test suite(s)")
                 for (yamlPath in yamlSuites) {
                     val suiteBase = if (yamlPath.toFile().isFile) yamlPath.parent else yamlPath
-                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers)
+                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers, functionFilter)
                 }
             }
 
             if (result.testResults.isEmpty()) {
-                System.err.println(red("No tests ran. Check path and --function filter."))
+                System.err.println(red("[ISL Error] No tests ran. Check path and --function filter."))
                 exitProcess(1)
             }
             reportResults(result)
@@ -134,7 +134,7 @@ class TestCommand : Runnable {
                 exitProcess(1)
             }
         } catch (e: Exception) {
-            System.err.println(red("Error: ${e.message}"))
+            System.err.println(red("[ISL Error] Error: ${e.message}"))
             if (System.getProperty("debug") == "true") {
                 e.printStackTrace()
             }
@@ -211,10 +211,18 @@ class TestCommand : Runnable {
         val fileByFullName = testFiles.associate { (filePath, content) ->
             searchBase.relativize(filePath).toString().replace("\\", "/") to content
         }
+        val resolvedPaths = mutableMapOf<String, Path>()
+        testFiles.forEach { (filePath, _) ->
+            val fullName = searchBase.relativize(filePath).toString().replace("\\", "/")
+            resolvedPaths[fullName] = filePath.toAbsolutePath().normalize()
+        }
         return java.util.function.BiFunction { fromModule: String, dependentModule: String ->
             fileByFullName[dependentModule]
                 ?: fileByModuleName[dependentModule]
-                ?: IslModuleResolver.resolveExternalModule(searchBase, fromModule, dependentModule)
+                ?: IslModuleResolver.resolveExternalModule(searchBase, fromModule, dependentModule, resolvedPaths)
+                ?: throw TransformCompilationException(
+                    "Could not find module '$dependentModule' (imported from $fromModule). Searched relative to ${resolvedPaths[fromModule]?.parent ?: searchBase.resolve(fromModule).parent}"
+                )
         }
     }
 
@@ -223,24 +231,24 @@ class TestCommand : Runnable {
         val failed = result.testResults.count { !it.success }
         val byGroup = result.testResults.groupBy { it.testGroup ?: it.testFile }
         byGroup.forEach { (group, tests) ->
-            println("  $group")
+            println("[ISL Result]   $group")
             tests.forEach { tr ->
                 val displayName = if (tr.testName != tr.functionName) "${tr.testName} (${tr.functionName})" else tr.testName
                 if (tr.success) {
-                    println("    ${green("[PASS]")} $displayName")
+                    println("[ISL Result]     ${green("[PASS]")} $displayName")
                 } else {
-                    println("    ${red("[FAIL]")} $displayName")
-                    tr.message?.let { println("        ${red(it)}") }
+                    println("[ISL Result]     ${red("[FAIL]")} $displayName")
+                    tr.message?.let { println("[ISL Result]         ${red(it)}") }
                     tr.errorPosition?.let { pos ->
                         val loc = "${pos.file}:${pos.line}:${pos.column}"
-                        println("        ${red("at $loc")}")
+                        println("[ISL Result]         ${red("at $loc")}")
                     }
                 }
             }
         }
-        println("---")
+        println("[ISL Result] ---")
         val resultsLine = "Results: $passed passed, $failed failed, ${result.testResults.size} total"
-        println(if (failed > 0) red(resultsLine) else resultsLine)
+        println(if (failed > 0) red("[ISL Result] $resultsLine") else "[ISL Result] $resultsLine")
     }
 
     private fun green(text: String) = "\u001B[32m$text\u001B[0m"
@@ -295,6 +303,6 @@ class TestCommand : Runnable {
         )
         val mapper = jacksonObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
         file.writeText(mapper.writeValueAsString(output))
-        println("Results written to: ${file.absolutePath}")
+        println("[ISL Output] Results written to: ${file.absolutePath}")
     }
 }

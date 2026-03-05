@@ -57,7 +57,7 @@ class TransformCommand : Runnable {
     
     @Option(
         names = ["-f", "--format"],
-        description = ["Output format: json, yaml, pretty-json (default: json)"]
+        description = ["Output format: json, yaml, pretty-json (default: json, or inferred from -o file extension)"]
     )
     var format: String = "json"
     
@@ -75,6 +75,15 @@ class TransformCommand : Runnable {
     
     override fun run() {
         try {
+            // Infer output format from output file extension when not explicitly set
+            if (outputFile != null && format == "json") {
+                when (outputFile!!.extension.lowercase()) {
+                    "yaml", "yml" -> format = "yaml"
+                    "json" -> { /* keep json */ }
+                    else -> { /* keep json */ }
+                }
+            }
+            
             // Validate script file
             if (!scriptFile.exists()) {
                 System.err.println("Error: Script file not found: ${scriptFile.absolutePath}")
@@ -135,8 +144,9 @@ class TransformCommand : Runnable {
             LogExtensions.registerExtensions(context)
             variables.forEach { (key, value) ->
                 val varName = if (key.startsWith("$")) key else "$$key"
-                val varValue = JsonConvert.convert(value);
-                println("Setting variable " + varName + " to " + varValue );
+                val varValue = JsonConvert.convert(value)
+                val valuePreview = varValue.toString().let { if (it.length > 10) it.take(10) + "..." else it }
+                println("Setting variable $varName to $valuePreview")
                 context.setVariable(varName, varValue)
             }
             
@@ -149,7 +159,7 @@ class TransformCommand : Runnable {
             
             if (outputFile != null) {
                 outputFile!!.writeText(output)
-                println("Output written to: ${outputFile!!.absolutePath}")
+                // When -o/--output is set, result goes only to the file (no console output)
             } else {
                 println(output)
             }

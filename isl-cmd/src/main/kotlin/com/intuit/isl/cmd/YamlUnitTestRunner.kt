@@ -19,6 +19,9 @@ import java.nio.file.Path
 import kotlin.io.path.extension
 import kotlin.io.path.nameWithoutExtension
 
+/** Empty = run all tests; non-empty = run only tests whose functionName (or "suiteFile:functionName") matches. */
+typealias FunctionFilter = Set<String>
+
 object YamlUnitTestRunner {
 
     private val yamlMapper = com.fasterxml.jackson.databind.ObjectMapper(YAMLFactory()).apply {
@@ -36,12 +39,14 @@ object YamlUnitTestRunner {
     /**
      * Runs a single *.tests.yaml suite and appends results to [resultContext].
      * [yamlPath] is the path to the .tests.yaml file; [basePath] is the directory containing it (used for resolving islSource and mockSource).
+     * When [functionFilter] is non-empty, only test entries whose functionName matches (or "suiteFile:functionName") are run.
      */
     fun runSuite(
         yamlPath: Path,
         basePath: Path,
         resultContext: TestResultContext,
-        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>
+        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
+        functionFilter: FunctionFilter = emptySet()
     ) {
         val suite = parseSuite(yamlPath.toFile().readText())
         val setup = suite.setup
@@ -63,12 +68,9 @@ object YamlUnitTestRunner {
         val islContent = islFile.readText()
         val moduleName = basePath.relativize(islPath).toString().replace("\\", "/")
         val fileInfos = mutableListOf(FileInfo(moduleName, islContent))
-        val findExternalModule = java.util.function.BiFunction<String, String, String> { from, dep ->
-            IslModuleResolver.resolveExternalModule(basePath, from, dep)
-                ?: throw TransformCompilationException(
-                    "Could not find module '$dep' (imported from $from). Searched relative to $basePath"
-                )
-        }
+        val resolvedPaths = mutableMapOf<String, Path>()
+        resolvedPaths[moduleName] = islPath.toAbsolutePath().normalize()
+        val findExternalModule = IslModuleResolver.createModuleFinder(basePath, resolvedPaths)
         val transformPackage: TransformPackage = try {
             TransformPackageBuilder().build(fileInfos, findExternalModule)
         } catch (e: Exception) {
@@ -87,8 +89,25 @@ object YamlUnitTestRunner {
         }
 
         val groupName = suite.category ?: yamlPath.nameWithoutExtension
+        val suiteFileName = yamlPath.fileName.toString()
 
-        for (entry in suite.tests) {
+        val testsToRun = if (functionFilter.isEmpty()) suite.tests else {
+            suite.tests.filter { entry ->
+                functionFilter.any { filter ->
+                    when {
+                        filter.contains(":") -> {
+                            val parts = filter.split(":", limit = 2)
+                            val fileMatch = parts[0].equals(suiteFileName, true) ||
+                                parts[0].equals(yamlPath.nameWithoutExtension, true)
+                            fileMatch && parts[1].equals(entry.functionName, true)
+                        }
+                        else -> filter.equals(entry.functionName, true)
+                    }
+                }
+            }
+        }
+
+        testsToRun.forEachIndexed { index, entry ->
             val testResult = runOneTest(
                 transformPackage = transformPackage,
                 moduleName = moduleName,
@@ -97,7 +116,8 @@ object YamlUnitTestRunner {
                 basePath = basePath,
                 groupName = groupName,
                 yamlPath = yamlPath,
-                contextCustomizers = contextCustomizers
+                contextCustomizers = contextCustomizers,
+                printMockSummary = (index == 0)
             )
             resultContext.testResults.add(testResult)
         }
@@ -111,7 +131,8 @@ object YamlUnitTestRunner {
         basePath: Path,
         groupName: String,
         yamlPath: Path,
-        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>
+        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
+        printMockSummary: Boolean = false
     ): TestResult {
         val context = TestOperationContext.create(
             testResultContext = TestResultContext(),
@@ -136,22 +157,35 @@ object YamlUnitTestRunner {
                     if (root.isObject) MockFunction.applyMocksFromNode(context, root as ObjectNode)
                 }
             }
-            // 2. Apply inline mocks (override mockSource)
+            // 2. Apply inline mocks after mockSource (all mocks are additive; params differentiate)
             setup.mocksAsObject()?.let { MockFunction.applyMocksFromNode(context, it) }
+
+            if (printMockSummary) {
+                val names = (context.mockExtensions.mockExtensions.keys +
+                    context.mockExtensions.mockAnnotations.keys +
+                    context.mockExtensions.mockStatementExtensions.keys).sorted()
+                val n = names.size
+                if (n > 0) println("[ISL Mock] Mocked M $n function(s): ${names.joinToString(", ")}")
+            }
 
             // 3. Set input variables (param names from function, or from input map keys)
             val paramNames = getFunctionParamNames(transformPackage, moduleName, entry.functionName)
             setInputVariables(context, entry.input, paramNames)
 
             // 4. Run the function
+            println("[ISL Mock] Running ${entry.functionName}")
             val fullName = TransformPackage.toFullFunctionName(moduleName, entry.functionName)
             val result = transformPackage.runTransformNew(fullName, context)
 
-            // 5. Compare with expected
+            // 5. Compare with expected (deep compare; on failure report exact field diffs)
             val expected = entry.expected
-            val success = if (expected == null) result == null else jsonEquals(expected, result)
+            val (success, diffs) = if (expected == null) {
+                (result == null) to emptyList<JsonDiff>()
+            } else {
+                jsonDeepCompare(expected, result)
+            }
             val message = if (!success && expected != null) {
-                "Expected: ${JsonConvert.mapper.writeValueAsString(expected)}\nActual: ${JsonConvert.mapper.writeValueAsString(result)}"
+                buildComparisonFailureMessage(expected, result, diffs)
             } else null
 
             return TestResult(
@@ -204,21 +238,91 @@ object YamlUnitTestRunner {
         }
     }
 
-    private fun jsonEquals(expected: JsonNode, actual: JsonNode?): Boolean {
-        if (actual == null) return expected.isNull
-        if (expected.isNumber && actual.isNumber) return expected.decimalValue() == actual.decimalValue()
-        if (expected.isNull && actual.isNull) return true
-        if (expected.nodeType != actual.nodeType) return false
+    /** Path + expected/actual value at a difference; path uses $root.field.[0].key format. */
+    private data class JsonDiff(val path: String, val expectedValue: String, val actualValue: String)
+
+    /**
+     * Deep-compares expected and actual JSON; returns (true, empty) if equal,
+     * (false, non-empty list of diffs) with path and values at each difference.
+     */
+    private fun jsonDeepCompare(expected: JsonNode, actual: JsonNode?, path: String = "$"): Pair<Boolean, List<JsonDiff>> {
+        if (actual == null) {
+            return if (expected.isNull) true to emptyList()
+            else false to listOf(JsonDiff(path, formatJsonValue(expected), "null"))
+        }
+        if (expected.isNull) {
+            return if (actual.isNull) true to emptyList()
+            else false to listOf(JsonDiff(path, "null", formatJsonValue(actual)))
+        }
+        if (expected.isNumber && actual.isNumber) {
+            val eq = expected.decimalValue() == actual.decimalValue()
+            return if (eq) true to emptyList()
+            else false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
+        }
+        if (expected.nodeType != actual.nodeType) {
+            return false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
+        }
         when {
             expected.isObject -> {
-                if (!actual.isObject || expected.size() != actual.size()) return false
-                return expected.fields().asSequence().all { (k, v) -> jsonEquals(v, actual.get(k)) }
+                if (!actual.isObject) {
+                    return false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
+                }
+                val allKeys = (expected.fieldNames().asSequence().toSet() + actual.fieldNames().asSequence().toSet()).toList()
+                val acc = mutableListOf<JsonDiff>()
+                for (k in allKeys) {
+                    val expectedChild = expected.get(k)
+                    val actualChild = actual.get(k)
+                    val subPath = if (path == "$") "$$k" else "$path.$k"
+                    when {
+                        expectedChild == null && actualChild == null -> {}
+                        expectedChild == null -> acc.add(JsonDiff(subPath, "missing", formatJsonValue(actualChild)))
+                        actualChild == null -> acc.add(JsonDiff(subPath, formatJsonValue(expectedChild), "missing"))
+                        else -> {
+                            val (ok, subDiffs) = jsonDeepCompare(expectedChild, actualChild, subPath)
+                            if (!ok) acc.addAll(subDiffs)
+                        }
+                    }
+                }
+                if (expected.size() != actual.size()) {
+                    acc.add(JsonDiff(path, "object size ${expected.size()}", "object size ${actual.size()}"))
+                }
+                return (acc.isEmpty()) to acc
             }
             expected.isArray -> {
-                if (!actual.isArray || expected.size() != actual.size()) return false
-                return (0 until expected.size()).all { i -> jsonEquals(expected.get(i), actual.get(i)) }
+                if (!actual.isArray) {
+                    return false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
+                }
+                val acc = mutableListOf<JsonDiff>()
+                val size = minOf(expected.size(), actual.size())
+                for (i in 0 until size) {
+                    val indexPath = if (path == "$") "$[$i]" else "$path.[$i]"
+                    val (ok, subDiffs) = jsonDeepCompare(expected.get(i), actual.get(i), indexPath)
+                    if (!ok) acc.addAll(subDiffs)
+                }
+                if (expected.size() != actual.size()) {
+                    acc.add(JsonDiff(path, "array size ${expected.size()}", "array size ${actual.size()}"))
+                }
+                return (acc.isEmpty()) to acc
             }
-            else -> return expected.equals(actual)
+            else -> {
+                val eq = expected.equals(actual)
+                return if (eq) true to emptyList()
+                else false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
+            }
         }
+    }
+
+    private fun formatJsonValue(node: JsonNode): String =
+        JsonConvert.mapper.writeValueAsString(node)
+
+    private fun buildComparisonFailureMessage(expected: JsonNode, actual: JsonNode?, diffs: List<JsonDiff>): String {
+        val fullExpected = JsonConvert.mapper.writeValueAsString(expected)
+        val fullActual = actual?.let { JsonConvert.mapper.writeValueAsString(it) } ?: "null"
+        val header = "Expected: $fullExpected\nActual: $fullActual"
+        if (diffs.isEmpty()) return header
+        val diffLines = diffs.joinToString("\n") { d ->
+            "Expected: ${d.path} = ${d.expectedValue}\nActual: ${d.path} = ${d.actualValue}\r\n"
+        }
+        return "[ISL Assert] Result Differences:\n$header\n\n[ISL Assert] Difference(s):\n$diffLines\n"
     }
 }

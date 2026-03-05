@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
 import { IslDocumentFormatter } from './formatter';
 import { IslValidator } from './validator';
 import { IslExecutor } from './executor';
@@ -163,6 +164,27 @@ export function activate(context: vscode.ExtensionContext) {
 
     // Register executor
     const executor = new IslExecutor(context.extensionPath);
+
+    // ISL terminal profile: shell with lib/ on PATH so user can run "isl" or "isl.bat" / "isl.sh"
+    const islLibPath = path.join(context.extensionPath, 'lib');
+    context.subscriptions.push(
+        vscode.window.registerTerminalProfileProvider('isl.terminal-profile', {
+            provideTerminalProfile(_token: vscode.CancellationToken): vscode.ProviderResult<vscode.TerminalProfile> {
+                const pathEnv = process.env.PATH || process.env.Path || '';
+                const newPath = `${islLibPath}${path.delimiter}${pathEnv}`;
+                const shellPath = process.platform === 'win32'
+                    ? (process.env.COMSPEC || 'cmd.exe')
+                    : (process.env.SHELL || '/bin/bash');
+                const workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri;
+                return new vscode.TerminalProfile({
+                    name: 'ISL',
+                    shellPath,
+                    cwd: workspaceRoot,
+                    env: { ...process.env, PATH: newPath }
+                });
+            }
+        })
+    );
 
     // Register commands
     context.subscriptions.push(

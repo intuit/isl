@@ -1,9 +1,9 @@
 ---
-title: Mocking
+
+## title: Mocking
 parent: Unit Testing
 grand_parent: Advanced Topics
 nav_order: 4
----
 
 ## Introduction
 
@@ -150,13 +150,33 @@ func:
     return: { status: 200, body: "ok" }
     params: [ "https://example.com" ]   # optional parameter matching
 
+  # ISL mock: define an ISL function and run it as the mock (compiled on the fly)
+  - name: "mask"
+    isl: |
+         fun mask( $value ) {
+             return `xxxxxx$value`;
+         }
+
+  # Pipe modifier: "Modifier.[Name]" mocks "| name" (e.g. $x | mask2)
+  - name: "Modifier.mask2"
+    isl: |
+         fun mask2( $value ) {
+             return `xxxxxx$value`;
+         }
+
 annotation:
-  - name: "cache#1"
-    return: "cached-value"
+  - name: "mask2"
+    result: "masked"
+  # - name: "cache#1"
+  #   return: "cached-value"
 ```
 
 - `func` and `annotation` are arrays of mock entries.
-- Each entry has `name` (required), `return` (required), and optionally `params` (array of values to match).
+- Each entry has `name` (required), and either `return`/`result` (static value) or `isl` (ISL snippet).
+- **Pipe modifiers** (`| name`): to mock a pipe modifier like `$x | mask2`, add a **func** entry with name `Modifier.[Name]` (e.g. `Modifier.mask2`). The mock receives the left-hand value as the first parameter.
+- **Annotations** (`@name` on a function): use the `annotation` array with the annotation name (e.g. `mask2`). This mocks the decorator when you write `@mask2 fun foo() { ... }`; it does not mock the pipe `| mask2`.
+- `**isl**`: Multiline ISL source defining one or more functions. The first function is compiled and executed as the mock; when the mock is called, that function runs with the call's parameters bound to its arguments. Use this for dynamic or computed mock behaviour.
+- Optionally `params` (array of values to match) for parameter-based matching.
 - Use `#1`, `#2`, etc. in the name for indexed (sequential) returns.
 - Supports `.yaml`, `.yml`, and `.json` files.
 
@@ -499,3 +519,4 @@ fun test_function() {
  // ]
 }
 ```
+

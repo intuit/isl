@@ -28,29 +28,38 @@ object LogExtensions {
     private fun debug(context: FunctionExecuteContext): Any? {
         if (System.getProperty("debug") != "true") return null
         val message = formatMessage(context.parameters)
-        println("[DEBUG] $message")
+        val loc = logLocation(context)
+        println("[ISL Log $loc] $message")
         return null
     }
 
     @Suppress("UNUSED_PARAMETER")
     private fun info(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
-        println("[INFO] $message")
+        val loc = logLocation(context)
+        println("[ISL Log $loc] $message")
         return null
     }
 
     @Suppress("UNUSED_PARAMETER")
     private fun warn(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
-        System.err.println("[WARN] $message")
+        val loc = logLocation(context)
+        System.err.println("[ISL Log $loc] $message")
         return null
     }
 
     @Suppress("UNUSED_PARAMETER")
     private fun error(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
-        System.err.println("[ERROR] $message")
+        val loc = logLocation(context)
+        System.err.println("[ISL Log $loc] $message")
         return null
+    }
+
+    private fun logLocation(context: FunctionExecuteContext): String {
+        val pos = context.command.token.position
+        return "[${pos.file}]:${pos.line}"
     }
 
     private fun formatMessage(parameters: Array<*>): String {

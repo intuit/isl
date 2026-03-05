@@ -1,7 +1,9 @@
 package com.intuit.isl.test.mocks
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.utils.JsonConvert
+import com.intuit.isl.utils.Position
 
 class MockObject {
     private val matchingParamMap = mutableMapOf<MockParamsMatcher, Any?>()
@@ -13,9 +15,25 @@ class MockObject {
     private val defaultReturnIndexed = mutableListOf<Any?>()
     private var defaultCallCount = 0
     private val defaultReturnCaptures = MockCaptureContext()
+    /** True when a default (no-params) mock was ever added; used to distinguish "no match" from "matched and returned null". */
+    private var hasDefaultReturn = false
+
+    /** Clears all mocks and captures so this MockObject can be reused (e.g. for local overrides). */
+    fun clear() {
+        matchingParamMap.clear()
+        matchingParamMapIndexed.clear()
+        matchingParamCallCount.clear()
+        matchingParamCaptures.clear()
+        defaultReturnValue = null
+        defaultReturnIndexed.clear()
+        defaultCallCount = 0
+        defaultReturnCaptures.captures.clear()
+        hasDefaultReturn = false
+    }
 
     fun addMock(returnValue: Any?, parameters: Map<Int, JsonNode>, index: Int? = null): Int? {
         return if (parameters.isEmpty()) {
+            hasDefaultReturn = true
             if (index != null) {
                 ensureIndexCapacity(defaultReturnIndexed, index)
                 defaultReturnIndexed[index - 1] = returnValue
@@ -60,7 +78,18 @@ class MockObject {
         }
     }
 
-    fun tryFindMatch(targetParams: Map<Int, JsonNode>, looseMatch: Boolean = true): Any? {
+    /**
+     * Finds a matching mock for the given parameters.
+     * @param functionName Optional; used in the error message when no match is found.
+     * @param position Optional; attached to the thrown exception when no match is found.
+     * @throws TransformException when no mock matches and no default mock is defined (with function name and params in the message).
+     */
+    fun tryFindMatch(
+        targetParams: Map<Int, JsonNode>,
+        looseMatch: Boolean = true,
+        functionName: String? = null,
+        position: Position? = null
+    ): Any? {
         matchingParamMap.forEach { (matcher, returnValue) ->
             if (matcher.match(targetParams, looseMatch)) {
                 val captureContext = matchingParamCaptures.getOrPut(matcher.hashCode()) { MockCaptureContext() }
@@ -96,6 +125,12 @@ class MockObject {
             val result = defaultReturnIndexed[defaultCallCount]
             defaultCallCount++
             return result
+        }
+        if (!hasDefaultReturn) {
+            val paramsJson = targetParams.toSortedMap().values.let { JsonConvert.mapper.writeValueAsString(it) }
+            val namePart = if (functionName != null) " for function @.$functionName" else ""
+            val message = "No mock matched$namePart. Called with parameters: $paramsJson. Add a matching entry (same params or a default result/isl) to your mock file."
+            throw TransformException(message, position, null)
         }
         return defaultReturnValue
     }

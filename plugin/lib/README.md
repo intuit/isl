@@ -5,6 +5,8 @@ This directory contains the embedded ISL command-line runtime that allows the ex
 ## Contents
 
 - `isl-cmd-all.jar` - ISL command-line tool with all dependencies (shadow JAR, ~35MB)
+- `isl.bat` - Windows script to run the JAR from the command line
+- `isl.sh` - Linux/Mac script to run the JAR from the command line
 
 ## How It Works
 
@@ -16,6 +18,15 @@ When you click the "▶ Run" button above an ISL function, the extension:
 4. Shows the output in the terminal
 
 The ISL CLI also supports running tests: `java -jar isl-cmd-all.jar test [path]`
+
+### Command-line scripts
+
+From a terminal you can use the bundled scripts (no need to type `java -jar`):
+
+- **Windows:** `lib\isl.bat --version`, `lib\isl.bat transform script.isl -i input.json`, `lib\isl.bat test`
+- **Linux/Mac:** `./lib/isl.sh --version`, `./lib/isl.sh transform script.isl -i input.json`, `./lib/isl.sh test`
+
+Ensure Java is on your PATH, or set `JAVA_HOME`. The scripts run the JAR in the same directory.
 
 ## Requirements
 

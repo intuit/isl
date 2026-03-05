@@ -60,7 +60,13 @@ class TransformTestPackage(
 
     fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext? = null) : TestResultContext {
         var context = testResultContext ?: TestResultContext()
-        runTest(testFile, testFunc, context, testFiles[testFile]?.setupFile)
+        println();
+        println("[ISLTest]>> Start Running=$testFunc");
+        try{
+            runTest(testFile, testFunc, context, testFiles[testFile]?.setupFile)
+        } finally{
+            println("[ISLTest]<< DONE Running=$testFunc");
+        }
         return context
     }
 

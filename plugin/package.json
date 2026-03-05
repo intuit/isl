@@ -25,7 +25,8 @@
     "jolt"
   ],
   "activationEvents": [
-    "workspaceContains:**/*.isl"
+    "workspaceContains:**/*.isl",
+    "onTerminalProfile:isl.terminal-profile"
   ],
   "main": "./out/extension.js",
   "contributes": {
@@ -212,7 +213,16 @@
         "language": "isl",
         "path": "./snippets/isl.json"
       }
-    ]
+    ],
+    "terminal": {
+      "profiles": [
+        {
+          "id": "isl.terminal-profile",
+          "title": "ISL",
+          "icon": "terminal"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "npm run compile:production",

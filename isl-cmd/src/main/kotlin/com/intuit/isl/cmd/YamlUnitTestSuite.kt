@@ -2,6 +2,7 @@ package com.intuit.isl.cmd
 
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.intuit.isl.utils.JsonConvert
 
 /**
  * YAML-driven unit test suite (e.g. *.tests.yaml).
@@ -24,10 +25,15 @@ data class YamlTestSetup(
      * - Array: mockSource: [commonMocks.yaml, otherMocks.yaml] — loaded in order, each overrides the previous.
      */
     val mockSource: JsonNode? = null,
-    /** Inline mocks in same format as @.Mock.Load (func/annotation arrays). Applied after mockSource so they override. */
-    val mocks: JsonNode? = null
+    /** Inline mocks in same format as @.Mock.Load (func/annotation arrays). Applied after mockSource; all mocks are additive (params differentiate). Uses Map so Jackson reliably deserializes nested YAML. */
+    val mocks: Map<String, Any?>? = null
 ) {
-    fun mocksAsObject(): ObjectNode? = mocks?.takeIf { it.isObject } as? ObjectNode
+    /** Converts inline mocks to ObjectNode for applyMocksFromNode. Handles both Map (from YAML) and ensures func/annotation structure. */
+    fun mocksAsObject(): ObjectNode? {
+        val map = mocks ?: return null
+        val node: JsonNode = JsonConvert.mapper.valueToTree(map)
+        return if (node.isObject) node as ObjectNode else null
+    }
 
     /** Resolves mockSource to a list of file names: one for a string, many for an array, empty if null. */
     fun mockSourceFiles(): List<String> = when {

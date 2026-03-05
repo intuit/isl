@@ -91,6 +91,35 @@ class TestOperationContext : BaseOperationContext {
 
             return TransformException(message.trimEnd(), position)
         }
+
+        private fun buildUnmockedModifierException(modifierKey: String, context: FunctionExecuteContext): TransformException {
+            val displayName = if (modifierKey.lowercase().startsWith("modifier.")) modifierKey.drop("modifier.".length) else modifierKey
+            val position = context.command.token.position
+            val place = "file=${position.file}, line=${position.line}, column=${position.column}" +
+                (position.endLine?.let { ", endLine=$it" } ?: "") +
+                (position.endColumn?.let { ", endColumn=$it" } ?: "")
+
+            val testContext = context.executionContext.operationContext as? TestOperationContext
+            val mockFile = testContext?.mockFileName ?: "your-mocks.yaml"
+
+            val yamlName = "Modifier.$displayName"
+            val yamlSnippet = buildString {
+                appendLine("- name: \"$yamlName\"")
+                appendLine("  result: <replace with expected return value>")
+            }
+
+            val message = buildString {
+                appendLine("Unmocked modifier was called. The test must only call modifiers that are mocked.")
+                appendLine("Modifier: | $displayName")
+                appendLine("Called from: $place")
+                appendLine("")
+                appendLine("To mock this modifier add this to your [$mockFile] then rerun the tests:")
+                appendLine("func:")
+                append(yamlSnippet)
+            }
+
+            return TransformException(message.trimEnd(), position)
+        }
     }
 
     constructor() : super() {
@@ -118,7 +147,16 @@ class TestOperationContext : BaseOperationContext {
         if (function != null) {
             return function
         }
-        return super.getExtension(name)
+        val fromSuper = super.getExtension(name)
+        if (fromSuper != null) {
+            return fromSuper
+        }
+        if (name.lowercase().startsWith("modifier.")) {
+            return { context ->
+                throw buildUnmockedModifierException(name, context)
+            }
+        }
+        return null
     }
 
     override fun getAnnotation(annotationName: String): AsyncExtensionAnnotation? {

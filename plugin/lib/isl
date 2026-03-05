@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# ISL launcher (no extension) - when lib is on PATH you can run "isl" directly.
+SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+exec "$SCRIPT_DIR/isl.sh" "$@"
