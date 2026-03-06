@@ -101,15 +101,17 @@ setup:
   islSource: name of ISL file to test (e.g. mymodule.isl)
   mockSource: optional mock file(s) — single path (e.g. mymocks.yaml) or array (e.g. [commonMocks.yaml, otherMocks.yaml]); loaded in order, each overrides the previous; same format as @.Mock.Load; paths relative to suite directory
   mocks: optional inline mocks (func/annotation arrays); applied after mockSource so they override
-tests:
+assertOptions: optional — assertion comparison options for the whole suite (object, or comma-separated/array of: nullSameAsMissing, nullSameAsEmptyArray, missingSameAsEmptyArray, ignoreExtraFieldsInActual, numbersEqualIgnoreFormat)
+tests:   # or islTests
   - name: unit test name
     functionName: function to call
     byPassAnnotations: false   # optional
     input: 42                   # single value for single-param; or object with param names as keys
     expected: { "result": 42 }   # expected JSON result
+    assertOptions: optional     # override suite assertOptions for this test only (same formats)
 ```
 
-Paths in `setup` (`islSource`, `mockSource` file names) are relative to the directory containing the `.tests.yaml` file.
+Paths in `setup` (`islSource`, `mockSource` file names) are relative to the directory containing the `.tests.yaml` file. For full details (assertOptions reference, input format, filtering) see the [Unit Testing — YAML-Driven Test Suites](../docs/ext/unit-testing/yaml-tests.md) doc.
 
 ### Info Command
 

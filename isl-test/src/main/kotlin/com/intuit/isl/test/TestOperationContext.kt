@@ -26,12 +26,17 @@ class TestOperationContext : BaseOperationContext {
     var mockFileName: String? = null
         internal set
 
+    /** Test file name (e.g. the .tests.yaml path) for error messages; when set, suggest adding mocks to the test file (setup) instead of mock files. */
+    var testFileName: String? = null
+        internal set
+
     companion object {
         fun create(
             testResultContext: TestResultContext,
             currentFile: String? = null,
             basePath: Path? = null,
             mockFileName: String? = null,
+            testFileName: String? = null,
             contextCustomizers: List<(IOperationContext) -> Unit> = emptyList()
         ): TestOperationContext {
             val context = TestOperationContext()
@@ -52,6 +57,7 @@ class TestOperationContext : BaseOperationContext {
             context.currentFile = currentFile
             context.basePath = basePath
             context.mockFileName = mockFileName
+            context.testFileName = testFileName
 
             return context
         }
@@ -68,7 +74,10 @@ class TestOperationContext : BaseOperationContext {
                 .let { nodes -> JsonConvert.mapper.writeValueAsString(nodes) }
 
             val testContext = context.executionContext.operationContext as? TestOperationContext
-            val mockFile = testContext?.mockFileName ?: "your-mocks.yaml"
+            val addToHint = when {
+                testContext?.testFileName != null -> "test file [${testContext.testFileName}] (in setup.mocks or in the test)"
+                else -> "[${testContext?.mockFileName ?: "your-mocks.yaml"}]"
+            }
 
             val yamlSnippet = buildString {
                 appendLine("- name: \"$functionName\"")
@@ -84,9 +93,11 @@ class TestOperationContext : BaseOperationContext {
                 appendLine("Called from: $place")
                 appendLine("Parameters: $paramsJson")
                 appendLine("")
-                appendLine("To mock this function add this to your [$mockFile] then rerun the tests:")
+                appendLine("To mock this function add this to your $addToHint then rerun the tests:")
+                appendLine("")
                 appendLine("func:")
-                append(yamlSnippet)
+                appendLine(yamlSnippet)
+                appendLine("")
             }
 
             return TransformException(message.trimEnd(), position)
@@ -100,7 +111,10 @@ class TestOperationContext : BaseOperationContext {
                 (position.endColumn?.let { ", endColumn=$it" } ?: "")
 
             val testContext = context.executionContext.operationContext as? TestOperationContext
-            val mockFile = testContext?.mockFileName ?: "your-mocks.yaml"
+            val addToHint = when {
+                testContext?.testFileName != null -> "test file [${testContext.testFileName}] (in setup.mocks or in the test)"
+                else -> "[${testContext?.mockFileName ?: "your-mocks.yaml"}]"
+            }
 
             val yamlName = "Modifier.$displayName"
             val yamlSnippet = buildString {
@@ -113,7 +127,7 @@ class TestOperationContext : BaseOperationContext {
                 appendLine("Modifier: | $displayName")
                 appendLine("Called from: $place")
                 appendLine("")
-                appendLine("To mock this modifier add this to your [$mockFile] then rerun the tests:")
+                appendLine("To mock this modifier add this to your $addToHint then rerun the tests:")
                 appendLine("func:")
                 append(yamlSnippet)
             }
@@ -132,12 +146,14 @@ class TestOperationContext : BaseOperationContext {
         statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>,
         internalExtensions: HashMap<String, AsyncContextAwareExtensionMethod>,
         mockExtensions: TestOperationMockExtensions,
-        mockFileName: String? = null
+        mockFileName: String? = null,
+        testFileName: String? = null
     ) : super(
         extensions, annotations, statementExtensions, internalExtensions, HashMap<String, ConditionalExtension>()
     ) {
         this.mockExtensions = mockExtensions
         this.mockFileName = mockFileName
+        this.testFileName = testFileName
     }
 
     val mockExtensions : TestOperationMockExtensions
@@ -177,7 +193,7 @@ class TestOperationContext : BaseOperationContext {
 
     override fun clone(newInternals: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
         return TestOperationContext(
-            this.extensions, this.annotations, this.statementExtensions, newInternals, this.mockExtensions, this.mockFileName
+            this.extensions, this.annotations, this.statementExtensions, newInternals, this.mockExtensions, this.mockFileName, this.testFileName
         )
     }
 }

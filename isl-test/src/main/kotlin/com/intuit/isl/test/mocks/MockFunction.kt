@@ -92,7 +92,8 @@ object MockFunction {
             throw IllegalArgumentException("Mock file must have a root object with 'func' and/or 'annotation' keys")
         }
 
-        applyMocksFromNode(context, root as ObjectNode)
+        val relativePath = basePath.relativize(resolvedPath).toString().replace("\\", "/")
+        applyMocksFromNode(context, root as ObjectNode, relativePath)
         return null
     }
 
@@ -101,22 +102,24 @@ object MockFunction {
      * Root must have "func" and/or "annotation" arrays in the same format as @.Mock.Load file.
      * Mocks are always added; params differentiate multiple mocks for the same function.
      * Clearing only happens when the next test starts (new TestOperationContext).
+     *
+     * @param islSourceFile Optional file path (e.g. mock file or test file) used as the module name when compiling inline ISL snippets, so compilation errors point to the correct file.
      */
-    fun applyMocksFromNode(context: TestOperationContext, root: ObjectNode) {
+    fun applyMocksFromNode(context: TestOperationContext, root: ObjectNode, islSourceFile: String? = null) {
         val funcMocks = root.get("func")
         val annotationMocks = root.get("annotation")
 
         if (funcMocks != null && funcMocks.isArray) {
             funcMocks.forEach { entry ->
                 if (entry.isObject) {
-                    registerMockFromNode(context, entry as ObjectNode, ::createFuncMock, funcRegex)
+                    registerMockFromNode(context, entry as ObjectNode, ::createFuncMock, funcRegex, islSourceFile)
                 }
             }
         }
         if (annotationMocks != null && annotationMocks.isArray) {
             annotationMocks.forEach { entry ->
                 if (entry.isObject) {
-                    registerMockFromNode(context, entry as ObjectNode, ::createAnnotationMock, annotationRegex)
+                    registerMockFromNode(context, entry as ObjectNode, ::createAnnotationMock, annotationRegex, islSourceFile)
                 }
             }
         }
@@ -131,7 +134,8 @@ object MockFunction {
         context: TestOperationContext,
         node: ObjectNode,
         registerMock: (TestOperationContext, String, Any?, Map<Int, JsonNode>) -> Int?,
-        nameRegex: String
+        nameRegex: String,
+        islSourceFile: String? = null
     ) {
         val nameNode = node.get("name") ?: throw IllegalArgumentException("Mock entry must have 'name' field")
         val name = ConvertUtils.tryToString(nameNode)?.trim()
@@ -148,9 +152,10 @@ object MockFunction {
         val islNode = node.get("isl")
         val islContent = if (islNode != null && !islNode.isNull) ConvertUtils.tryToString(islNode)?.trim() else null
 
+        val sourceFile = islSourceFile ?: context.mockFileName ?: context.testFileName ?: context.currentFile
         val returnNode = if (islContent != null) null else (node.get("result") ?: node.get("return"))
         val returnValue: Any? = when {
-            islContent != null -> compileIslSnippetToExecutor(islContent, name)
+            islContent != null -> compileIslSnippetToExecutor(islContent, name, sourceFile)
             returnNode == null || returnNode.isNull -> null
             else -> returnNode
         }
@@ -292,13 +297,14 @@ object MockFunction {
      *
      * @param islContent ISL source (e.g. "fun mask(\$value) { return `xxxxxx\$value`; }")
      * @param mockName Mock name (for error messages)
+     * @param sourceFile Optional file path (e.g. mock YAML or test file) used as the module name so compilation errors show the correct file instead of __mock_isl__
      * @throws TransformCompilationException if compilation fails
      */
-    private fun compileIslSnippetToExecutor(islContent: String, mockName: String): IslMockExecutor {
+    private fun compileIslSnippetToExecutor(islContent: String, mockName: String, sourceFile: String? = null): IslMockExecutor {
         if (islContent.isBlank()) {
             throw IllegalArgumentException("Mock '$mockName': 'isl' content must be non-empty")
         }
-        val moduleName = "__mock_isl__"
+        val moduleName = sourceFile?.takeIf { it.isNotBlank() } ?: "__mock_isl__"
         val pkg = try {
             TransformPackageBuilder().build(mutableListOf(FileInfo(moduleName, islContent)), null)
         } catch (e: Exception) {
@@ -408,7 +414,14 @@ object MockFunction {
             is AnnotationExecuteContext -> executeContext.annotationName to executeContext.command.token.position
             else -> null to null
         }
-        return mockObject.tryFindMatch(inputParams, true, name, position)
+        val testContext = when (executeContext) {
+            is FunctionExecuteContext -> executeContext.executionContext.operationContext as? TestOperationContext
+            is AnnotationExecuteContext -> executeContext.executionContext.operationContext as? TestOperationContext
+            else -> null
+        }
+        val mockFileName = testContext?.mockFileName
+        val testFileName = testContext?.testFileName
+        return mockObject.tryFindMatch(inputParams, true, name, position, mockFileName, testFileName)
     }
 
     private const val SHORT_MAX_LEN = 80

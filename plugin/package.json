@@ -2,7 +2,7 @@
   "name": "isl-language-support",
   "displayName": "ISL - Intuitive Scripting Language",
   "description": "Comprehensive language support for ISL (Intuitive Scripting Language) - JSON transformation language",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "publisher": "isl-team",
   "icon": "images/icon.png",
   "repository": {
@@ -26,6 +26,7 @@
   ],
   "activationEvents": [
     "workspaceContains:**/*.isl",
+    "workspaceContains:**/*.tests.yaml",
     "onTerminalProfile:isl.terminal-profile"
   ],
   "main": "./out/extension.js",
@@ -56,7 +57,9 @@
       {
         "scopeName": "markdown.isl.codeblock",
         "path": "./syntaxes/isl-markdown-injection.tmLanguage.json",
-        "injectTo": ["text.html.markdown"],
+        "injectTo": [
+          "text.html.markdown"
+        ],
         "embeddedLanguages": {
           "meta.embedded.block.isl": "isl"
         }
@@ -72,7 +75,11 @@
         },
         "isl.naming.convention": {
           "type": "string",
-          "enum": ["PascalCase", "camelCase", "snake_case"],
+          "enum": [
+            "PascalCase",
+            "camelCase",
+            "snake_case"
+          ],
           "default": "PascalCase",
           "description": "Naming convention for functions and modifiers (PascalCase, camelCase, or snake_case)"
         },
@@ -158,6 +165,15 @@
         "command": "isl.compile",
         "title": "ISL: Compile (Validate) File",
         "icon": "$(run-all)"
+      },
+      {
+        "command": "isl.runAllTestsInFile",
+        "title": "Run All Tests in File",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "isl.addMockFromTestError",
+        "title": "ISL: Add Mock from Test Error"
       }
     ],
     "menus": {
@@ -165,6 +181,11 @@
         {
           "when": "resourceLangId == isl",
           "command": "isl.compile",
+          "group": "navigation"
+        },
+        {
+          "when": "isl.isTestFile",
+          "command": "isl.runAllTestsInFile",
           "group": "navigation"
         }
       ],
@@ -205,6 +226,10 @@
         {
           "command": "isl.compile",
           "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.runAllTestsInFile",
+          "when": "isl.isTestFile"
         }
       ]
     },

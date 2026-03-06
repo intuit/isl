@@ -82,13 +82,17 @@ class MockObject {
      * Finds a matching mock for the given parameters.
      * @param functionName Optional; used in the error message when no match is found.
      * @param position Optional; attached to the thrown exception when no match is found.
-     * @throws TransformException when no mock matches and no default mock is defined (with function name and params in the message).
+     * @param mockFileName Optional; used in the error message when testFileName is null (which mock file to add the entry to).
+     * @param testFileName Optional; when set, error message suggests adding to the test file (in setup.mocks or in the test) instead of mock files.
+     * @throws TransformException when no mock matches and no default mock is defined (with function name, params, and YAML snippet in the message).
      */
     fun tryFindMatch(
         targetParams: Map<Int, JsonNode>,
         looseMatch: Boolean = true,
         functionName: String? = null,
-        position: Position? = null
+        position: Position? = null,
+        mockFileName: String? = null,
+        testFileName: String? = null
     ): Any? {
         matchingParamMap.forEach { (matcher, returnValue) ->
             if (matcher.match(targetParams, looseMatch)) {
@@ -128,9 +132,35 @@ class MockObject {
         }
         if (!hasDefaultReturn) {
             val paramsJson = targetParams.toSortedMap().values.let { JsonConvert.mapper.writeValueAsString(it) }
-            val namePart = if (functionName != null) " for function @.$functionName" else ""
-            val message = "No mock matched$namePart. Called with parameters: $paramsJson. Add a matching entry (same params or a default result/isl) to your mock file."
-            throw TransformException(message, position, null)
+            val addToHint = when {
+                testFileName != null -> "test file [$testFileName] (in setup.mocks or in the test)"
+                else -> "[${mockFileName ?: "your-mocks.yaml"}]"
+            }
+            val place = position?.let { pos ->
+                "file=${pos.file}, line=${pos.line}, column=${pos.column}" +
+                    (pos.endLine?.let { ", endLine=$it" } ?: "") +
+                    (pos.endColumn?.let { ", endColumn=$it" } ?: "")
+            }
+            val yamlSnippet = buildString {
+                appendLine("- name: \"${functionName ?: "<function>"}\"")
+                if (targetParams.isNotEmpty()) {
+                    appendLine("  params: $paramsJson")
+                }
+                appendLine("  result: <replace with expected return value>")
+            }
+            val message = buildString {
+                appendLine(if (functionName != null) "No mock matched for function @.$functionName. The test must only call with parameters that are mocked." else "No mock matched. The test must only call with parameters that are mocked.")
+                if (functionName != null) appendLine("Function: @.$functionName")
+                if (place != null) appendLine("Called from: $place")
+                appendLine("Parameters: $paramsJson")
+                appendLine("")
+                appendLine("To mock this function add this to your $addToHint then rerun the tests:")
+                appendLine("")
+                appendLine("func:")
+                appendLine(yamlSnippet)
+                appendLine("")
+            }
+            throw TransformException(message.trimEnd(), position, null)
         }
         return defaultReturnValue
     }

@@ -3,9 +3,13 @@ import * as path from 'path';
 import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
+import * as yaml from 'js-yaml';
 
 /** Test file pattern: tests folder anywhere in workspace; applies to files from that folder down (e.g. tests/, src/tests/, a/b/tests/) */
 const TEST_FILE_GLOB = '**/tests/**/*.isl';
+
+/** YAML test suite files: [name].tests.yaml that contain islTests property */
+const YAML_TEST_FILE_GLOB = '**/*.tests.yaml';
 
 /** Parsed test info from an ISL test file */
 export interface IslTestInfo {
@@ -21,6 +25,65 @@ export interface IslTestInfo {
 export interface IslSetupInfo {
     functionName: string;
     range: vscode.Range;
+}
+
+/** Parsed test entry from a *.tests.yaml file (islTests array) */
+export interface YamlTestEntryInfo {
+    id: string;
+    label: string;
+    functionName: string;
+    range: vscode.Range;
+    uri: vscode.Uri;
+}
+
+/**
+ * Check if YAML content looks like an ISL test suite (has top-level islTests array).
+ */
+export function yamlHasIslTests(content: string): boolean {
+    try {
+        const doc = yaml.load(content) as Record<string, unknown> | null;
+        return !!doc && Array.isArray(doc.islTests);
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Parse islTests from a *.tests.yaml file. Returns test entries with id, label, functionName, range.
+ * Uses simple line scan to approximate range for each entry (line of "- name:" or "name:").
+ */
+export function parseYamlIslTests(uri: vscode.Uri, content: string): YamlTestEntryInfo[] {
+    const entries: YamlTestEntryInfo[] = [];
+    try {
+        const doc = yaml.load(content) as { islTests?: Array<{ name?: string; functionName?: string }> } | null;
+        const list = doc?.islTests;
+        if (!Array.isArray(list)) return entries;
+
+        const lines = content.split(/\r?\n/);
+        let listStartLine = -1;
+        for (let i = 0; i < lines.length; i++) {
+            const trimmed = lines[i].trim();
+            if (/^islTests\s*:/.test(trimmed)) {
+                listStartLine = i;
+                break;
+            }
+        }
+        if (listStartLine < 0) listStartLine = 0;
+
+        for (let idx = 0; idx < list.length; idx++) {
+            const entry = list[idx];
+            if (!entry || typeof entry !== 'object') continue;
+            const name = (entry.name != null && entry.name !== '') ? String(entry.name) : `Test ${idx + 1}`;
+            const functionName = (entry.functionName != null && entry.functionName !== '') ? String(entry.functionName) : name;
+            const id = `${uri.toString()}#${functionName}#${idx}`;
+            const line = listStartLine + 1 + idx;
+            const range = new vscode.Range(line, 0, line, 999);
+            entries.push({ id, label: name, functionName, range, uri });
+        }
+    } catch {
+        // ignore parse errors
+    }
+    return entries;
 }
 
 /**
@@ -118,8 +181,374 @@ interface IslTestResultJson {
         testGroup: string | null;
         success: boolean;
         message: string | null;
-        errorPosition: { file: string; line: number; column: number } | null;
+        errorPosition: {
+            file: string;
+            line: number;
+            column: number;
+            endLine?: number | null;
+            endColumn?: number | null;
+        } | null;
     }>;
+}
+
+/** Parsed assertion difference from "[ISL Assert] Difference(s):" message (path, expected, actual). */
+export interface AssertDiff {
+    path: string;
+    expected: string;
+    actual: string;
+    /** Leaf key to find in YAML expected section (e.g. initialLoanDate). */
+    key: string;
+}
+
+/**
+ * Parse "[ISL Assert] Difference(s):" message into path/expected/actual pairs.
+ * Format:
+ *   Expected: $path = value
+ *   Actual:   $path = value
+ */
+export function parseAssertDiffsFromMessage(message: string | null): AssertDiff[] {
+    const diffs: AssertDiff[] = [];
+    if (!message || !message.includes('Difference(s):') || !message.includes('Expected:')) return diffs;
+    const lines = message.split(/\r?\n/);
+    for (let i = 0; i < lines.length - 1; i++) {
+        const expMatch = lines[i].match(/^\s*Expected:\s*(\$[^\s=]+)\s*=\s*(.*)$/);
+        if (!expMatch) continue;
+        const actMatch = lines[i + 1].match(/^\s*Actual:\s*(\$[^\s=]+)\s*=\s*(.*)$/);
+        if (!actMatch || expMatch[1] !== actMatch[1]) continue;
+        const pathStr = expMatch[1];
+        const expectedVal = expMatch[2].trim();
+        const actualVal = actMatch[2].trim();
+        const key = getLeafKeyFromPath(pathStr);
+        diffs.push({ path: pathStr, expected: expectedVal, actual: actualVal, key });
+        i++;
+    }
+    return diffs;
+}
+
+/** Extract leaf key from JSON path like $providerResponses.accounts.[0].initialLoanDate -> initialLoanDate */
+function getLeafKeyFromPath(pathStr: string): string {
+    const trimmed = pathStr.replace(/^\$\.?/, '').trim();
+    if (!trimmed) return '';
+    const segments = trimmed.split(/\./).filter(s => s.length > 0);
+    for (let i = segments.length - 1; i >= 0; i--) {
+        const s = segments[i];
+        if (!/^\[\d+\]$/.test(s)) return s;
+    }
+    return segments[segments.length - 1] ?? '';
+}
+
+/**
+ * Find ranges in YAML content where the given key appears inside the "expected" section of the test
+ * that matches functionName. Returns one range per occurrence (for squiggles).
+ */
+export function findExpectedKeyRangesInYaml(
+    content: string,
+    functionName: string,
+    key: string
+): vscode.Range[] {
+    if (!key) return [];
+    const lines = content.split(/\r?\n/);
+    const ranges: vscode.Range[] = [];
+
+    let islTestsIndent = -1;
+    let entryStart = -1;
+    let matchingTest = false;
+    let expectedStart = -1;
+    let expectedEnd = -1;
+
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        const trimmed = line.trim();
+        const indent = line.search(/\S/);
+        if (indent < 0) continue;
+
+        if (/^islTests\s*:/.test(trimmed)) {
+            islTestsIndent = indent;
+            continue;
+        }
+        if (islTestsIndent < 0) continue;
+
+        const isListItem = /^\s*-\s+/.test(line) && indent <= islTestsIndent + 2;
+        if (isListItem) {
+            if (expectedStart >= 0 && matchingTest) {
+                expectedEnd = i;
+                for (let j = expectedStart; j < expectedEnd; j++) {
+                    pushKeyRanges(lines[j], j, key, ranges);
+                }
+            }
+            entryStart = i;
+            matchingTest = false;
+            expectedStart = -1;
+        }
+
+        if (entryStart >= 0) {
+            const fnMatch = trimmed.match(/^(?:functionName|name)\s*:\s*["']?([^"'\s]+)["']?/);
+            if (fnMatch && fnMatch[1].trim() === functionName) matchingTest = true;
+            if (/^expected\s*:/.test(trimmed) && matchingTest) {
+                expectedStart = i;
+            }
+        }
+    }
+
+    if (expectedStart >= 0 && matchingTest && expectedEnd < 0) {
+        expectedEnd = lines.length;
+        for (let j = expectedStart; j < expectedEnd; j++) {
+            const l = lines[j];
+            const lineIndent = l.search(/\S/);
+            const expIndent = lines[expectedStart].search(/\S/);
+            if (j > expectedStart && l.trim() && lineIndent <= expIndent) {
+                expectedEnd = j;
+                break;
+            }
+            pushKeyRanges(l, j, key, ranges);
+        }
+    }
+
+    return ranges;
+}
+
+function pushKeyRanges(line: string, lineIndex: number, key: string, ranges: vscode.Range[]): void {
+    let col = line.indexOf(key + ':');
+    if (col === -1) {
+        const jsonMatch = line.match(new RegExp(`"${escapeRegex(key)}"\\s*:`));
+        if (jsonMatch && jsonMatch.index !== undefined) col = jsonMatch.index;
+    }
+    if (col === -1 && line.includes(key)) {
+        const quoted = line.indexOf('"' + key + '"');
+        if (quoted >= 0) col = quoted + 1;
+        else col = line.indexOf(key);
+    }
+    if (col >= 0) {
+        const endCol = Math.min(line.length, col + key.length);
+        ranges.push(new vscode.Range(lineIndex, col, lineIndex, endCol));
+    }
+}
+
+function escapeRegex(s: string): string {
+    return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/** Parsed "No mock matched" / "Unmocked function" error from the test runner (suggested mock to add). */
+export interface MockSuggestion {
+    functionName: string;
+    params: string; // JSON array string, e.g. '["start_date"]'
+    mockFileName: string;
+    yamlSnippet: string; // lines to add under func: (e.g. "- name: ...\n  params: ...\n  result: ...")
+    /** When true, add to the test file (setup.mocks) instead of an imported mock file. */
+    addToTestFile?: boolean;
+}
+
+/**
+ * Parse backend "No mock matched" / "Unmocked function" error message to extract mock suggestion.
+ * Returns null if the message does not match that format.
+ */
+export function parseMockSuggestionFromError(message: string | null): MockSuggestion | null {
+    if (!message || !message.includes('To mock this function add this to your')) {
+        return null;
+    }
+    const lines = message.split(/\r?\n/);
+    let functionName = '';
+    let params = '[]';
+    let mockFileName = 'commonMocks.yaml';
+    let addToTestFile = false;
+    let inSnippet = false;
+    const snippetLines: string[] = [];
+
+    for (const line of lines) {
+        const fnMatch = line.match(/^Function:\s*@\.(.+)$/);
+        if (fnMatch) {
+            functionName = fnMatch[1].trim();
+            continue;
+        }
+        const paramsMatch = line.match(/^Parameters:\s*(.+)$/);
+        if (paramsMatch) {
+            params = paramsMatch[1].trim();
+            continue;
+        }
+        const testFileMatch = line.match(/To mock this function add this to your test file \[([^\]]+)\]/);
+        if (testFileMatch) {
+            mockFileName = testFileMatch[1].trim();
+            addToTestFile = true;
+            inSnippet = true;
+            continue;
+        }
+        const fileMatch = line.match(/To mock this function add this to your \[([^\]]+)\]/);
+        if (fileMatch) {
+            mockFileName = fileMatch[1].trim();
+            inSnippet = true;
+            continue;
+        }
+        if (inSnippet) {
+            if (line.trim() === '' || line.trim() === 'func:') continue;
+            if (line.startsWith('- ') || (line.match(/^\s{2,}/) && snippetLines.length > 0)) {
+                snippetLines.push(line);
+            } else if (snippetLines.length > 0) {
+                break;
+            }
+        }
+    }
+    if (!functionName && snippetLines.length === 0) return null;
+    const yamlSnippet = snippetLines.join('\n').trim();
+    if (!yamlSnippet) return null;
+    return { functionName, params, mockFileName, yamlSnippet, addToTestFile: addToTestFile || undefined };
+}
+
+/**
+ * Build a TestMessage for a failed test. If the message is a "No mock matched" / "Unmocked function" error,
+ * appends an "Add mock to test file (setup)" or "Add mock to &lt;file&gt;" link that runs the add-mock command.
+ */
+export function buildTestFailureMessage(
+    rawMessage: string,
+    testUri: vscode.Uri | undefined,
+    suggestion: MockSuggestion | null
+): vscode.TestMessage {
+    if (!suggestion || !testUri) {
+        return new vscode.TestMessage(rawMessage);
+    }
+    const args = [
+        testUri.toString(),
+        suggestion.mockFileName,
+        suggestion.functionName,
+        suggestion.params,
+        suggestion.yamlSnippet,
+        suggestion.addToTestFile === true
+    ];
+    // Double-stringify so the command receives one string argument with the full array (Test UI may pass only the first element when passing a raw array).
+    const payload = JSON.stringify(JSON.stringify(args));
+    const cmdUri = `command:isl.addMockFromTestError?${encodeURIComponent(payload)}`;
+    const linkLabel = suggestion.addToTestFile ? 'Add mock to test file (setup)' : `Add mock to ${suggestion.mockFileName}`;
+    const md = new vscode.MarkdownString(undefined);
+    md.appendMarkdown(rawMessage);
+    md.appendMarkdown('\n\n---\n\n');
+    md.appendMarkdown(`[**${linkLabel}**](${cmdUri})`);
+    md.isTrusted = true;
+    return new vscode.TestMessage(md);
+}
+
+/**
+ * Add the suggested mock entry to the test file under setup.mocks.func (inline mocks in the test file).
+ */
+export async function addMockToTestFile(
+    testFileUri: vscode.Uri,
+    functionName: string,
+    paramsJson: string,
+    yamlSnippet: string,
+    outputChannel: vscode.OutputChannel
+): Promise<void> {
+    const raw = await vscode.workspace.fs.readFile(testFileUri);
+    const content = new TextDecoder().decode(raw);
+    const doc = (yaml.load(content) as Record<string, unknown>) || {};
+    let setup = doc.setup;
+    if (!setup || typeof setup !== 'object') {
+        setup = { islSource: (setup as Record<string, unknown>)?.islSource ?? '' };
+        doc.setup = setup;
+    }
+    const setupObj = setup as Record<string, unknown>;
+    let mocks = setupObj.mocks;
+    if (!mocks || typeof mocks !== 'object') {
+        mocks = {};
+        setupObj.mocks = mocks;
+    }
+    const mocksObj = mocks as Record<string, unknown>;
+    let funcList = mocksObj.func;
+    if (!Array.isArray(funcList)) {
+        funcList = [];
+        mocksObj.func = funcList;
+    }
+    try {
+        const newEntry = yaml.load(yamlSnippet) as unknown;
+        const entry = Array.isArray(newEntry) ? newEntry[0] : newEntry;
+        if (entry && typeof entry === 'object') {
+            (funcList as unknown[]).push(entry);
+        } else {
+            const entryFromParts = { name: functionName, result: '<replace with expected return value>' };
+            try {
+                const p = JSON.parse(paramsJson) as unknown[];
+                if (p.length > 0) (entryFromParts as Record<string, unknown>).params = p;
+            } catch {
+                // ignore
+            }
+            (funcList as unknown[]).push(entryFromParts);
+        }
+    } catch {
+        const entryFromParts = { name: functionName, result: '<replace with expected return value>' };
+        try {
+            const p = JSON.parse(paramsJson) as unknown[];
+            if (p.length > 0) (entryFromParts as Record<string, unknown>).params = p;
+        } catch {
+            // ignore
+        }
+        (funcList as unknown[]).push(entryFromParts);
+    }
+    const newContent = yaml.dump(doc, { lineWidth: -1, noRefs: true });
+    await vscode.workspace.fs.writeFile(testFileUri, new TextEncoder().encode(newContent));
+    outputChannel.appendLine(`Added mock for @.${functionName} to test file (setup.mocks) at ${testFileUri.fsPath}`);
+    await vscode.window.showTextDocument(testFileUri, { preview: false });
+}
+
+/**
+ * Add the suggested mock entry to the mock file (relative to the test file's directory).
+ * Resolves mockFileName relative to the directory of testFileUri. Creates the file if missing.
+ */
+export async function addMockToFile(
+    testFileUri: vscode.Uri,
+    mockFileName: string,
+    functionName: string,
+    paramsJson: string,
+    yamlSnippet: string,
+    outputChannel: vscode.OutputChannel
+): Promise<void> {
+    const testDir = path.dirname(testFileUri.fsPath);
+    const mockPath = path.resolve(testDir, mockFileName);
+    const mockUri = vscode.Uri.file(mockPath);
+
+    let doc: Record<string, unknown> = {};
+    try {
+        const raw = await vscode.workspace.fs.readFile(mockUri);
+        const content = new TextDecoder().decode(raw);
+        if (content.trim()) {
+            doc = (yaml.load(content) as Record<string, unknown>) || {};
+        }
+    } catch {
+        // File does not exist or not readable; start with empty doc
+    }
+
+    let funcList = doc.func;
+    if (!Array.isArray(funcList)) {
+        funcList = [];
+    }
+    try {
+        const newEntry = yaml.load(yamlSnippet) as unknown;
+        const entry = Array.isArray(newEntry) ? newEntry[0] : newEntry;
+        if (entry && typeof entry === 'object') {
+            (funcList as unknown[]).push(entry);
+        } else {
+            const entryFromParts = { name: functionName, result: '<replace with expected return value>' };
+            try {
+                const p = JSON.parse(paramsJson) as unknown[];
+                if (p.length > 0) (entryFromParts as Record<string, unknown>).params = p;
+            } catch {
+                // ignore
+            }
+            (funcList as unknown[]).push(entryFromParts);
+        }
+    } catch {
+        const entryFromParts = { name: functionName, result: '<replace with expected return value>' };
+        try {
+            const p = JSON.parse(paramsJson) as unknown[];
+            if (p.length > 0) (entryFromParts as Record<string, unknown>).params = p;
+        } catch {
+            // ignore
+        }
+        (funcList as unknown[]).push(entryFromParts);
+    }
+
+    doc.func = funcList;
+    const newContent = yaml.dump(doc, { lineWidth: -1, noRefs: true });
+    await vscode.workspace.fs.writeFile(mockUri, new TextEncoder().encode(newContent));
+    outputChannel.appendLine(`Added mock for @.${functionName} to ${mockPath}`);
+    const docOpened = await vscode.workspace.openTextDocument(mockUri);
+    await vscode.window.showTextDocument(docOpened, { preview: false });
 }
 
 /**
@@ -137,21 +566,31 @@ export function isTestFile(uri: vscode.Uri, workspaceFolder: vscode.WorkspaceFol
 /** Debounce delay for document change handlers (ms) */
 const DOCUMENT_CHANGE_DEBOUNCE_MS = 1500;
 
+/** Diagnostic collection for YAML test assertion diffs (squiggles in expected section). */
+const YAML_TEST_DIAGNOSTIC_SOURCE = 'isl-yaml-test';
+
 export class IslTestController {
     private readonly controller: vscode.TestController;
     private readonly watchers: vscode.FileSystemWatcher[] = [];
     private readonly outputChannel: vscode.OutputChannel;
     private readonly extensionPath: string;
+    private readonly assertionDiagnostics: vscode.DiagnosticCollection;
     private documentChangeTimeouts = new Map<string, NodeJS.Timeout>();
+    private runProfileHandler!: (request: vscode.TestRunRequest, token: vscode.CancellationToken) => Promise<void>;
 
     constructor(outputChannel: vscode.OutputChannel, extensionPath: string) {
         this.outputChannel = outputChannel;
         this.extensionPath = extensionPath;
+        this.assertionDiagnostics = vscode.languages.createDiagnosticCollection(YAML_TEST_DIAGNOSTIC_SOURCE);
         this.controller = vscode.tests.createTestController('isl-tests', 'ISL Tests');
 
         this.controller.resolveHandler = async (item) => {
             if (!item) {
                 await this.discoverAllTestFiles();
+                // Parse all files so the Test Explorer is fully populated (no need to expand each node)
+                for (const [, fileItem] of this.controller.items) {
+                    await this.parseTestsInFile(fileItem);
+                }
             } else {
                 await this.parseTestsInFile(item);
             }
@@ -168,11 +607,11 @@ export class IslTestController {
             }
         };
 
-        // Run profile - placeholder; user will define execution later
+        this.runProfileHandler = (request, token) => this.runTests(request, token);
         this.controller.createRunProfile(
             'Run',
             vscode.TestRunProfileKind.Run,
-            (request, token) => this.runTests(request, token)
+            this.runProfileHandler
         );
 
         // Watch for test file changes
@@ -181,12 +620,36 @@ export class IslTestController {
         vscode.workspace.textDocuments.forEach(doc => this.parseTestsInDocument(doc));
         vscode.workspace.onDidOpenTextDocument(doc => this.parseTestsInDocument(doc));
         vscode.workspace.onDidChangeTextDocument(e => this.debouncedParseTestsInDocument(e.document));
+
+        // Populate Test Explorer on load: discover and parse all test files when workspace is ready
+        this.scheduleInitialDiscovery();
+    }
+
+    /** Run discovery + parse once when workspace has folders, so Test Explorer is populated on project load. */
+    private scheduleInitialDiscovery(): void {
+        const run = () => {
+            if (!vscode.workspace.workspaceFolders?.length) return;
+            this.discoverAllTestFiles().then(() => {
+                for (const [, fileItem] of this.controller.items) {
+                    this.parseTestsInFile(fileItem);
+                }
+            });
+        };
+        // Run after a short delay so workspace is ready; also run when folders change (e.g. folder added)
+        setTimeout(run, 800);
+        vscode.workspace.onDidChangeWorkspaceFolders(() => run());
     }
 
     private debouncedParseTestsInDocument(doc: vscode.TextDocument): void {
-        if (doc.uri.scheme !== 'file' || !doc.uri.fsPath.endsWith('.isl')) return;
-        const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
-        if (!folder || !isTestFile(doc.uri, folder)) return;
+        if (doc.uri.scheme !== 'file') return;
+        const isIsl = doc.uri.fsPath.endsWith('.isl');
+        const isYamlTests = doc.uri.fsPath.endsWith('.tests.yaml');
+        if (!isIsl && !isYamlTests) return;
+        if (isIsl) {
+            const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+            if (!folder || !isTestFile(doc.uri, folder)) return;
+        }
+        if (isYamlTests && !yamlHasIslTests(doc.getText())) return;
 
         const key = doc.uri.toString();
         const existing = this.documentChangeTimeouts.get(key);
@@ -204,14 +667,19 @@ export class IslTestController {
         if (!folders) return;
 
         for (const folder of folders) {
-            const pattern = new vscode.RelativePattern(folder, TEST_FILE_GLOB);
-            const watcher = vscode.workspace.createFileSystemWatcher(pattern);
+            const islPattern = new vscode.RelativePattern(folder, TEST_FILE_GLOB);
+            const islWatcher = vscode.workspace.createFileSystemWatcher(islPattern);
+            islWatcher.onDidCreate(uri => this.getOrCreateFile(uri));
+            islWatcher.onDidChange(uri => this.parseTestsInFile(this.getOrCreateFile(uri)));
+            islWatcher.onDidDelete(uri => this.controller.items.delete(uri.toString()));
+            this.watchers.push(islWatcher);
 
-            watcher.onDidCreate(uri => this.getOrCreateFile(uri));
-            watcher.onDidChange(uri => this.parseTestsInFile(this.getOrCreateFile(uri)));
-            watcher.onDidDelete(uri => this.controller.items.delete(uri.toString()));
-
-            this.watchers.push(watcher);
+            const yamlPattern = new vscode.RelativePattern(folder, YAML_TEST_FILE_GLOB);
+            const yamlWatcher = vscode.workspace.createFileSystemWatcher(yamlPattern);
+            yamlWatcher.onDidCreate(uri => this.getOrCreateFile(uri));
+            yamlWatcher.onDidChange(uri => this.parseTestsInFile(this.getOrCreateFile(uri)));
+            yamlWatcher.onDidDelete(uri => this.controller.items.delete(uri.toString()));
+            this.watchers.push(yamlWatcher);
         }
     }
 
@@ -231,19 +699,37 @@ export class IslTestController {
         if (!folders) return;
 
         for (const folder of folders) {
-            const pattern = new vscode.RelativePattern(folder, TEST_FILE_GLOB);
-            const files = await vscode.workspace.findFiles(pattern);
-            for (const uri of files) {
+            const islPattern = new vscode.RelativePattern(folder, TEST_FILE_GLOB);
+            const islFiles = await vscode.workspace.findFiles(islPattern);
+            for (const uri of islFiles) {
                 this.getOrCreateFile(uri);
+            }
+            const yamlPattern = new vscode.RelativePattern(folder, YAML_TEST_FILE_GLOB);
+            const yamlFiles = await vscode.workspace.findFiles(yamlPattern);
+            for (const uri of yamlFiles) {
+                let raw: Uint8Array;
+                try {
+                    raw = await vscode.workspace.fs.readFile(uri);
+                } catch {
+                    raw = new Uint8Array(0);
+                }
+                const content = new TextDecoder().decode(raw);
+                if (yamlHasIslTests(content)) {
+                    this.getOrCreateFile(uri);
+                }
             }
         }
     }
 
     private parseTestsInDocument(doc: vscode.TextDocument): void {
-        if (doc.uri.scheme !== 'file' || !doc.uri.fsPath.endsWith('.isl')) return;
-
-        const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
-        if (!folder || !isTestFile(doc.uri, folder)) return;
+        if (doc.uri.scheme !== 'file') return;
+        const isIsl = doc.uri.fsPath.endsWith('.isl');
+        const isYamlTests = doc.uri.fsPath.endsWith('.tests.yaml');
+        if (!isIsl && !isYamlTests) return;
+        if (isIsl) {
+            const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+            if (!folder || !isTestFile(doc.uri, folder)) return;
+        } else if (isYamlTests && !yamlHasIslTests(doc.getText())) return;
 
         const file = this.getOrCreateFile(doc.uri);
         this.parseTestsInFile(file, doc.getText());
@@ -262,15 +748,25 @@ export class IslTestController {
         }
 
         file.children.replace([]);
-        const { tests } = parseIslTests(file.uri, contents);
-
-        for (const t of tests) {
-            const item = this.controller.createTestItem(t.id, t.label, file.uri);
-            item.range = t.range;
-            if (t.group) {
-                item.description = t.group;
+        const isYaml = file.uri.fsPath.endsWith('.tests.yaml');
+        if (isYaml) {
+            if (!yamlHasIslTests(contents)) return;
+            const yamlTests = parseYamlIslTests(file.uri, contents);
+            for (const t of yamlTests) {
+                const item = this.controller.createTestItem(t.id, t.label, file.uri);
+                item.range = t.range;
+                file.children.add(item);
             }
-            file.children.add(item);
+        } else {
+            const { tests } = parseIslTests(file.uri, contents);
+            for (const t of tests) {
+                const item = this.controller.createTestItem(t.id, t.label, file.uri);
+                item.range = t.range;
+                if (t.group) {
+                    item.description = t.group;
+                }
+                file.children.add(item);
+            }
         }
     }
 
@@ -361,6 +857,7 @@ export class IslTestController {
         }
 
         run.appendOutput(`=== ISL Test Run ===\r\n`);
+        this.outputChannel.show(true);
         run.appendOutput(`Path: ${runPath}\r\n`);
         run.appendOutput(`Mode: ${isFile ? 'single file' : 'directory'}\r\n`);
         run.appendOutput(`Tests to run: ${testsToRun.map(t => t.id.split('#')[1] ?? t.label).join(', ')}\r\n`);
@@ -393,6 +890,22 @@ export class IslTestController {
             results = JSON.parse(raw) as IslTestResultJson;
         } catch {
             run.appendOutput('Failed to parse test results JSON.\r\n');
+            // Always show runner output so user can see what isl-cmd actually printed
+            if (execStdout) {
+                run.appendOutput(`--- Runner stdout ---\r\n`);
+                run.appendOutput(execStdout.replace(/\n/g, '\r\n') + '\r\n');
+            }
+            if (execStderr) {
+                run.appendOutput(`--- Runner stderr ---\r\n`);
+                run.appendOutput(execStderr.replace(/\n/g, '\r\n') + '\r\n');
+            }
+            try {
+                const rawContent = fs.readFileSync(outputFile, 'utf-8');
+                run.appendOutput(`--- Output file (results.json) ---\r\n`);
+                run.appendOutput(rawContent.length ? rawContent.replace(/\n/g, '\r\n') + '\r\n' : '(empty)\r\n');
+            } catch {
+                run.appendOutput(`--- Output file could not be read ---\r\n`);
+            }
             for (const test of testsToRun) {
                 run.started(test);
                 run.errored(test, new vscode.TestMessage('Failed to parse results'));
@@ -405,11 +918,11 @@ export class IslTestController {
         }
 
         if (execStdout) {
-            run.appendOutput(`--- CLI output ---\r\n`);
+            run.appendOutput(`--- Runner stdout ---\r\n`);
             run.appendOutput(execStdout.replace(/\n/g, '\r\n') + '\r\n');
         }
         if (execStderr) {
-            run.appendOutput(`--- CLI stderr ---\r\n`);
+            run.appendOutput(`--- Runner stderr ---\r\n`);
             run.appendOutput(execStderr.replace(/\n/g, '\r\n') + '\r\n');
         }
 
@@ -425,6 +938,13 @@ export class IslTestController {
         }
 
         const matched = new Set<vscode.TestItem>();
+        const uriToAssertDiags = new Map<string, vscode.Diagnostic[]>();
+
+        for (const t of testsToRun) {
+            if (t.uri?.fsPath.endsWith('.tests.yaml')) {
+                this.assertionDiagnostics.delete(t.uri);
+            }
+        }
 
         for (const tr of results.results) {
             const test = this.findTestById(testById, tr);
@@ -437,16 +957,42 @@ export class IslTestController {
             if (tr.success) {
                 run.passed(test, duration);
             } else {
-                const msg = new vscode.TestMessage(tr.message ?? 'Test failed');
-                if (tr.errorPosition && test.uri) {
-                    const pos = new vscode.Position(
-                        Math.max(0, (tr.errorPosition.line ?? 1) - 1),
-                        Math.max(0, (tr.errorPosition.column ?? 1) - 1)
-                    );
-                    msg.location = new vscode.Location(test.uri, pos);
+                const rawMessage = tr.message ?? 'Test failed';
+                const mockSuggestion = parseMockSuggestionFromError(tr.message ?? null);
+                const msg = buildTestFailureMessage(rawMessage, test.uri, mockSuggestion);
+                if (tr.errorPosition) {
+                    const fallbackUri = test.uri ?? workspaceFolder.uri;
+                    const loc = this.resolveErrorLocation(tr.errorPosition, searchBase, workspaceFolder.uri.fsPath, fallbackUri);
+                    if (loc) msg.location = loc;
                 }
                 run.failed(test, msg, duration);
+
+                if (test.uri?.fsPath.endsWith('.tests.yaml')) {
+                    const diffs = parseAssertDiffsFromMessage(tr.message ?? null);
+                    if (diffs.length > 0) {
+                        try {
+                            const doc = await vscode.workspace.openTextDocument(test.uri);
+                            const content = doc.getText();
+                            const fn = tr.functionName;
+                            const existing = uriToAssertDiags.get(test.uri.toString()) ?? [];
+                            for (const d of diffs) {
+                                const ranges = findExpectedKeyRangesInYaml(content, fn, d.key);
+                                const message = `Expected: ${d.expected}, Actual: ${d.actual}`;
+                                for (const r of ranges) {
+                                    existing.push(new vscode.Diagnostic(r, message, vscode.DiagnosticSeverity.Error));
+                                }
+                            }
+                            uriToAssertDiags.set(test.uri.toString(), existing);
+                        } catch {
+                            // ignore (e.g. file no longer open)
+                        }
+                    }
+                }
             }
+        }
+
+        for (const [uriStr, diags] of uriToAssertDiags) {
+            this.assertionDiagnostics.set(vscode.Uri.parse(uriStr), diags);
         }
 
         for (const test of testsToRun) {
@@ -497,13 +1043,50 @@ export class IslTestController {
         return common;
     }
 
+    /**
+     * Resolve errorPosition from the CLI to a VS Code Location so the test failure "arrow" opens the correct file/line.
+     * errorPosition.file is relative to the test run cwd (searchBase). Falls back to testUri if resolution fails.
+     */
+    private resolveErrorLocation(
+        errorPosition: NonNullable<IslTestResultJson['results'][0]['errorPosition']>,
+        searchBase: string,
+        workspaceRoot: string,
+        testUri: vscode.Uri
+    ): vscode.Location | null {
+        const line = Math.max(0, (errorPosition.line ?? 1) - 1);
+        const column = Math.max(0, (errorPosition.column ?? 1) - 1);
+        const file = errorPosition.file?.trim();
+        if (!file) {
+            return new vscode.Location(testUri, new vscode.Position(line, column));
+        }
+        const normalized = file.replace(/\//g, path.sep);
+        let resolved = path.resolve(searchBase, normalized);
+        if (!fs.existsSync(resolved)) {
+            resolved = path.resolve(workspaceRoot, normalized);
+        }
+        if (!fs.existsSync(resolved)) {
+            return new vscode.Location(testUri, new vscode.Position(line, column));
+        }
+        const uri = vscode.Uri.file(resolved);
+        const endLine = errorPosition.endLine != null && errorPosition.endLine > 0
+            ? Math.max(0, errorPosition.endLine - 1)
+            : line;
+        const endColumn = errorPosition.endColumn != null && errorPosition.endColumn > 0
+            ? Math.max(0, errorPosition.endColumn - 1)
+            : column;
+        const range = (endLine !== line || endColumn !== column)
+            ? new vscode.Range(line, column, endLine, endColumn)
+            : new vscode.Range(line, column, line, column);
+        return new vscode.Location(uri, range);
+    }
+
     private findTestById(testById: Map<string, vscode.TestItem>, tr: IslTestResultJson['results'][0]): vscode.TestItem | undefined {
         const fnLower = tr.functionName.toLowerCase();
         const resultFile = tr.testFile.toLowerCase().replace(/\\/g, '/');
         const resultFileBase = path.basename(resultFile);
 
         for (const [id, test] of testById) {
-            // Id format: uri#functionName or uri#functionName#line
+            // Id format: uri#functionName or uri#functionName#index
             const idFn = id.split('#')[1] ?? '';
             if (idFn.toLowerCase() !== fnLower) continue;
 
@@ -512,8 +1095,9 @@ export class IslTestController {
             const testBase = path.basename(test.uri.fsPath).toLowerCase();
             const testPath = test.uri.fsPath.toLowerCase().replace(/\\/g, '/');
 
-            // Match: exact filename, or result path ends with our filename, or our path ends with result path
+            // Match: exact path, exact filename, or result path ends with our filename (or vice versa)
             if (
+                resultFile === testPath ||
                 resultFile === testBase ||
                 resultFileBase === testBase ||
                 resultFile.endsWith('/' + testBase) ||
@@ -565,10 +1149,45 @@ export class IslTestController {
         return process.platform === 'win32' ? 'java.exe' : 'java';
     }
 
+    /**
+     * Run all tests in the given file (used by "Run all Tests in file" command).
+     * Supports both tests-folder .isl files and *.tests.yaml files that have islTests.
+     */
+    async runTestsInFile(uri: vscode.Uri): Promise<void> {
+        const folder = vscode.workspace.getWorkspaceFolder(uri);
+        const isIsl = uri.fsPath.endsWith('.isl');
+        const isYamlTests = uri.fsPath.endsWith('.tests.yaml');
+        if (!isIsl && !isYamlTests) return;
+        if (isIsl && (!folder || !isTestFile(uri, folder))) return;
+        if (isYamlTests) {
+            try {
+                const raw = await vscode.workspace.fs.readFile(uri);
+                const content = new TextDecoder().decode(raw);
+                if (!yamlHasIslTests(content)) return;
+            } catch {
+                return;
+            }
+        }
+
+        const fileItem = this.getOrCreateFile(uri);
+        await this.parseTestsInFile(fileItem);
+        if (fileItem.children.size === 0) return;
+
+        const tokenSource = new vscode.CancellationTokenSource();
+        const request: vscode.TestRunRequest = {
+            include: [fileItem],
+            exclude: undefined,
+            profile: undefined as unknown as vscode.TestRunProfile,
+            preserveFocus: false
+        };
+        await this.runProfileHandler(request, tokenSource.token);
+    }
+
     dispose(): void {
         this.documentChangeTimeouts.forEach(t => clearTimeout(t));
         this.documentChangeTimeouts.clear();
         this.watchers.forEach(w => w.dispose());
+        this.assertionDiagnostics.dispose();
         this.controller.dispose();
     }
 }

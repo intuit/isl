@@ -75,7 +75,10 @@ class TestCommand : Runnable {
                 exitProcess(1)
             }
             val result = TestResultContext()
-            val contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit> = listOf { ctx -> LogExtensions.registerExtensions(ctx) }
+            val contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit> = listOf(
+                { ctx -> LogExtensions.registerExtensions(ctx) },
+                { ctx -> TestExtensions.registerExtensions(ctx) }
+            )
             val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
             if (testFiles.isNotEmpty()) {
@@ -251,8 +254,11 @@ class TestCommand : Runnable {
         println(if (failed > 0) red("[ISL Result] $resultsLine") else "[ISL Result] $resultsLine")
     }
 
-    private fun green(text: String) = "\u001B[32m$text\u001B[0m"
-    private fun red(text: String) = "\u001B[31m$text\u001B[0m"
+    /** Use ANSI color only when stdout is a TTY (e.g. terminal). When piped (e.g. from VS Code Test Explorer), output is plain text. */
+    private fun useColor(): Boolean = System.console() != null
+
+    private fun green(text: String) = if (useColor()) "\u001B[32m$text\u001B[0m" else text
+    private fun red(text: String) = if (useColor()) "\u001B[31m$text\u001B[0m" else text
 
     private fun createErrorResult(e: Exception, fileInfos: List<FileInfo>): TestResultContext {
         val (message, position) = when (e) {

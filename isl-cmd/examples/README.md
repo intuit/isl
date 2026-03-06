@@ -40,4 +40,4 @@ isl test tests/service.tests.yaml
 
 ## YAML test format
 
-See [../README.md](../README.md#test-command) for the `*.tests.yaml` format: `category`, `setup.islSource`, `setup.mockSource`, `setup.mocks`, and `tests` with `name`, `functionName`, `input`, `expected`.
+`*.tests.yaml` suites use: `category`, `setup.islSource`, optional `setup.mockSource` (single path or array) and `setup.mocks` (inline), optional suite-level `assertOptions`, and `tests` (or `islTests`) with `name`, `functionName`, `input`, `expected`, and optional per-test `assertOptions`. See [../README.md](../README.md#test-command) for a short reference and [../docs/ext/unit-testing/yaml-tests.md](../../docs/ext/unit-testing/yaml-tests.md) for the full format and assertOptions reference.

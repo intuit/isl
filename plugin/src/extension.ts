@@ -14,7 +14,8 @@ import { IslDocumentHighlightProvider } from './highlights';
 import { IslExtensionsManager } from './extensions';
 import { initIslLanguage } from './language';
 import { IslTypeManager } from './types';
-import { IslTestController } from './testExplorer';
+import { IslTestController, isTestFile, yamlHasIslTests, addMockToFile, addMockToTestFile } from './testExplorer';
+import { IslYamlTestsCompletionProvider } from './islYamlTestsCompletion';
 
 const outputChannelName = 'ISL Language Support';
 
@@ -36,9 +37,36 @@ export function activate(context: vscode.ExtensionContext) {
     const typeManager = new IslTypeManager(extensionsManager, outputChannel);
     context.subscriptions.push(typeManager);
 
-    // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl
+    // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl and *.tests.yaml (islTests)
     const testController = new IslTestController(outputChannel, context.extensionPath);
     context.subscriptions.push({ dispose: () => testController.dispose() });
+
+    // Update "Run all Tests in file" button visibility when active editor changes
+    const updateIsTestFileContext = (doc: vscode.TextDocument | undefined) => {
+        if (!doc || doc.uri.scheme !== 'file') {
+            vscode.commands.executeCommand('setContext', 'isl.isTestFile', false);
+            return;
+        }
+        const isIsl = doc.uri.fsPath.endsWith('.isl');
+        const isYamlTests = doc.uri.fsPath.endsWith('.tests.yaml');
+        if (isIsl) {
+            const folder = vscode.workspace.getWorkspaceFolder(doc.uri);
+            vscode.commands.executeCommand('setContext', 'isl.isTestFile', !!folder && isTestFile(doc.uri, folder));
+        } else if (isYamlTests) {
+            vscode.commands.executeCommand('setContext', 'isl.isTestFile', yamlHasIslTests(doc.getText()));
+        } else {
+            vscode.commands.executeCommand('setContext', 'isl.isTestFile', false);
+        }
+    };
+    context.subscriptions.push(
+        vscode.window.onDidChangeActiveTextEditor(e => updateIsTestFileContext(e?.document)),
+        vscode.workspace.onDidChangeTextDocument(e => {
+            if (vscode.window.activeTextEditor?.document === e.document) {
+                updateIsTestFileContext(e.document);
+            }
+        })
+    );
+    updateIsTestFileContext(vscode.window.activeTextEditor?.document);
 
     // Preload extensions so first completion/validation has a warm cache
     extensionsManager.preloadExtensions().catch(() => {});
@@ -84,6 +112,13 @@ export function activate(context: vscode.ExtensionContext) {
     const completionProvider = new IslCompletionProvider(extensionsManager, typeManager, outputChannel);
     context.subscriptions.push(
         vscode.languages.registerCompletionItemProvider(documentSelector, completionProvider, '$', '@', '.', '|')
+    );
+
+    // Autocomplete for ISL tests YAML (*.tests.yaml): root keys, setup, test entries, assertOptions, function names
+    const yamlTestsSelector: vscode.DocumentSelector = { language: 'yaml', pattern: '**/*.tests.yaml' };
+    const yamlTestsCompletionProvider = new IslYamlTestsCompletionProvider();
+    context.subscriptions.push(
+        vscode.languages.registerCompletionItemProvider(yamlTestsSelector, yamlTestsCompletionProvider, ':', '-', '\n')
     );
 
     // Register hover provider
@@ -240,6 +275,13 @@ export function activate(context: vscode.ExtensionContext) {
             await testFunction(uri, functionName, params, context);
         }),
 
+        vscode.commands.registerCommand('isl.runAllTestsInFile', async () => {
+            const editor = vscode.window.activeTextEditor;
+            if (editor) {
+                await testController.runTestsInFile(editor.document.uri);
+            }
+        }),
+
         // Refactoring commands
         vscode.commands.registerCommand('isl.refactor.extractVariable', extractVariable),
         vscode.commands.registerCommand('isl.refactor.extractFunction', extractFunction),
@@ -253,7 +295,49 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Quick fix commands
         vscode.commands.registerCommand('isl.quickFix.renameDuplicateFunction', (uri: vscode.Uri, lineNumber: number, functionName: string, kind: 'fun' | 'modifier') =>
-            renameDuplicateFunction(uri, lineNumber, functionName, kind))
+            renameDuplicateFunction(uri, lineNumber, functionName, kind)),
+
+        // Add mock from test failure (triggered by link in test message).
+        // VS Code may pass the JSON array as separate arguments (arg0, arg1, ...) or as a single JSON string.
+        vscode.commands.registerCommand('isl.addMockFromTestError', async (...allArgs: unknown[]) => {
+            let arr: unknown[];
+            if (allArgs.length >= 5) {
+                arr = allArgs;
+            } else if (allArgs.length === 1 && typeof allArgs[0] === 'string') {
+                try {
+                    let parsed = JSON.parse(allArgs[0]) as unknown;
+                    arr = (typeof parsed === 'string' ? JSON.parse(parsed) : parsed) as unknown[];
+                } catch {
+                    arr = allArgs;
+                }
+            } else {
+                arr = allArgs;
+            }
+            const [testFileUriStr, mockFileName, functionName, paramsJson, yamlSnippet, addToTestFile] = arr as [string?, string?, string?, string?, string?, boolean?];
+
+            if (!testFileUriStr || functionName == null || paramsJson == null || !yamlSnippet) {
+                vscode.window.showErrorMessage('ISL: Invalid add-mock arguments.');
+                return;
+            }
+            if (!addToTestFile && !mockFileName) {
+                vscode.window.showErrorMessage('ISL: Invalid add-mock arguments (missing mock file).');
+                return;
+            }
+            const testFileUri = vscode.Uri.parse(testFileUriStr);
+            try {
+                if (addToTestFile) {
+                    await addMockToTestFile(testFileUri, functionName, paramsJson, yamlSnippet, outputChannel);
+                    vscode.window.showInformationMessage(`Added mock for @.${functionName} to test file (setup)`);
+                } else {
+                    await addMockToFile(testFileUri, mockFileName!, functionName, paramsJson, yamlSnippet, outputChannel);
+                    vscode.window.showInformationMessage(`Added mock for @.${functionName} to ${mockFileName}`);
+                }
+            } catch (e) {
+                const msg = e instanceof Error ? e.message : String(e);
+                vscode.window.showErrorMessage(`ISL: Failed to add mock: ${msg}`);
+                outputChannel.appendLine(`[ISL] addMockFromTestError failed: ${msg}`);
+            }
+        })
     );
 
     // Enhanced status bar item
