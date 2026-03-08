@@ -136,6 +136,13 @@ data class YamlUnitTestEntry(
     val byPassAnnotations: Boolean? = null,
     /** Single value for single-param functions, or object with param names as keys for multiple params. */
     val input: Any? = null,
+    /**
+     * JSON paths to ignore when comparing expected vs actual (exact path match).
+     * Paths use dot notation; array indices as [0], [1], etc. Examples:
+     * - providerResponses.error.detail
+     * - providerResponses.items[0].uid
+     */
+    val ignore: List<String>? = null,
     val expected: JsonNode? = null,
     /** Override suite assertOptions for this test only. Same formats as suite assertOptions (object, comma-separated, or array). */
     val assertOptions: AssertOptions? = null

@@ -33,12 +33,18 @@ export class IslDocumentFormatter implements vscode.DocumentFormattingEditProvid
         }
 
         const selectionText = document.getText(range);
+        // When pasting in the middle of a line (e.g. between quotes), format-on-paste runs on that
+        // range. Using context indent would add leading spaces and make the text "jump right".
+        // Use indent 0 for single-line ranges that don't start at column 0 so inline paste stays put.
+        const isInlineRange = range.start.line === range.end.line && range.start.character > 0;
         const contextRange = new vscode.Range(
             document.positionAt(0),
             range.start
         );
         const contextText = document.getText(contextRange);
-        const indentState = this.computeIndentState(contextText);
+        const indentState = isInlineRange
+            ? { indentLevel: 0, openInlineControlFlow: [] as string[] }
+            : this.computeIndentState(contextText);
         const formatted = this.formatIslCode(selectionText, options, indentState);
         return [vscode.TextEdit.replace(range, formatted)];
     }

@@ -95,6 +95,7 @@ Each entry under `tests` (or `islTests`) has:
 | **name** | Yes | Display name in results |
 | **functionName** | Yes | ISL function to call |
 | **input** | No | Input to the function. Single value for single-param; object with param names as keys for multiple params |
+| **ignore** | No | JSON paths to ignore when comparing expected vs actual (exact path match). Use dot notation; array indices as `[0]`, `[1]`, etc. |
 | **expected** | No | Expected return value (JSON). Omitted or `null` means expect `null` |
 | **byPassAnnotations** | No | If `true`, bypass annotation processing (optional) |
 | **assertOptions** | No | Override suite `assertOptions` for this test only. Same formats as suite (object, comma-separated list, or array of option names) |
@@ -119,6 +120,29 @@ Each entry under `tests` (or `islTests`) has:
     b: 3
   expected: 5
 ```
+
+### Ignoring JSON paths (ignore)
+
+To skip comparison at specific paths (e.g. dynamic or non-deterministic fields), set **ignore** above **expected**. Paths use dot notation; array indices use `[0]`, `[1]`, etc.
+
+```yaml
+- name: response with ignored fields
+  functionName: callApi
+  input: { id: 1 }
+  ignore:
+    - providerResponses.error.detail
+    - providerResponses.items[0].uid
+  expected:
+    status: 200
+    providerResponses:
+      error: {}
+      items:
+        - { name: "first" }
+```
+
+Only the listed paths are ignored (exact match); the rest of the object is compared as usual.
+
+When a test fails, the failure output includes **Result Differences** (expected vs actual and per-path diffs). If the test entry has **ignore** set, that output also lists **Ignored path(s)** so you can see which paths were skipped during comparison.
 
 ## Assert Options (assertOptions)
 
@@ -218,7 +242,7 @@ The `-f` / `--function` filter applies to both annotation-based tests and YAML s
 ### Output
 
 - Pass/fail per test with the entry’s `name` (and `functionName` in brackets when different).
-- On failure, a comparison message shows expected vs actual and, when available, path-level differences (e.g. `$.field.[0].key`).
+- On failure, a comparison message shows expected vs actual and, when available, path-level differences (e.g. `$.field.[0].key`). If the test uses **ignore**, the failure output also lists the ignored path(s).
 - Use `-o results.json` for machine-readable results.
 
 ## Full Example

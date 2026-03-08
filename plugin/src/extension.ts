@@ -16,6 +16,7 @@ import { initIslLanguage } from './language';
 import { IslTypeManager } from './types';
 import { IslTestController, isTestFile, yamlHasIslTests, addMockToFile, addMockToTestFile } from './testExplorer';
 import { IslYamlTestsCompletionProvider } from './islYamlTestsCompletion';
+import { IslPasteEditProvider } from './islPasteProvider';
 
 const outputChannelName = 'ISL Language Support';
 
@@ -38,7 +39,9 @@ export function activate(context: vscode.ExtensionContext) {
     context.subscriptions.push(typeManager);
 
     // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl and *.tests.yaml (islTests)
-    const testController = new IslTestController(outputChannel, context.extensionPath);
+    // Use a dedicated "ISL Tests" output channel for test run results
+    const islTestsOutputChannel = vscode.window.createOutputChannel('ISL Tests');
+    const testController = new IslTestController(islTestsOutputChannel, context.extensionPath);
     context.subscriptions.push({ dispose: () => testController.dispose() });
 
     // Update "Run all Tests in file" button visibility when active editor changes
@@ -182,6 +185,19 @@ export function activate(context: vscode.ExtensionContext) {
     const codeLensProvider = new IslCodeLensProvider();
     context.subscriptions.push(
         vscode.languages.registerCodeLensProvider(documentSelector, codeLensProvider)
+    );
+
+    // Paste provider: insert clipboard text as-is to avoid VS Code adding indentation when pasting
+    // in the middle of a line (e.g. between quotes in $var.message = "").
+    context.subscriptions.push(
+        vscode.languages.registerDocumentPasteEditProvider(
+            documentSelector,
+            new IslPasteEditProvider(),
+            {
+                providedPasteEditKinds: [vscode.DocumentDropOrPasteEditKind.Text],
+                pasteMimeTypes: ['text/plain']
+            }
+        )
     );
     // Refresh CodeLens when ISL documents change (e.g. after rename, copy-paste) - debounced
     let codeLensRefreshTimeout: NodeJS.Timeout | undefined;

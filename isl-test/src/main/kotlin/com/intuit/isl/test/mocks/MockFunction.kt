@@ -281,9 +281,9 @@ object MockFunction {
                     val name = mockContext.functionName
                     val paramsShort = shortParams(mockContext.parameters)
                     val r = tryFindMatch(mockObj, mockContext)
-                    println("[ISL Mock] Calling mocked function $name($paramsShort) Match=$r ")
+                    //println("[ISL Mock] Calling mocked function $name($paramsShort) Match=$r ")
                     val result = if (r is IslMockExecutor) r.run(mockContext) else r
-                    println("[ISL Mock] Returned mocked function $name=${shortValue(result)}")
+                    //println("[ISL Mock] Returned mocked function $name=${shortValue(result)}")
                     result
                 }
             }

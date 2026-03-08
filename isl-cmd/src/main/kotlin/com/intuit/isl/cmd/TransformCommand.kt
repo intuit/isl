@@ -134,6 +134,11 @@ class TransformCommand : Runnable {
                 variables["input"] = inputData
             }
             
+            // Add $context with input file info when -i was used
+            if (inputFile != null) {
+                variables["context"] = mapOf("inputFileName" to inputFile!!.name)
+            }
+            
             // Execute transformation using shared module resolution (supports relative imports like ../customer.isl)
             val transformPackage = IslModuleResolver.compileSingleFile(scriptFile, scriptContent)
             val transformer = transformPackage.getModule(scriptFile.name)

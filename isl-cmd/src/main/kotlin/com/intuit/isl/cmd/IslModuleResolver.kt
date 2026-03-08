@@ -38,7 +38,7 @@ object IslModuleResolver {
             resolvedPaths != null && resolvedPaths.containsKey(fromModule) -> resolvedPaths[fromModule]!!.parent
             else -> base.resolve(fromModule).parent ?: base
         }
-        println("[ISL resolve] fromModule=$fromModule, dependentModule=$dependentModule, fromDir=$fromDir")
+        if (TestRunFlags.shouldShowScriptLogs()) println("[ISL resolve] fromModule=$fromModule, dependentModule=$dependentModule, fromDir=$fromDir")
         val candidateNames = if (dependentModule.endsWith(".isl", ignoreCase = true)) {
             listOf(dependentModule)
         } else {
@@ -88,7 +88,7 @@ object IslModuleResolver {
      * Uses resolution history so nested imports (e.g. lib/foo.isl importing bar.isl) resolve relative to the importing file.
      */
     fun buildPackageForSingleFile(scriptFile: java.io.File, scriptContent: String): Pair<FileInfo, java.util.function.BiFunction<String, String, String>> {
-        println("[ISL load] initial file: ${scriptFile.absolutePath}")
+        if (TestRunFlags.shouldShowScriptLogs()) println("[ISL load] initial file: ${scriptFile.absolutePath}")
         val basePath = scriptFile.parentFile?.toPath()?.normalize() ?: Paths.get(".").toAbsolutePath().normalize()
         val moduleName = scriptFile.name
         val fileInfo = FileInfo(moduleName, scriptContent)

@@ -57,15 +57,32 @@ class TestCommand : Runnable {
     )
     var functions: Array<String> = emptyArray()
 
+    @Option(
+        names = ["-v", "--verbose"],
+        description = ["Show detailed logs (search, loading, mocks, per-test progress). Without this, only test name, result, and a summary are shown"]
+    )
+    var verbose: Boolean = false
+
+    @Option(
+        names = ["--report"],
+        arity = "0..1",
+        paramLabel = "FILE",
+        description = ["Write a Markdown test report to FILE. FILE is optional: if given, the report is written there (can be used with or without -o/--output). Summary at top, detailed results below. Example: --report test-report.md"]
+    )
+    var reportFile: File? = null
+
     override fun run() {
+        TestRunFlags.setTestVerbose(verbose)
         try {
             val basePath = (path?.absoluteFile ?: File(System.getProperty("user.dir"))).toPath().normalize()
             val searchBase = if (basePath.toFile().isDirectory) basePath else basePath.parent
-            when {
-                basePath.toFile().isFile -> println("[ISL Search] Searching: ${basePath.toAbsolutePath()}")
-                else -> {
-                    val islGlob = globPattern ?: "**/*.isl"
-                    println("[ISL Search] Searching: ${basePath.toAbsolutePath()} (ISL: $islGlob, YAML: **/*.tests.yaml)")
+            if (verbose) {
+                when {
+                    basePath.toFile().isFile -> println("[ISL Search] Searching: ${basePath.toAbsolutePath()}")
+                    else -> {
+                        val islGlob = globPattern ?: "**/*.isl"
+                        println("[ISL Search] Searching: ${basePath.toAbsolutePath()} (ISL: $islGlob, YAML: **/*.tests.yaml)")
+                    }
                 }
             }
             val testFiles = discoverTestFiles(basePath)
@@ -82,7 +99,7 @@ class TestCommand : Runnable {
             val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
 
             if (testFiles.isNotEmpty()) {
-                println("[ISL Loading] Found ${testFiles.size} ISL test file(s)")
+                if (verbose) println("[ISL Loading] Found ${testFiles.size} ISL test file(s)")
                 val fileInfos = testFiles.map { (filePath, content) ->
                     val moduleName = searchBase.relativize(filePath).toString().replace("\\", "/")
                     FileInfo(moduleName, content)
@@ -119,10 +136,10 @@ class TestCommand : Runnable {
             }
 
             if (yamlSuites.isNotEmpty()) {
-                println("[ISL Loading] Found ${yamlSuites.size} YAML test suite(s)")
+                if (verbose) println("[ISL Loading] Found ${yamlSuites.size} YAML test suite(s)")
                 for (yamlPath in yamlSuites) {
                     val suiteBase = if (yamlPath.toFile().isFile) yamlPath.parent else yamlPath
-                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers, functionFilter)
+                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers, functionFilter, verbose)
                 }
             }
 
@@ -130,8 +147,10 @@ class TestCommand : Runnable {
                 System.err.println(red("[ISL Error] No tests ran. Check path and --function filter."))
                 exitProcess(1)
             }
-            reportResults(result)
+            // Always print results to console first; file output is in addition to, not instead of, logs
+            reportResults(result, verbose)
             outputFile?.let { writeResultsToJson(result, it) }
+            reportFile?.let { writeReportMarkdown(result, it) }
             val failedCount = result.testResults.count { !it.success }
             if (failedCount > 0) {
                 exitProcess(1)
@@ -142,6 +161,8 @@ class TestCommand : Runnable {
                 e.printStackTrace()
             }
             exitProcess(1)
+        } finally {
+            TestRunFlags.clear()
         }
     }
 
@@ -229,29 +250,57 @@ class TestCommand : Runnable {
         }
     }
 
-    private fun reportResults(result: TestResultContext) {
+    private fun reportResults(result: TestResultContext, verbose: Boolean) {
         val passed = result.testResults.count { it.success }
         val failed = result.testResults.count { !it.success }
-        val byGroup = result.testResults.groupBy { it.testGroup ?: it.testFile }
-        byGroup.forEach { (group, tests) ->
-            println("[ISL Result]   $group")
-            tests.forEach { tr ->
-                val displayName = if (tr.testName != tr.functionName) "${tr.testName} (${tr.functionName})" else tr.testName
-                if (tr.success) {
-                    println("[ISL Result]     ${green("[PASS]")} $displayName")
-                } else {
-                    println("[ISL Result]     ${red("[FAIL]")} $displayName")
-                    tr.message?.let { println("[ISL Result]         ${red(it)}") }
-                    tr.errorPosition?.let { pos ->
-                        val loc = "${pos.file}:${pos.line}:${pos.column}"
-                        println("[ISL Result]         ${red("at $loc")}")
+        val total = result.testResults.size
+
+        //if (verbose) {
+            val byGroup = result.testResults.groupBy { it.testGroup ?: it.testFile }
+            byGroup.forEach { (group, tests) ->
+                println("[ISL Result]   $group")
+                tests.forEach { tr ->
+                    val displayName = if (tr.testName != tr.functionName) "${tr.testName} (${tr.functionName})" else tr.testName
+                    if (tr.success) {
+                        println("[ISL Result]     ${green("[PASS]")} $displayName")
+                    } else {
+                        println("[ISL Result]     ${red("[FAIL]")} $displayName")
+                        tr.message?.let { println("[ISL Result]         ${red(it)}") }
+                        tr.errorPosition?.let { pos ->
+                            val loc = "${pos.file}:${pos.line}:${pos.column}"
+                            println("[ISL Result]         ${red("at $loc")}")
+                        }
                     }
                 }
             }
+            println("[ISL Result] ---")
+            val resultsLine = "Results: $passed passed, $failed failed, $total total"
+            println(if (failed > 0) red("[ISL Result] $resultsLine") else "[ISL Result] $resultsLine")
+        //} else {
+            
+            // Nice summary
+          //  printSummary(passed, failed, total)
+        //}
+    }
+
+    private fun printSummary(passed: Int, failed: Int, total: Int) {
+        val summaryText = if (failed == 0) {
+            "All tests passed ($total total)"
+        } else {
+            "$failed failed, $passed passed ($total total)"
         }
-        println("[ISL Result] ---")
-        val resultsLine = "Results: $passed passed, $failed failed, ${result.testResults.size} total"
-        println(if (failed > 0) red("[ISL Result] $resultsLine") else "[ISL Result] $resultsLine")
+        val summary = if (failed == 0) {
+            "${green("All tests passed")} ($total total)"
+        } else {
+            "${red("$failed failed")}, $passed passed ($total total)"
+        }
+        val contentWidth = summaryText.length.coerceAtLeast(28)
+        val line = "─".repeat(contentWidth + 4)
+        val padding = " ".repeat((contentWidth - summaryText.length).coerceAtLeast(0))
+        println()
+        println("┌$line┐")
+        println("│  $summary$padding  │")
+        println("└$line┘")
     }
 
     /** Use ANSI color only when stdout is a TTY (e.g. terminal). When piped (e.g. from VS Code Test Explorer), output is plain text. */
@@ -310,5 +359,104 @@ class TestCommand : Runnable {
         val mapper = jacksonObjectMapper().enable(SerializationFeature.INDENT_OUTPUT)
         file.writeText(mapper.writeValueAsString(output))
         println("[ISL Output] Results written to: ${file.absolutePath}")
+    }
+
+    private fun writeReportMarkdown(result: TestResultContext, reportFile: File) {
+        val passed = result.testResults.count { it.success }
+        val failed = result.testResults.count { !it.success }
+        val total = result.testResults.size
+        val success = failed == 0
+
+        val md = buildString {
+            // Title and summary at top
+            appendLine("# ISL Test Report")
+            appendLine()
+            appendLine("**Generated:** ${java.time.Instant.now().atZone(java.time.ZoneId.systemDefault()).format(java.time.format.DateTimeFormatter.RFC_1123_DATE_TIME)}")
+            appendLine()
+            appendLine("## Summary")
+            appendLine()
+            appendLine("| | Count |")
+            appendLine("|---|------|")
+            appendLine("| **Total** | $total |")
+            appendLine("| **Passed** | $passed |")
+            appendLine("| **Failed** | $failed |")
+            appendLine("| **Status** | ${if (success) "✅ All passed" else "❌ $failed failed"} |")
+            appendLine()
+            appendLine("---")
+            appendLine()
+            appendLine("## Detailed Results")
+            appendLine()
+
+            val byGroup = result.testResults.groupBy { it.testGroup ?: it.testFile }
+            for ((group, tests) in byGroup) {
+                appendLine("### $group")
+                appendLine()
+                for (tr in tests) {
+                    val fileLabel = "`${tr.testFile.replace("`", "\\`")}`"
+                    val displayName = if (tr.testName != tr.functionName) "${tr.testName} (`${tr.functionName}`)" else tr.testName
+                    val line = "$fileLabel — $displayName"
+                    if (tr.success) {
+                        appendLine("- ✅ **$line**")
+                    } else {
+                        appendLine("- ❌ **$line**")
+                        val hasExpectedActual = tr.expectedJson != null && tr.actualJson != null
+                        tr.message?.let { msg ->
+                            appendLine("  - *${escapeMarkdownInline(msg.lines().first().trim())}*")
+                            if (hasExpectedActual) {
+                                appendLine()
+                                appendLine("  **Expected:**")
+                                appendLine("  ```json")
+                                prettyJson(tr.expectedJson!!).lines().forEach { appendLine("  $it") }
+                                appendLine("  ```")
+                                appendLine()
+                                appendLine("  **Actual:**")
+                                appendLine("  ```json")
+                                prettyJson(tr.actualJson!!).lines().forEach { appendLine("  $it") }
+                                appendLine("  ```")
+                                val diffs = tr.comparisonDiffs
+                                if (!diffs.isNullOrEmpty()) {
+                                    appendLine()
+                                    appendLine("  **Differences:**")
+                                    for (d in diffs) {
+                                        appendLine()
+                                        appendLine("  **Expected:**")
+                                        appendLine("  ```")
+                                        appendLine("  ${d.path} = ${d.expectedValue}")
+                                        appendLine("  ```")
+                                        appendLine("  **Actual:**")
+                                        appendLine("  ```")
+                                        appendLine("  ${d.path} = ${d.actualValue}")
+                                        appendLine("  ```")
+                                    }
+                                }
+                            } else if (msg.lines().size > 1) {
+                                appendLine("  ```")
+                                msg.lines().take(20).forEach { appendLine(it) }
+                                if (msg.lines().size > 20) appendLine("  ...")
+                                appendLine("  ```")
+                            }
+                        }
+                        tr.errorPosition?.let { pos ->
+                            appendLine("  - `${pos.file}:${pos.line}:${pos.column}`")
+                        }
+                    }
+                }
+                appendLine()
+            }
+        }
+        reportFile.writeText(md)
+        println("[ISL Output] Report written to: ${reportFile.absolutePath}")
+    }
+
+    private fun escapeMarkdownInline(s: String): String =
+        s.replace("\\", "\\\\").replace("`", "\\`").replace("*", "\\*").replace("_", "\\_")
+
+    private fun prettyJson(json: String): String {
+        return try {
+            val tree = jacksonObjectMapper().readTree(json)
+            jacksonObjectMapper().enable(SerializationFeature.INDENT_OUTPUT).writeValueAsString(tree)
+        } catch (_: Exception) {
+            json
+        }
     }
 }

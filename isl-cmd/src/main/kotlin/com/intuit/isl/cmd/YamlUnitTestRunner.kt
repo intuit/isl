@@ -12,6 +12,7 @@ import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.TransformPackage
 import com.intuit.isl.runtime.TransformPackageBuilder
 import com.intuit.isl.test.TestOperationContext
+import com.intuit.isl.test.annotations.ComparisonDiff
 import com.intuit.isl.test.annotations.TestResult
 import com.intuit.isl.test.annotations.TestResultContext
 import com.intuit.isl.test.mocks.MockFunction
@@ -47,7 +48,8 @@ object YamlUnitTestRunner {
         basePath: Path,
         resultContext: TestResultContext,
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
-        functionFilter: FunctionFilter = emptySet()
+        functionFilter: FunctionFilter = emptySet(),
+        verbose: Boolean = false
     ) {
         val suite = parseSuite(yamlPath.toFile().readText())
         val setup = suite.setup
@@ -120,7 +122,8 @@ object YamlUnitTestRunner {
                 yamlPath = yamlPath,
                 contextCustomizers = contextCustomizers,
                 assertOptions = opts,
-                printMockSummary = (index == 0)
+                printMockSummary = verbose && (index == 0),
+                verbose = verbose
             )
             resultContext.testResults.add(testResult)
         }
@@ -136,7 +139,8 @@ object YamlUnitTestRunner {
         yamlPath: Path,
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
         assertOptions: AssertOptions = AssertOptions(),
-        printMockSummary: Boolean = false
+        printMockSummary: Boolean = false,
+        verbose: Boolean = false
     ): TestResult {
         val testFileName = basePath.relativize(yamlPath).toString().replace("\\", "/")
         val context = TestOperationContext.create(
@@ -179,7 +183,7 @@ object YamlUnitTestRunner {
             setInputVariables(context, entry.input, paramNames)
 
             // 4. Run the function (or capture result from @.Test.Exit(...))
-            println("[ISL Mock] Running ${entry.functionName}")
+            if (verbose) println("[ISL Mock] Running ${entry.functionName}")
             val fullName = TransformPackage.toFullFunctionName(moduleName, entry.functionName)
             val result = try {
                 transformPackage.runTransformNew(fullName, context)
@@ -207,14 +211,18 @@ object YamlUnitTestRunner {
             // 5. Compare with expected (deep compare; on failure report exact field diffs)
             val expected = entry.expected
             val opts = entry.assertOptions ?: assertOptions
+            val ignorePaths = (entry.ignore.orEmpty()).map { normalizeComparePath(it) }.toSet()
             val (success, diffs) = if (expected == null) {
                 (result == null) to emptyList<JsonDiff>()
             } else {
-                jsonDeepCompare(expected, result, assertOptions = opts)
+                jsonDeepCompare(expected, result, assertOptions = opts, ignorePaths = ignorePaths)
             }
             val message = if (!success && expected != null) {
-                buildComparisonFailureMessage(expected, result, diffs)
+                buildComparisonFailureMessage(expected, result, diffs, entry.ignore.orEmpty())
             } else null
+            val expectedJson = if (!success && expected != null) JsonConvert.mapper.writeValueAsString(expected) else null
+            val actualJson = if (!success) (result?.let { JsonConvert.mapper.writeValueAsString(it) } ?: "null") else null
+            val comparisonDiffs = if (!success && diffs.isNotEmpty()) diffs.map { ComparisonDiff(it.path, it.expectedValue, it.actualValue) } else null
 
             return TestResult(
                 testFile = yamlPath.toString(),
@@ -222,7 +230,10 @@ object YamlUnitTestRunner {
                 testName = entry.name,
                 testGroup = groupName,
                 success = success,
-                message = message
+                message = message,
+                expectedJson = expectedJson,
+                actualJson = actualJson,
+                comparisonDiffs = comparisonDiffs
             )
         } catch (e: Exception) {
             val (msg, pos) = when (e) {
@@ -270,16 +281,30 @@ object YamlUnitTestRunner {
     private data class JsonDiff(val path: String, val expectedValue: String, val actualValue: String)
 
     /**
+     * Normalizes a user-facing JSON path to the format used during comparison ($.key.[0].field).
+     * User may write "providerResponses.items[0].uid" or "providerResponses.error.detail".
+     */
+    private fun normalizeComparePath(userPath: String): String {
+        val t = userPath.trim()
+        if (t.isEmpty()) return "$"
+        val withRoot = if (t.startsWith("$")) t else "$.$t"
+        return withRoot.replace(Regex("(?<!\\.)\\["), ".[")
+    }
+
+    /**
      * Deep-compares expected and actual JSON; returns (true, empty) if equal,
      * (false, non-empty list of diffs) with path and values at each difference.
      * [assertOptions] controls lenient matching (null/missing/empty array, extra fields).
+     * [ignorePaths] exact paths to treat as equal (e.g. ["$.providerResponses.error.detail"]).
      */
     private fun jsonDeepCompare(
         expected: JsonNode,
         actual: JsonNode?,
         path: String = "$",
-        assertOptions: AssertOptions = AssertOptions()
+        assertOptions: AssertOptions = AssertOptions(),
+        ignorePaths: Set<String> = emptySet()
     ): Pair<Boolean, List<JsonDiff>> {
+        if (path in ignorePaths) return true to emptyList()
         // actual is null (missing or literal null)
         if (actual == null) {
             if (expected.isNull) return true to emptyList()
@@ -333,7 +358,7 @@ object YamlUnitTestRunner {
                             else acc.add(JsonDiff(subPath, formatJsonValue(expectedChild), "missing"))
                         }
                         else -> {
-                            val (ok, subDiffs) = jsonDeepCompare(expectedChild, actualChild, subPath, assertOptions)
+                            val (ok, subDiffs) = jsonDeepCompare(expectedChild, actualChild, subPath, assertOptions, ignorePaths)
                             if (!ok) acc.addAll(subDiffs)
                         }
                     }
@@ -351,7 +376,7 @@ object YamlUnitTestRunner {
                 val size = minOf(expected.size(), actual.size())
                 for (i in 0 until size) {
                     val indexPath = if (path == "$") "$[$i]" else "$path.[$i]"
-                    val (ok, subDiffs) = jsonDeepCompare(expected.get(i), actual.get(i), indexPath, assertOptions)
+                    val (ok, subDiffs) = jsonDeepCompare(expected.get(i), actual.get(i), indexPath, assertOptions, ignorePaths)
                     if (!ok) acc.addAll(subDiffs)
                 }
                 if (expected.size() != actual.size()) {
@@ -370,7 +395,12 @@ object YamlUnitTestRunner {
     private fun formatJsonValue(node: JsonNode): String =
         JsonConvert.mapper.writeValueAsString(node)
 
-    private fun buildComparisonFailureMessage(expected: JsonNode, actual: JsonNode?, diffs: List<JsonDiff>): String {
+    private fun buildComparisonFailureMessage(
+        expected: JsonNode,
+        actual: JsonNode?,
+        diffs: List<JsonDiff>,
+        ignoredPaths: List<String> = emptyList()
+    ): String {
         val fullExpected = JsonConvert.mapper.writeValueAsString(expected)
         val fullActual = actual?.let { JsonConvert.mapper.writeValueAsString(it) } ?: "null"
         val header = "Expected: $fullExpected\nActual: $fullActual"
@@ -378,6 +408,8 @@ object YamlUnitTestRunner {
         val diffLines = diffs.joinToString("\n") { d ->
             "Expected: ${d.path} = ${d.expectedValue}\nActual: ${d.path} = ${d.actualValue}\r\n"
         }
-        return "[ISL Assert] Result Differences:\n$header\n\n[ISL Assert] Difference(s):\n$diffLines\n"
+        val ignoredSection = if (ignoredPaths.isEmpty()) ""
+        else "\n[ISL Assert] Ignored path(s):\n${ignoredPaths.joinToString("\n") { "  $it" }}\n"
+        return "[ISL Assert] Result Differences:\n$header$ignoredSection\n[ISL Assert] Difference(s):\n$diffLines\n"
     }
 }
