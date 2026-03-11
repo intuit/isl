@@ -856,23 +856,33 @@ export class IslTestController {
             }
         }
 
-        run.appendOutput(`=== ISL Test Run ===\r\n`);
+        this.outputChannel.clear();
         this.outputChannel.show(true);
+        run.appendOutput(`=== ISL Test Run ===\r\n`);
         run.appendOutput(`Path: ${runPath}\r\n`);
         run.appendOutput(`Mode: ${isFile ? 'single file' : 'directory'}\r\n`);
         run.appendOutput(`Tests to run: ${testsToRun.map(t => t.id.split('#')[1] ?? t.label).join(', ')}\r\n`);
         const cmdLine = functionFilters.length > 0
-            ? `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" ${functionFilters.map(f => `-f "${f}"`).join(' ')}`
-            : `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}"`;
+            ? `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose ${functionFilters.map(f => `-f "${f}"`).join(' ')}`
+            : `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose`;
         run.appendOutput(`Command: ${cmdLine}\r\n`);
         run.appendOutput(`\r\n`);
 
         let execStdout = '';
         let execStderr = '';
         try {
-            const execResult = await this.execJavaTest(javaPath, jarPath, runPath, outputFile, functionFilters, env);
+            const execResult = await this.execJavaTest(
+                javaPath,
+                jarPath,
+                runPath,
+                outputFile,
+                functionFilters,
+                env,
+                (chunk) => run.appendOutput(chunk)
+            );
             execStdout = execResult.stdout;
             execStderr = execResult.stderr;
+            this.outputChannel.show(true);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             run.appendOutput(`Execution failed: ${msg}\r\n`);
@@ -915,15 +925,6 @@ export class IslTestController {
         } finally {
             try { fs.unlinkSync(outputFile); } catch { /* ignore */ }
             try { fs.rmdirSync(path.dirname(outputFile)); } catch { /* ignore */ }
-        }
-
-        if (execStdout) {
-            run.appendOutput(`--- Runner stdout ---\r\n`);
-            run.appendOutput(execStdout.replace(/\n/g, '\r\n') + '\r\n');
-        }
-        if (execStderr) {
-            run.appendOutput(`--- Runner stderr ---\r\n`);
-            run.appendOutput(execStderr.replace(/\n/g, '\r\n') + '\r\n');
         }
 
         run.appendOutput(`--- Parsed results: ${results.results.length} test(s) ---\r\n`);
@@ -1010,6 +1011,7 @@ export class IslTestController {
 
         run.appendOutput(`\r\n=== Summary ===\r\n`);
         run.appendOutput(`Results: ${results.passed} passed, ${results.failed} failed, ${results.total} total\r\n`);
+        this.outputChannel.show(true);
         run.end();
     }
 
@@ -1111,22 +1113,43 @@ export class IslTestController {
         return undefined;
     }
 
-    private execJavaTest(javaPath: string, jarPath: string, runPath: string, outputFile: string, functionFilters: string[], env: NodeJS.ProcessEnv): Promise<{ stdout: string; stderr: string }> {
+    private execJavaTest(
+        javaPath: string,
+        jarPath: string,
+        runPath: string,
+        outputFile: string,
+        functionFilters: string[],
+        env: NodeJS.ProcessEnv,
+        onOutput: (chunk: string, isStderr: boolean) => void
+    ): Promise<{ stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
-            const args = ['-jar', jarPath, 'test', runPath, '-o', outputFile];
+            const args = ['-jar', jarPath, 'test', runPath, '-o', outputFile, '--verbose'];
             for (const f of functionFilters) {
                 args.push('-f', f);
             }
             const cwd = fs.existsSync(runPath) && fs.statSync(runPath).isFile()
                 ? path.dirname(runPath)
                 : runPath;
-            cp.execFile(javaPath, args, { env, cwd }, (err, stdout, stderr) => {
-                const stdoutStr = stdout?.toString() ?? '';
-                const stderrStr = stderr?.toString() ?? '';
-                if (stdoutStr) this.outputChannel.appendLine(stdoutStr);
-                if (stderrStr) this.outputChannel.appendLine(stderrStr);
-                if (err && err.code !== 1) {
-                    reject(err);
+            const stdoutChunks: string[] = [];
+            const stderrChunks: string[] = [];
+            const append = (data: Buffer | string, isStderr: boolean) => {
+                const s = data?.toString() ?? '';
+                if (!s) return;
+                if (isStderr) stderrChunks.push(s);
+                else stdoutChunks.push(s);
+                const normalized = s.replace(/\r?\n/g, '\r\n');
+                onOutput(normalized, isStderr);
+                this.outputChannel.append(normalized);
+            };
+            const child = cp.spawn(javaPath, args, { env, cwd });
+            child.stdout?.on('data', (d) => append(d, false));
+            child.stderr?.on('data', (d) => append(d, true));
+            child.on('error', (e) => reject(e));
+            child.on('close', (code, signal) => {
+                const stdoutStr = stdoutChunks.join('');
+                const stderrStr = stderrChunks.join('');
+                if (code !== 0 && code !== 1) {
+                    reject(new Error(`Process exited with code ${code}${signal ? `, signal ${signal}` : ''}`));
                 } else {
                     resolve({ stdout: stdoutStr, stderr: stderrStr });
                 }

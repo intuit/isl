@@ -66,7 +66,7 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         } else if (linePrefix.match(/\|\s*[\w.]*$/)) {
             return this.getModifierCompletions(document, extensions);
         } else if (linePrefix.match(/\$\w*$/)) {
-            return this.getVariableCompletions(document);
+            return this.getVariableCompletions(document, position);
         } else {
             return this.getKeywordCompletions();
         }
@@ -477,35 +477,139 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         return md;
     }
 
-    private getVariableCompletions(document: vscode.TextDocument): vscode.CompletionItem[] {
-        const variables: Map<string, vscode.CompletionItem> = new Map();
-        const text = document.getText();
-        
-        // Find all variable declarations and usages
-        const varPattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)/g;
-        let match;
-        
-        while ((match = varPattern.exec(text)) !== null) {
-            const varName = match[1];
-            if (!variables.has(varName)) {
-                const item = new vscode.CompletionItem('$' + varName, vscode.CompletionItemKind.Variable);
-                item.detail = 'Variable';
-                item.insertText = '$' + varName; // Include $ in the insert text
-                item.filterText = varName; // Filter without $ for better matching
-                variables.set(varName, item);
+    /**
+     * Autocomplete for variable names after $.
+     * Only includes variables defined above the cursor in the current function or modifier.
+     */
+    private getVariableCompletions(document: vscode.TextDocument, position: vscode.Position): vscode.CompletionItem[] {
+        const prefixMatch = document.lineAt(position).text.substring(0, position.character).match(/\$([a-zA-Z0-9_]*)$/);
+        const prefix = (prefixMatch ? prefixMatch[1] : '').toLowerCase();
+
+        const variables = this.getVariablesDeclaredAboveInCurrentScope(document, position);
+        const items: vscode.CompletionItem[] = [];
+
+        for (const varName of variables) {
+            if (prefix && !varName.toLowerCase().startsWith(prefix)) continue;
+            const item = new vscode.CompletionItem('$' + varName, vscode.CompletionItemKind.Variable);
+            item.detail = 'Variable';
+            item.insertText = '$' + varName;
+            item.filterText = varName;
+            items.push(item);
+        }
+
+        // Add common input variable if in scope (no enclosing fun/modifier or as fallback)
+        if (!variables.has('input')) {
+            if (!prefix || 'input'.toLowerCase().startsWith(prefix)) {
+                const inputItem = new vscode.CompletionItem('$input', vscode.CompletionItemKind.Variable);
+                inputItem.detail = 'Input parameter';
+                inputItem.insertText = '$input';
+                inputItem.filterText = 'input';
+                items.push(inputItem);
             }
         }
 
-        // Also add common input variable
-        if (!variables.has('input')) {
-            const inputItem = new vscode.CompletionItem('$input', vscode.CompletionItemKind.Variable);
-            inputItem.detail = 'Input parameter';
-            inputItem.insertText = '$input';
-            inputItem.filterText = 'input';
-            variables.set('input', inputItem);
+        return items;
+    }
+
+    /**
+     * Find the range of the function or modifier that contains the given position.
+     * Returns { startLine, endLine } (0-based) or null if not inside a fun/modifier body.
+     */
+    private getEnclosingFunctionOrModifierRange(document: vscode.TextDocument, position: vscode.Position): { startLine: number; endLine: number } | null {
+        const lines = document.getText().split('\n');
+        const cursorLine = position.line;
+        let declLine = -1;
+        let braceLine = -1;
+
+        for (let i = cursorLine; i >= 0; i--) {
+            const match = lines[i].match(/^\s*(fun|modifier)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)\s*\{?\s*/);
+            if (match) {
+                declLine = i;
+                break;
+            }
+        }
+        if (declLine < 0) return null;
+
+        // Find the line where the opening brace is (same line as decl or shortly after)
+        let openLine = declLine;
+        if (!lines[declLine].includes('{')) {
+            for (let i = declLine + 1; i <= Math.min(declLine + 5, lines.length - 1); i++) {
+                if (lines[i].includes('{')) {
+                    openLine = i;
+                    break;
+                }
+            }
+        }
+        let depth = 0;
+        for (let i = openLine; i < lines.length; i++) {
+            const line = lines[i];
+            for (const ch of line) {
+                if (ch === '{') depth++;
+                else if (ch === '}') depth--;
+            }
+            if (depth === 0) {
+                braceLine = i;
+                break;
+            }
+        }
+        if (braceLine < 0 || cursorLine > braceLine) return null;
+
+        return { startLine: declLine, endLine: braceLine };
+    }
+
+    /**
+     * Collect variable names declared in the current function/modifier on or above the current line.
+     */
+    private getVariablesDeclaredAboveInCurrentScope(document: vscode.TextDocument, position: vscode.Position): Set<string> {
+        const variables = new Set<string>();
+        const lines = document.getText().split('\n');
+        const cursorLine = position.line;
+
+        const range = this.getEnclosingFunctionOrModifierRange(document, position);
+        const startLine = range ? range.startLine : 0;
+        const endLine = range ? range.endLine : lines.length - 1;
+        const lastLineToScan = Math.min(cursorLine, endLine);
+
+        for (let i = startLine; i <= lastLineToScan; i++) {
+            const raw = lines[i];
+            const commentIdx = Math.min(
+                raw.indexOf('//') !== -1 ? raw.indexOf('//') : Infinity,
+                raw.indexOf('#') !== -1 ? raw.indexOf('#') : Infinity
+            );
+            const line = commentIdx !== Infinity ? raw.substring(0, commentIdx) : raw;
+
+            // Function/modifier parameters: fun name($a, $b) or modifier name($value)
+            const funParamMatch = line.match(/^\s*(fun|modifier)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(([^)]*)\)/);
+            if (funParamMatch) {
+                const params = funParamMatch[2];
+                const paramNames = params.split(',').map(p => p.trim().replace(/^\$/, '').split(':')[0].trim()).filter(Boolean);
+                for (const param of paramNames) {
+                    if (param) variables.add(param);
+                }
+            }
+
+            // Variable declarations: $var = ... or $var: ...
+            const varDeclPattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]/g;
+            let match;
+            while ((match = varDeclPattern.exec(line)) !== null) {
+                variables.add(match[1]);
+            }
+
+            // foreach $item in $items -> $item and $itemIndex
+            const foreachMatch = line.match(/foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in/);
+            if (foreachMatch) {
+                variables.add(foreachMatch[1]);
+                variables.add(foreachMatch[1] + 'Index');
+            }
+
+            // @.Pagination.*( $varName, ... )
+            const paginationMatch = line.match(/@\.Pagination\.[A-Za-z_][A-Za-z0-9_]*\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
+            if (paginationMatch) {
+                variables.add(paginationMatch[1]);
+            }
         }
 
-        return Array.from(variables.values());
+        return variables;
     }
 
     /**

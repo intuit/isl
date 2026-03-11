@@ -29,7 +29,7 @@ object LogExtensions {
         if (System.getProperty("debug") != "true") return null
         val message = formatMessage(context.parameters)
         val loc = logLocation(context)
-        println("[ISL Log $loc] $message")
+        logToStdout(loc, message)
         return null
     }
 
@@ -37,7 +37,7 @@ object LogExtensions {
     private fun info(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
         val loc = logLocation(context)
-        println("[ISL Log $loc] $message")
+        logToStdout(loc, message)
         return null
     }
 
@@ -45,7 +45,8 @@ object LogExtensions {
     private fun warn(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
         val loc = logLocation(context)
-        System.err.println("[ISL Log $loc] $message")
+        // Use stdout so [ISL Log] order is preserved when plugin runs tests (stdout/stderr are shown separately)
+        logToStdout(loc, message)
         return null
     }
 
@@ -53,8 +54,14 @@ object LogExtensions {
     private fun error(context: FunctionExecuteContext): Any? {
         val message = formatMessage(context.parameters)
         val loc = logLocation(context)
-        System.err.println("[ISL Log $loc] $message")
+        // Use stdout so [ISL Log] order is preserved when plugin runs tests (stdout/stderr are shown separately)
+        logToStdout(loc, message)
         return null
+    }
+
+    private fun logToStdout(loc: String, message: String) {
+        println("[ISL Log $loc] $message")
+        System.out.flush()
     }
 
     private fun logLocation(context: FunctionExecuteContext): String {

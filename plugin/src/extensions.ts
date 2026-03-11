@@ -513,6 +513,46 @@ export class IslExtensionsManager {
 
         return new Promise((resolve, reject) => {
             const repoUrl = `https://${githubInfo.host}/${githubInfo.owner}/${githubInfo.repo}.git`;
+            const gitDir = path.join(cacheDir, '.git');
+
+            const doRead = (targetDir: string) => {
+                cp.exec(`git submodule update --init --recursive`, { cwd: targetDir, timeout: 60000 }, (submoduleError) => {
+                    if (submoduleError) this.log(`[ISL Extensions] Submodule update failed (continuing): ${submoduleError.message}`, 'warn');
+                    this.readFromRepo(targetDir, path.join(targetDir, githubInfo.path), resolve, reject);
+                });
+            };
+
+            /** Refresh existing clone: fetch and checkout ref, then read file. */
+            const doRefresh = (targetDir: string) => {
+                this.log(`[ISL Extensions] Refreshing cached repo: ${repoKey}`);
+                cp.exec(`git fetch --depth 1 origin ${githubInfo.ref}`, { cwd: targetDir, timeout: 60000 }, (fetchError) => {
+                    if (fetchError) {
+                        this.log(`[ISL Extensions] Fetch failed, trying full fetch: ${fetchError.message}`, 'warn');
+                        cp.exec(`git fetch origin`, { cwd: targetDir, timeout: 60000 }, (fetchError2) => {
+                            if (fetchError2) {
+                                reject(new Error(`Git fetch failed: ${fetchError2.message}`));
+                                return;
+                            }
+                            cp.exec(`git checkout ${githubInfo.ref}`, { cwd: targetDir, timeout: 30000 }, (coError) => {
+                                if (coError) {
+                                    reject(new Error(`Git checkout failed: ${coError.message}`));
+                                    return;
+                                }
+                                doRead(targetDir);
+                            });
+                            return;
+                        });
+                        return;
+                    }
+                    cp.exec(`git checkout ${githubInfo.ref}`, { cwd: targetDir, timeout: 30000 }, (checkoutError) => {
+                        if (checkoutError) {
+                            reject(new Error(`Git checkout failed: ${checkoutError.message}`));
+                            return;
+                        }
+                        doRead(targetDir);
+                    });
+                });
+            };
 
             const doClone = (targetDir: string) => {
                 this.log(`[ISL Extensions] Cloning ${repoUrl} to ${targetDir} (with submodules, will cache)`);
@@ -529,21 +569,19 @@ export class IslExtensionsManager {
                                     reject(new Error(`Git checkout failed: ${checkoutError.message}`));
                                     return;
                                 }
-                                cp.exec(`git submodule update --init --recursive`, { cwd: targetDir, timeout: 60000 }, (submoduleError) => {
-                                    if (submoduleError) this.log(`[ISL Extensions] Submodule update failed (continuing): ${submoduleError.message}`, 'warn');
-                                    this.readFromRepo(targetDir, path.join(targetDir, githubInfo.path), resolve, reject);
-                                });
+                                doRead(targetDir);
                             });
                         });
                         return;
                     }
-                    cp.exec(`git submodule update --init --recursive`, { cwd: targetDir, timeout: 60000 }, (submoduleError) => {
-                        if (submoduleError) this.log(`[ISL Extensions] Submodule update failed (continuing): ${submoduleError.message}`, 'warn');
-                        this.readFromRepo(targetDir, path.join(targetDir, githubInfo.path), resolve, reject);
-                    });
+                    doRead(targetDir);
                 });
             };
 
+            if (fs.existsSync(cacheDir) && fs.existsSync(gitDir)) {
+                doRefresh(cacheDir);
+                return;
+            }
             if (fs.existsSync(cacheDir)) {
                 try {
                     fs.rmSync(cacheDir, { recursive: true, force: true });

@@ -149,6 +149,7 @@ object YamlUnitTestRunner {
             basePath = basePath,
             mockFileName = setup.mockSourceDisplayName(),
             testFileName = testFileName,
+            verboseLogging = verbose,
             contextCustomizers = contextCustomizers
         )
 

@@ -48,6 +48,9 @@ class MockObject {
                 ensureIndexCapacity(list, index)
                 list[index - 1] = returnValue
             } else {
+                if (matchingParamMap.containsKey(mockMatcher)) {
+                    println("[ISL Mock] Overriding existing mock for params: ${parameters.values}")
+                }
                 matchingParamMap[mockMatcher] = returnValue
             }
             mockMatcher.hashCode()

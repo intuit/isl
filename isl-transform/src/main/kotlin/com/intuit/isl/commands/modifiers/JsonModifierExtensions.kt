@@ -1,5 +1,7 @@
 package com.intuit.isl.commands.modifiers
 
+import com.fasterxml.jackson.core.json.JsonReadFeature
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.intuit.isl.common.FunctionExecuteContext
@@ -25,22 +27,21 @@ object JsonModifierExtensions {
                 if (text.isBlank())
                     return null;
 
-                return try{
-                    // cheap test to avoid unnecessary exceptions
-                    val firstChar = text[0];
+                return try {
+                    val firstChar = text.trim().firstOrNull() ?: return null;
+                    // Only parse if content looks like JSON (starts with { or [)
+                    if (firstChar != '{' && firstChar != '[') return null;
 
-                    // we only parse if first char is whitespace { or [
-                    // anything else is not json anyway
-                    if(firstChar.isWhitespace() || firstChar == '{' || firstChar == '['  ) {
-                        return JsonConvert.mapper.readTree(text)
-                    } else {
-                        return null;
-                    }
-                }catch (e: Exception) {
-//                    context.executionContext.operationContext.interceptor?.logInfo(
-//                        context.command,
-//                        context.executionContext
-//                    ) { "Exception: ${e.localizedMessage}" }
+                    // Lenient reader only for json.parse: trailing commas, comments, leading zeros.
+                    // Other options: ALLOW_UNQUOTED_FIELD_NAMES, ALLOW_SINGLE_QUOTES,
+                    //   ALLOW_LEADING_DECIMAL_POINT_FOR_NUMBERS, ALLOW_UNESCAPED_CONTROL_CHARS
+                    val reader = JsonConvert.mapper.reader()
+                        .with(JsonReadFeature.ALLOW_TRAILING_COMMA)
+                        .with(JsonReadFeature.ALLOW_JAVA_COMMENTS)
+                        .with(JsonReadFeature.ALLOW_YAML_COMMENTS)
+                        .with(JsonReadFeature.ALLOW_LEADING_ZEROS_FOR_NUMBERS)
+                    reader.readValue(text, JsonNode::class.java)
+                } catch (e: Exception) {
                     null
                 }
             }

@@ -30,6 +30,10 @@ class TestOperationContext : BaseOperationContext {
     var testFileName: String? = null
         internal set
 
+    /** When true, mock framework logs each mocked function call and return (e.g. when running with --verbose). */
+    var verboseLogging: Boolean = false
+        internal set
+
     companion object {
         fun create(
             testResultContext: TestResultContext,
@@ -37,6 +41,7 @@ class TestOperationContext : BaseOperationContext {
             basePath: Path? = null,
             mockFileName: String? = null,
             testFileName: String? = null,
+            verboseLogging: Boolean = false,
             contextCustomizers: List<(IOperationContext) -> Unit> = emptyList()
         ): TestOperationContext {
             val context = TestOperationContext()
@@ -58,6 +63,7 @@ class TestOperationContext : BaseOperationContext {
             context.basePath = basePath
             context.mockFileName = mockFileName
             context.testFileName = testFileName
+            context.verboseLogging = verboseLogging
 
             return context
         }

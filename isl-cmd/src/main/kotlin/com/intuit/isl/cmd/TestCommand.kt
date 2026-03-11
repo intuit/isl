@@ -71,8 +71,24 @@ class TestCommand : Runnable {
     )
     var reportFile: File? = null
 
+    private fun logCommandLineParams() {
+        val pathStr = path?.let { it.absolutePath } ?: "(default: current directory)"
+        val globStr = globPattern ?: "(default: **/*.isl)"
+        val outputStr = outputFile?.path ?: "(none)"
+        val functionStr = if (functions.isEmpty()) "(all)" else functions.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
+        val reportStr = reportFile?.path ?: "(none)"
+        println("[ISL Test] Command line:")
+        println("  path     : $pathStr")
+        println("  glob     : $globStr")
+        println("  output   : $outputStr")
+        println("  function : $functionStr")
+        println("  verbose  : $verbose")
+        println("  report   : $reportStr")
+    }
+
     override fun run() {
         TestRunFlags.setTestVerbose(verbose)
+        logCommandLineParams()
         try {
             val basePath = (path?.absoluteFile ?: File(System.getProperty("user.dir"))).toPath().normalize()
             val searchBase = if (basePath.toFile().isDirectory) basePath else basePath.parent
@@ -114,9 +130,9 @@ class TestCommand : Runnable {
                         contextCustomizers
                     )
                     if (functionFilter.isEmpty()) {
-                        testPackage.runAllTests(result)
+                        testPackage.runAllTests(result, verbose)
                     } else {
-                        testPackage.runFilteredTests(result) { file, func ->
+                        testPackage.runFilteredTests(result, { file, func ->
                             functionFilter.any { filter ->
                                 when {
                                     filter.contains(":") -> {
@@ -128,7 +144,7 @@ class TestCommand : Runnable {
                                     else -> filter.equals(func, true)
                                 }
                             }
-                        }
+                        }, verbose)
                     }
                 } catch (e: Exception) {
                     result.testResults.addAll(createErrorResult(e, fileInfos).testResults)

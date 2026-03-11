@@ -15,7 +15,6 @@ object TypesModifierExtensions {
 
     private fun typeofInfo(context: FunctionExecuteContext): Any? {
         val first = context.firstParameter;
-        println("Checking type of ${first}")
         when (first) {
             is TypedObjectNode -> return first.type?.toString() ?: IslType.Type.OBJECT.value;
             is POJONode -> return IslType.Type.OBJECT.value;
