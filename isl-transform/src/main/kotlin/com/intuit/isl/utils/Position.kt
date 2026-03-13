@@ -5,4 +5,10 @@ data class Position(
     val line: Int,
     val column: Int,
     val endLine: Int? = null,
-    val endColumn: Int? = null)
+    val endColumn: Int? = null) {
+
+    /**
+     * Format as file:line or file:line:column so editors (e.g. VSCode) can parse and open the location.
+     */
+    override fun toString(): String = "$file:$line:$column"
+}

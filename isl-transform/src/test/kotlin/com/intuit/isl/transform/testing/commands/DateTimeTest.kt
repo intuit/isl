@@ -225,6 +225,28 @@ class DateTimeTest : YamlTransformTest("modifiers") {
                 )
             );
         }
+
+        @JvmStatic
+        fun dateDiff(): Stream<Arguments> {
+            return Stream.of(
+                Arguments.of(
+                    "\$start: \"2021-12-03T10:00:00Z\" | date.parse(); \$end: \"2021-12-03T11:30:00Z\" | date.parse(); r: \$end | date.diff( \$start, 'MINUTES' )",
+                    """{ "r": 90 }""", null
+                ),
+                Arguments.of(
+                    "\$start: \"2021-12-03T10:00:00Z\" | date.parse(); \$end: \"2021-12-03T10:00:45Z\" | date.parse(); r: \$end | date.diff( \$start, 'SECONDS' )",
+                    """{ "r": 45 }""", null
+                ),
+                Arguments.of(
+                    "\$start: \"2021-12-01\" | date.parse(\"yyyy-MM-dd\"); \$end: \"2021-12-04\" | date.parse(\"yyyy-MM-dd\"); r: \$end | date.diff( \$start, 'DAYS' )",
+                    """{ "r": 3 }""", null
+                ),
+                Arguments.of(
+                    "\$end: \"2021-12-03T11:30:00Z\" | date.parse(); \$start: \"2021-12-03T10:00:00Z\" | date.parse(); r: \$end | date.diff( \$start )",
+                    """{ "r": 5400 }""", null
+                )
+            );
+        }
     }
 
 
@@ -233,7 +255,8 @@ class DateTimeTest : YamlTransformTest("modifiers") {
         "simpleDates",
         "dateParsing",
         "dateArrayParsing",
-        "dateOperations"
+        "dateOperations",
+        "dateDiff"
     )
     fun runFixtures(script: String, expectedResult: String, map: Map<String, Any?>? = null) {
         run(script, expectedResult, map);

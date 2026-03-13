@@ -340,7 +340,7 @@ object MockFunction {
         val (baseName, index) = parseFunctionNameWithIndex(functionNameStr)
         val obtainedContext = getMockContext(baseName)
 
-        return obtainedContext.mockObject.addMock(returnValue, parameters, index)
+        return obtainedContext.mockObject.addMock(returnValue, parameters, index, baseName)
     }
 
     /**

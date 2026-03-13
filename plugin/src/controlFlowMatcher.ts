@@ -362,12 +362,17 @@ export function validateControlFlowBalance(
         }
         
         // Inline if/switch don't require endif/endswitch. When we see a new statement
-        // (e.g. next assignment or endfor), implicitly close any open inline items.
-        // BUT: don't pop an item if this line contains its matching end keyword
-        // (e.g. endswitch) - we'll handle that in the match processing below.
+        // (e.g. next assignment), implicitly close any open inline if/switch.
+        // Do NOT implicitly close inline foreach/while: they always have multi-line
+        // bodies and require explicit endfor/endwhile (assignments inside the body
+        // would otherwise incorrectly close the loop).
         if (isNewStatementStart(codeLineTrimmed)) {
             while (stack.length > 0 && !stack[stack.length - 1].isBlock) {
                 const top = stack[stack.length - 1];
+                // Only implicitly close inline if/switch; leave foreach/while for explicit endfor/endwhile
+                if (top.type === 'foreach' || top.type === 'while') {
+                    break;
+                }
                 const pair = CONTROL_FLOW_PAIRS[top.type];
                 if (pair && pair.endPattern.test(codeLineWithoutComments)) {
                     // This line has the matching end keyword - don't pop, handle it below

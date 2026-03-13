@@ -46,7 +46,7 @@ FROM eclipse-temurin:21-jre
 WORKDIR /app
 
 # Copy the built JAR
-COPY --from=build /app/playground/backend/build/libs/isl-playground-1.0.0.jar /app/app.jar
+COPY --from=build /app/playground/backend/build/libs/isl-playground-1.1.0.jar /app/app.jar
 
 # Expose port
 EXPOSE 8080

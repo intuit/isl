@@ -401,26 +401,27 @@ Evaluates to:
 
 ## Conversions
 1. `| date.parse( format, [{ locale: 'en_AU' }] )` or `| date.parse( [ format1, format2 ], [{ locale: 'en_AU' }] )` - parses a value into a date. The default locale is `en_US` if not specified. It might be necessary to specific a locale if the input string contains language or country specific elements e.g. AM (US) vs am (AU) or Monday (English) vs Lundi (French). See [detailed dates documentation](../types/dates.md).
-2. `| to.boolean` - returns boolean representation of the specified input.
-3. `| to.number` - returns numeric representation as int/long of the specified input.
-4. `| to.decimal` - returns numeric representation as decimal of the specified input.
-5. `| to.string` - returns a string representation of the input. Dates are converted to the standard.
+2. `| date.diff( otherDate, unit )` - returns the difference (pipe value minus otherDate) in the given unit. Unit is a string such as `'SECONDS'`, `'MINUTES'`, `'HOURS'`, `'DAYS'`, `'WEEKS'`, `'MONTHS'`, or `'YEARS'` (default is `'SECONDS'`). Both sides must be dates (e.g. from `date.parse` or `@.Date.Now()`). E.g. `$end | date.diff( $start, 'MINUTES' )` returns the number of minutes from `$start` to `$end`.
+3. `| to.boolean` - returns boolean representation of the specified input.
+4. `| to.number` - returns numeric representation as int/long of the specified input.
+5. `| to.decimal` - returns numeric representation as decimal of the specified input.
+6. `| to.string` - returns a string representation of the input. Dates are converted to the standard.
    1. `$date = @.Date.Now() | to.string` will output in the standard ISO format of `yyyy-MM-ddTHH:mm:ss.fffZ` > `2021-12-01T00:57:39.910Z`.
    2. You can also specify a custom formatting: `$date = @.Date.Now() | to.string(yyMMdd)` will output `211201`.
-6. `| to.hex` - converts the input to a byte array then to a (lowercase) hex representation.
-7. `| to.array` - converts the input to an array. If they input is already an array then it is left untouched. `r: 1 | to.array` -> `r: [ 1 ]`.
+7. `| to.hex` - converts the input to a byte array then to a (lowercase) hex representation.
+8. `| to.array` - converts the input to an array. If they input is already an array then it is left untouched. `r: 1 | to.array` -> `r: [ 1 ]`.
    Can be used to guarantee that a specific property of an object is an array.
-8. `| to.object` - converts an array of `[{ key: k, value: value }]` elements to an object. This is the reverse of the `| kv` modifier.
-9. `| to.json` - converts the input to a JSON string representation. E.g. `{ a: 1, b: 2 } | to.json` > `"{\"a\":1,\"b\":2}"`.
-10. `| to.yaml` - converts the input to a YAML string representation.
-11. `| to.csv` - converts an array of objects to CSV format. E.g. `[{ a: 1, b: 2 }, { a: 3, b: 4 }] | to.csv` > `"a,b\n1,2\n3,4"`.
-12.  `| hex.tobinary` - converts a hex string to a binary array.
-13.  `| encode.base64` - accepts a string and returns an encoded string based on the specified encoding method, in this example being `base64`.
-14. `| encode.string` - just converts to string.
-15. `| encode.path` - percentage encoding for paths `"a b" | encode.path` > `a%20b`.
-16. `| encode.query` - query based encoding `"a b" | encode.query` > `a+b`.
-17. `| decode.base64` - accepts a base64 encoded string and returns a decoded `byte[]` based on the specified decoding method, in this example being `base64`based on the encoding method in this case `base64`. To get the string value of the `byte[]` call `| to.string`.
-18. `| decode.query` - decode a query string `"a+b" | decode.query` > `a b`.
+9. `| to.object` - converts an array of `[{ key: k, value: value }]` elements to an object. This is the reverse of the `| kv` modifier.
+10. `| to.json` - converts the input to a JSON string representation. E.g. `{ a: 1, b: 2 } | to.json` > `"{\"a\":1,\"b\":2}"`.
+11. `| to.yaml` - converts the input to a YAML string representation.
+12. `| to.csv` - converts an array of objects to CSV format. E.g. `[{ a: 1, b: 2 }, { a: 3, b: 4 }] | to.csv` > `"a,b\n1,2\n3,4"`.
+13.  `| hex.tobinary` - converts a hex string to a binary array.
+14.  `| encode.base64` - accepts a string and returns an encoded string based on the specified encoding method, in this example being `base64`.
+15. `| encode.string` - just converts to string.
+16. `| encode.path` - percentage encoding for paths `"a b" | encode.path` > `a%20b`.
+17. `| encode.query` - query based encoding `"a b" | encode.query` > `a+b`.
+18. `| decode.base64` - accepts a base64 encoded string and returns a decoded `byte[]` based on the specified decoding method, in this example being `base64`based on the encoding method in this case `base64`. To get the string value of the `byte[]` call `| to.string`.
+19. `| decode.query` - decode a query string `"a+b" | decode.query` > `a b`.
 
 
 ## Other Utilities

@@ -90,7 +90,7 @@ export class IslValidator {
         
         for (let i = 0; i < lines.length; i++) {
             const line = lines[i];
-            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions, importedFunctions);
+            this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions, importedFunctions, importedModifiers);
             this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers, extensions, importedModifiers);
             this.checkVariableUsage(line, i, diagnostics, document, declaredVariables);
             this.checkPaginationPropertyAccess(line, i, diagnostics, document, paginationVariables);
@@ -706,7 +706,7 @@ export class IslValidator {
         return variables;
     }
 
-    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions, importedFunctions: Map<string, Set<string>>) {
+    private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions, importedFunctions: Map<string, Set<string>>, importedModifiers: Map<string, Set<string>>) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -814,15 +814,19 @@ export class IslValidator {
                 if (importedFunctions.get(moduleName)!.has(funcName)) {
                     this.logValidation(`@.${compoundName}() resolved as imported function`);
                     continue;
-                } else {
-                    const startPos = match.index + match[0].indexOf(funcName);
-                    const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
-                    diagnostics.push(new vscode.Diagnostic(
-                        range,
-                        `Function '${funcName}' is not exported from module '${moduleName}'`,
-                        vscode.DiagnosticSeverity.Warning
-                    ));
                 }
+                // @.Module.name() can also call exported modifiers (e.g. @.BankingUtils.mapAccountCategory($x))
+                if (importedModifiers.get(moduleName)?.has(funcName)) {
+                    this.logValidation(`@.${compoundName}() resolved as imported modifier`);
+                    continue;
+                }
+                const startPos = match.index + match[0].indexOf(funcName);
+                const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + funcName.length);
+                diagnostics.push(new vscode.Diagnostic(
+                    range,
+                    `Function '${funcName}' is not exported from module '${moduleName}'`,
+                    vscode.DiagnosticSeverity.Warning
+                ));
             } else {
                 // Module not found - check if it's imported (never report "not imported" for global extension names)
                 const imports = this.extractImports(document);

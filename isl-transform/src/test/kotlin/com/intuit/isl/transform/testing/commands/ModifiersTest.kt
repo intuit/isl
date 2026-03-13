@@ -937,33 +937,33 @@ class ModifiersTest : BaseTransformTest() {
                 // string > zip.add should return error
                 Arguments.of(
                     "\$obj = \"hello\"; result: \$obj | zip.add(\"foo.txt\", \"bar\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=29, endLine=1, endColumn=56).\nNot a zip object at Position(file=test, line=1, column=29, endLine=1, endColumn=56)"""",
+                    """"Could not Execute '@.zip.add' at test:1:29.\nNot a zip object at test:1:29"""",
                     null
                 ),
                 // not ZipObject > zip.add should return error
                 Arguments.of(
                     "\$obj = {}; result: \$obj | zip.add(\"foo.txt\", \"bar\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=24, endLine=1, endColumn=51).\nNot a zip object at Position(file=test, line=1, column=24, endLine=1, endColumn=51)"""",
+                    """"Could not Execute '@.zip.add' at test:1:24.\nNot a zip object at test:1:24"""",
                     null
                 ),
                 // test invalid zip modifier
                 Arguments.of(
                     "\$z = @.Zip.Start(); " +
                             "result: \$z | zip.plus(\"foo.txt\", \"Hello World!123\", \"utf-8\")",
-                    """"Could not Execute '@.zip.plus' at Position(file=test, line=1, column=31, endLine=1, endColumn=80).\nInvalid method; method=plus at Position(file=test, line=1, column=31, endLine=1, endColumn=80)"""",
+                    """"Could not Execute '@.zip.plus' at test:1:31.\nInvalid method; method=plus at test:1:31"""",
                     null
                 ),
                 // test zip invalid filename
                 Arguments.of(
                     "\$z = @.Zip.Start(); " +
                             "result: \$z | zip.add(\"\", \"Hello World!123\", \"utf-8\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=31, endLine=1, endColumn=72).\nBlank file name at Position(file=test, line=1, column=31, endLine=1, endColumn=72)"""",
+                    """"Could not Execute '@.zip.add' at test:1:31.\nBlank file name at test:1:31"""",
                     null
                 ),
                 // test unzip should fail if input is not bytearray
                 Arguments.of(
                     "\$s = \"hello world\"; result: \$s | unzip",
-                    """"Could not Execute '@.unzip' at Position(file=test, line=1, column=31, endLine=1, endColumn=38).\nInvalid content type for unzip com.fasterxml.jackson.databind.node.TextNode at Position(file=test, line=1, column=31, endLine=1, endColumn=38)"""",
+                    """"Could not Execute '@.unzip' at test:1:31.\nInvalid content type for unzip com.fasterxml.jackson.databind.node.TextNode at test:1:31"""",
                     null
                 ),
                 // ObjectRefNode > to.bytes should return empty byte array
@@ -1067,33 +1067,33 @@ class ModifiersTest : BaseTransformTest() {
                 // string > zip.add should return error
                 Arguments.of(
                     "\$obj = \"hello\"; result: \$obj | zip.add(\"foo.txt\", \"bar\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=29, endLine=1, endColumn=56).\nNot a zip object at Position(file=test, line=1, column=29, endLine=1, endColumn=56)"""",
+                    """"Could not Execute '@.zip.add' at test:1:29.\nNot a zip object at test:1:29"""",
                     null
                 ),
                 // not ZipObject > zip.add should return error
                 Arguments.of(
                     "\$obj = {}; result: \$obj | zip.add(\"foo.txt\", \"bar\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=24, endLine=1, endColumn=51).\nNot a zip object at Position(file=test, line=1, column=24, endLine=1, endColumn=51)"""",
+                    """"Could not Execute '@.zip.add' at test:1:24.\nNot a zip object at test:1:24"""",
                     null
                 ),
                 // test invalid zip modifier
                 Arguments.of(
                     "\$z = @.Zip.Start(); " +
                             "result: \$z | zip.plus(\"foo.txt\", \"Hello World!123\", \"utf-8\")",
-                    """"Could not Execute '@.zip.plus' at Position(file=test, line=1, column=31, endLine=1, endColumn=80).\nInvalid method; method=plus at Position(file=test, line=1, column=31, endLine=1, endColumn=80)"""",
+                    """"Could not Execute '@.zip.plus' at test:1:31.\nInvalid method; method=plus at test:1:31"""",
                     null
                 ),
                 // test zip invalid filename
                 Arguments.of(
                     "\$z = @.Zip.Start(); " +
                             "result: \$z | zip.add(\"\", \"Hello World!123\", \"utf-8\")",
-                    """"Could not Execute '@.zip.add' at Position(file=test, line=1, column=31, endLine=1, endColumn=72).\nBlank file name at Position(file=test, line=1, column=31, endLine=1, endColumn=72)"""",
+                    """"Could not Execute '@.zip.add' at test:1:31.\nBlank file name at test:1:31"""",
                     null
                 ),
                 // test unzip should fail if input is not bytearray
                 Arguments.of(
                     "\$s = \"hello world\"; result: \$s | unzip",
-                    """"Could not Execute '@.unzip' at Position(file=test, line=1, column=31, endLine=1, endColumn=38).\nInvalid content type for unzip com.fasterxml.jackson.databind.node.TextNode at Position(file=test, line=1, column=31, endLine=1, endColumn=38)"""",
+                    """"Could not Execute '@.unzip' at test:1:31.\nInvalid content type for unzip com.fasterxml.jackson.databind.node.TextNode at test:1:31"""",
                     null
                 ),
                 // ObjectRefNode > to.bytes should return empty byte array
@@ -1253,17 +1253,17 @@ class ModifiersTest : BaseTransformTest() {
                 // tests to validate errors
                 Arguments.of(
                     "min: @.Math.min(1.2, \"a\", 2.4)",
-                    """"Could not Execute '@.math.min'. Error='NumberFormatException: Character a is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at Position(file=test, line=1, column=5, endLine=1, endColumn=30)."""",
+                    """"Could not Execute '@.math.min'. Error='NumberFormatException: Character a is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:5."""",
                     null
                 ),
                 Arguments.of(
                     "\$v:\"a\"; max: @.Math.max(1.2, 3.6, \$v)",
-                    """"Could not Execute '@.math.max'. Error='NumberFormatException: Character \" is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at Position(file=test, line=1, column=13, endLine=1, endColumn=37)."""",
+                    """"Could not Execute '@.math.max'. Error='NumberFormatException: Character \" is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:13."""",
                     null
                 ),
                 Arguments.of(
                     "\$v:3.6; mean: @.Math.mean(\"a\", \$v)",
-                    """"Could not Execute '@.math.mean'. Error='NumberFormatException: Character n is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at Position(file=test, line=1, column=14, endLine=1, endColumn=34)."""",
+                    """"Could not Execute '@.math.mean'. Error='NumberFormatException: Character n is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:14."""",
                     null
                 ),
             )

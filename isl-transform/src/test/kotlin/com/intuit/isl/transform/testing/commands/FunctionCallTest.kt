@@ -55,7 +55,7 @@ class FunctionCallTest : YamlTransformTest("functions") {
             return Stream.of(
                 Arguments.of(
                     "value: @.unknown.unknown()",
-                    """"Could not Execute '@.unknown.unknown'. Error='Unknown Function: unknown.unknown' at Position(file=test, line=1, column=7, endLine=1, endColumn=26)"""",
+                    """"Could not Execute '@.unknown.unknown'. Error='Unknown Function: unknown.unknown' at test:1:7"""",
                     null
                 ),
                 Arguments.of("value: @.test.methodnull()", """{ "value": null }""", null),

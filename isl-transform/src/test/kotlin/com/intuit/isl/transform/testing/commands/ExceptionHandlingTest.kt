@@ -26,7 +26,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "}" +
                             "" +
                             "",
-                    """"Could not Execute '@.error.raise'. Error='CustomException: error' at Position(file=test, line=1, column=10, endLine=1, endColumn=32)."""",
+                    """"Could not Execute '@.error.raise'. Error='CustomException: error' at test:1:10."""",
                     null
                 ),
                 // modifier one level down
@@ -40,7 +40,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "@.Error.Raise('error');" +
                             "}" +
                             "",
-                    """"Could not Execute '@.test' at Position(file=test, line=3, column=17, endLine=3, endColumn=23).\nCould not Execute '@.error.raise'. Error='CustomException: error' at Position(file=test, line=7, column=17, endLine=7, endColumn=39)."""",
+                    """"Could not Execute '@.test' at test:3:17.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:7:17."""",
                     null
                 ),
 
@@ -58,7 +58,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "   @.Error.Raise('error');\n" +
                             "}\n" +
                             "",
-                    """"Could not Execute '@.this.dowork' at Position(file=test, line=3, column=13, endLine=3, endColumn=33).\nCould not Execute '@.test' at Position(file=test, line=8, column=25, endLine=8, endColumn=31).\nCould not Execute '@.error.raise'. Error='CustomException: error' at Position(file=test, line=11, column=3, endLine=11, endColumn=25)."""",
+                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.test' at test:8:25.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:11:3."""",
                     null
                 ),
 
@@ -76,7 +76,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "   @.Error.Raise('error');\n" +
                             "}\n" +
                             "",
-                    """"Could not Execute '@.this.dowork' at Position(file=test, line=3, column=13, endLine=3, endColumn=33).\nCould not Execute '@.this.test' at Position(file=test, line=8, column=18, endLine=8, endColumn=39).\nCould not Execute '@.error.raise'. Error='CustomException: error' at Position(file=test, line=11, column=3, endLine=11, endColumn=25)."""",
+                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.this.test' at test:8:18.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:11:3."""",
                     null
                 ),
             )

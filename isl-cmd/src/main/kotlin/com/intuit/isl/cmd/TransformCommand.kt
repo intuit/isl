@@ -7,6 +7,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
+import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
@@ -80,6 +81,7 @@ class TransformCommand : Runnable {
                 when (outputFile!!.extension.lowercase()) {
                     "yaml", "yml" -> format = "yaml"
                     "json" -> { /* keep json */ }
+                    "txt" -> format = "txt"
                     else -> { /* keep json */ }
                 }
             }
@@ -214,6 +216,7 @@ class TransformCommand : Runnable {
     private fun formatOutput(result: Any?, format: String, pretty: Boolean): String {
         val mapper = when (format.lowercase()) {
             "yaml", "yml" -> ObjectMapper(YAMLFactory())
+            "txt" -> return ConvertUtils.tryToString( result ) ?: ""
             else -> jacksonObjectMapper()
         }
         

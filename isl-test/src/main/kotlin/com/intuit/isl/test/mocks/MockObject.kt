@@ -31,7 +31,7 @@ class MockObject {
         hasDefaultReturn = false
     }
 
-    fun addMock(returnValue: Any?, parameters: Map<Int, JsonNode>, index: Int? = null): Int? {
+    fun addMock(returnValue: Any?, parameters: Map<Int, JsonNode>, index: Int? = null, functionName: String? = null): Int? {
         return if (parameters.isEmpty()) {
             hasDefaultReturn = true
             if (index != null) {
@@ -49,7 +49,8 @@ class MockObject {
                 list[index - 1] = returnValue
             } else {
                 if (matchingParamMap.containsKey(mockMatcher)) {
-                    println("[ISL Mock] Overriding existing mock for params: ${parameters.values}")
+                    val fn = if (functionName != null) " for function @.$functionName" else ""
+                    println("[ISL Mock] Overriding existing mock$fn for params: ${parameters.values}")
                 }
                 matchingParamMap[mockMatcher] = returnValue
             }

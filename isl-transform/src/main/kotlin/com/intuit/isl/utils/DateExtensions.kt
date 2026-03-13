@@ -55,6 +55,14 @@ object DateExtensions {
                 }
             }
 
+            "diff" -> {
+                val date = getDate(value) ?: return null;
+                val other = getDate(context.thirdParameter) ?: return null;
+                val unit = ConvertUtils.tryToString(context.fourthParameter) ?: "SECONDS";
+                val chronoUnit = ChronoUnit.valueOf(unit.uppercase());
+                return chronoUnit.between(other, date);
+            }
+
             "parse" -> {
                 if (value == null)
                     return null;
