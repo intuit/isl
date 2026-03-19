@@ -1,7 +1,7 @@
 package com.intuit.isl.test.mocks
 
 import com.fasterxml.jackson.databind.JsonNode
-import com.intuit.isl.runtime.TransformException
+import com.intuit.isl.test.TestFailException
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.utils.Position
 
@@ -159,12 +159,12 @@ class MockObject {
                 appendLine("Parameters: $paramsJson")
                 appendLine("")
                 appendLine("To mock this function add this to your $addToHint then rerun the tests:")
-                appendLine("")
+                appendLine("```yaml")
                 appendLine("func:")
                 appendLine(yamlSnippet)
-                appendLine("")
+                appendLine("```")
             }
-            throw TransformException(message.trimEnd(), position, null)
+            throw TestFailException(message.trimEnd(), position)
         }
         return defaultReturnValue
     }

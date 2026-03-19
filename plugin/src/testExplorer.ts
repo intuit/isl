@@ -8,6 +8,56 @@ import * as yaml from 'js-yaml';
 /** Test file pattern: tests folder anywhere in workspace; applies to files from that folder down (e.g. tests/, src/tests/, a/b/tests/) */
 const TEST_FILE_GLOB = '**/tests/**/*.isl';
 
+/** Max length of inline diff payload in command URI; above this we use temp files. */
+const MAX_INLINE_DIFF_PAYLOAD = 2400;
+
+/** Max length of raw failure message shown in Test UI; longer messages are truncated. */
+const MAX_MESSAGE_DISPLAY = 8000;
+
+// ANSI color codes for test output panel coloring
+const ANSI_GRAY  = '\u001B[90m';
+const ANSI_GREEN = '\u001B[32m';
+const ANSI_RED   = '\u001B[31m';
+const ANSI_RESET = '\u001B[0m';
+
+/**
+ * Colorizes a single line of ISL test runner output using ANSI codes.
+ * - [ISL Mock] and [ISL resolve] lines → gray (less prominent background lines)
+ * - [ISL Result] prefix → green on pass lines, red on fail lines / summary with failures
+ */
+function colorizeIslLine(line: string): string {
+    if (line.includes('[ISL Mock]') || line.includes('[ISL resolve]') || line.includes('[ISL load]')) {
+        return `${ANSI_GRAY}${line}${ANSI_RESET}`;
+    }
+    if (line.includes('[ISL Result]')) {
+        if (line.includes('[PASS]')) {
+            return line.replace('[ISL Result]', `${ANSI_GREEN}[ISL Result]${ANSI_RESET}`);
+        }
+        if (line.includes('[FAIL]')) {
+            return line.replace('[ISL Result]', `${ANSI_RED}[ISL Result]${ANSI_RESET}`);
+        }
+        const summaryMatch = line.match(/Results:\s*(\d+)\s*passed,\s*(\d+)\s*failed/);
+        if (summaryMatch) {
+            const failed = parseInt(summaryMatch[2], 10);
+            const color = failed > 0 ? ANSI_RED : ANSI_GREEN;
+            return line.replace('[ISL Result]', `${color}[ISL Result]${ANSI_RESET}`);
+        }
+    }
+    return line;
+}
+
+/**
+ * Colorizes a chunk of ISL test runner output (may contain multiple \r\n-terminated lines).
+ */
+function colorizeIslOutput(chunk: string): string {
+    // Split on \r\n, colorize each line, rejoin preserving line endings
+    const parts = chunk.split('\r\n');
+    return parts.map((line, i) => {
+        const colored = colorizeIslLine(line);
+        return i < parts.length - 1 ? colored + '\r\n' : colored;
+    }).join('');
+}
+
 /** YAML test suite files: [name].tests.yaml that contain islTests property */
 const YAML_TEST_FILE_GLOB = '**/*.tests.yaml';
 
@@ -189,6 +239,53 @@ interface IslTestResultJson {
             endColumn?: number | null;
         } | null;
     }>;
+}
+
+/** Full expected/actual payload parsed from "[ISL Assert] Result Differences:" message. */
+export interface FullResultDiff {
+    expected: string;
+    actual: string;
+}
+
+/**
+ * Parse the full Expected and Actual JSON payloads from the "[ISL Assert] Result Differences:" section.
+ * Format produced by YamlUnitTestRunner.buildComparisonFailureMessage:
+ *   [ISL Assert] Result Differences:
+ *   Expected: <full JSON on one line>
+ *   Actual: <full JSON on one line>
+ */
+export function parseFullResultDiffFromMessage(message: string | null): FullResultDiff | null {
+    if (!message || !message.includes('[ISL Assert] Result Differences:')) return null;
+    const lines = message.split(/\r?\n/);
+    let headerIdx = -1;
+    for (let i = 0; i < lines.length; i++) {
+        if (lines[i].includes('[ISL Assert] Result Differences:')) { headerIdx = i; break; }
+    }
+    if (headerIdx < 0) return null;
+
+    let expected: string | null = null;
+    let actual: string | null = null;
+    // The header line itself may contain "Expected: ..." if on the same line
+    const headerLine = lines[headerIdx];
+    const inlineExp = headerLine.match(/\[ISL Assert\] Result Differences:\s*Expected:\s*(.+)/);
+    if (inlineExp) expected = inlineExp[1].trim();
+
+    for (let i = headerIdx + 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (expected === null) {
+            const m = line.match(/^Expected:\s*(.+)$/);
+            if (m) { expected = m[1].trim(); continue; }
+        }
+        if (actual === null) {
+            const m = line.match(/^Actual:\s*(.+)$/);
+            if (m) { actual = m[1].trim(); break; }
+        }
+        // Stop searching if we hit the next section header
+        if (line.startsWith('[ISL Assert]') && !line.includes('Result Differences:')) break;
+    }
+
+    if (expected === null || actual === null) return null;
+    return { expected, actual };
 }
 
 /** Parsed assertion difference from "[ISL Assert] Difference(s):" message (path, expected, actual). */
@@ -394,35 +491,100 @@ export function parseMockSuggestionFromError(message: string | null): MockSugges
 }
 
 /**
- * Build a TestMessage for a failed test. If the message is a "No mock matched" / "Unmocked function" error,
- * appends an "Add mock to test file (setup)" or "Add mock to &lt;file&gt;" link that runs the add-mock command.
+ * Build a TestMessage for a failed test.
+ * - If the message contains an "Unmocked function" error, appends an "Add mock" link.
+ * - If the message contains assertion diffs (Expected/Actual pairs), appends a
+ *   "See Differences Side by Side" link that opens the Result Comparison Viewer.
  */
 export function buildTestFailureMessage(
     rawMessage: string,
     testUri: vscode.Uri | undefined,
-    suggestion: MockSuggestion | null
+    suggestion: MockSuggestion | null,
+    testName?: string
 ): vscode.TestMessage {
-    if (!suggestion || !testUri) {
+    const fullDiff = parseFullResultDiffFromMessage(rawMessage);
+    const hasMockLink = !!(suggestion && testUri);
+    const hasDiffLink = !!fullDiff && !!testName;
+
+    if (!hasMockLink && !hasDiffLink) {
         return new vscode.TestMessage(rawMessage);
     }
-    const args = [
-        testUri.toString(),
-        suggestion.mockFileName,
-        suggestion.functionName,
-        suggestion.params,
-        suggestion.yamlSnippet,
-        suggestion.addToTestFile === true
-    ];
-    // Double-stringify so the command receives one string argument with the full array (Test UI may pass only the first element when passing a raw array).
-    const payload = JSON.stringify(JSON.stringify(args));
-    const cmdUri = `command:isl.addMockFromTestError?${encodeURIComponent(payload)}`;
-    const linkLabel = suggestion.addToTestFile ? 'Add mock to test file (setup)' : `Add mock to ${suggestion.mockFileName}`;
+
     const md = new vscode.MarkdownString(undefined);
-    md.appendMarkdown(rawMessage);
-    md.appendMarkdown('\n\n---\n\n');
-    md.appendMarkdown(`[**${linkLabel}**](${cmdUri})`);
+
+    // "See Differences Side by Side" at the top. Use temp files when payload is too large for command URI.
+    if (hasDiffLink) {
+        const expectedStr = fullDiff!.expected;
+        const actualStr = fullDiff!.actual;
+        const inlinePayload = JSON.stringify([testName, expectedStr, actualStr]);
+        let payloadForCommand: [string, string, string];
+
+        if (inlinePayload.length > MAX_INLINE_DIFF_PAYLOAD) {
+            const id = `isl-diff-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            const tmpDir = os.tmpdir();
+            const expectedPath = path.join(tmpDir, `${id}-expected.json`);
+            const actualPath = path.join(tmpDir, `${id}-actual.json`);
+            try {
+                fs.writeFileSync(expectedPath, expectedStr, 'utf8');
+                fs.writeFileSync(actualPath, actualStr, 'utf8');
+                payloadForCommand = [
+                    testName,
+                    vscode.Uri.file(expectedPath).toString(),
+                    vscode.Uri.file(actualPath).toString()
+                ];
+            } catch {
+                // Fallback: truncate and pass inline (viewer will show truncated)
+                const maxEach = Math.max(200, Math.floor((MAX_INLINE_DIFF_PAYLOAD - testName.length - 50) / 2));
+                payloadForCommand = [
+                    testName,
+                    expectedStr.length <= maxEach ? expectedStr : expectedStr.slice(0, maxEach) + '…',
+                    actualStr.length <= maxEach ? actualStr : actualStr.slice(0, maxEach) + '…'
+                ];
+            }
+        } else {
+            payloadForCommand = [testName, expectedStr, actualStr];
+        }
+        const diffPayload = JSON.stringify(JSON.stringify(payloadForCommand));
+        const diffCmdUri = `command:isl.showResultDiffViewer?${encodeURIComponent(diffPayload)}`;
+        md.appendMarkdown(`[**>> See Differences Side by Side**](${diffCmdUri})\n\n---\n\n`);
+    }
+
+    // Trim very long failure message so the Test UI renders reliably
+    const displayMessage = rawMessage.length > MAX_MESSAGE_DISPLAY
+        ? rawMessage.slice(0, MAX_MESSAGE_DISPLAY) + '\n\n… *(message truncated; use "See Differences Side by Side" for full comparison)*'
+        : rawMessage;
+    md.appendMarkdown(displayMessage);
+
+    if (hasMockLink) {
+        const args = [
+            testUri!.toString(),
+            suggestion!.mockFileName,
+            suggestion!.functionName,
+            suggestion!.params,
+            suggestion!.yamlSnippet,
+            suggestion!.addToTestFile === true
+        ];
+        // Double-stringify so the command receives one string argument with the full array
+        // (Test UI may pass only the first element when passing a raw array).
+        const payload = JSON.stringify(JSON.stringify(args));
+        const cmdUri = `command:isl.addMockFromTestError?${encodeURIComponent(payload)}`;
+        const linkLabel = suggestion!.addToTestFile
+            ? 'Add mock to test file (setup)'
+            : `Add mock to ${suggestion!.mockFileName}`;
+        md.appendMarkdown(`\n\n---\n\n[**${linkLabel}**](${cmdUri})`);
+    }
+
     md.isTrusted = true;
     return new vscode.TestMessage(md);
+}
+
+/** Return the last line index (0-based) in content that contains the given substring, or -1. */
+function findLastLineContaining(content: string, substring: string): number {
+    const lines = content.split(/\r?\n/);
+    for (let i = lines.length - 1; i >= 0; i--) {
+        if (lines[i].includes(substring)) return i;
+    }
+    return -1;
 }
 
 /**
@@ -483,7 +645,13 @@ export async function addMockToTestFile(
     const newContent = yaml.dump(doc, { lineWidth: -1, noRefs: true });
     await vscode.workspace.fs.writeFile(testFileUri, new TextEncoder().encode(newContent));
     outputChannel.appendLine(`Added mock for @.${functionName} to test file (setup.mocks) at ${testFileUri.fsPath}`);
-    await vscode.window.showTextDocument(testFileUri, { preview: false });
+    const editor = await vscode.window.showTextDocument(testFileUri, { preview: false });
+    const targetLine = findLastLineContaining(newContent, functionName);
+    if (targetLine >= 0) {
+        const position = new vscode.Position(targetLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+    }
 }
 
 /**
@@ -548,7 +716,13 @@ export async function addMockToFile(
     await vscode.workspace.fs.writeFile(mockUri, new TextEncoder().encode(newContent));
     outputChannel.appendLine(`Added mock for @.${functionName} to ${mockPath}`);
     const docOpened = await vscode.workspace.openTextDocument(mockUri);
-    await vscode.window.showTextDocument(docOpened, { preview: false });
+    const editor = await vscode.window.showTextDocument(docOpened, { preview: false });
+    const targetLine = findLastLineContaining(newContent, functionName);
+    if (targetLine >= 0) {
+        const position = new vscode.Position(targetLine, 0);
+        editor.selection = new vscode.Selection(position, position);
+        editor.revealRange(new vscode.Range(position, position), vscode.TextEditorRevealType.InCenter);
+    }
 }
 
 /**
@@ -857,7 +1031,6 @@ export class IslTestController {
         }
 
         this.outputChannel.clear();
-        this.outputChannel.show(true);
         run.appendOutput(`=== ISL Test Run ===\r\n`);
         run.appendOutput(`Path: ${runPath}\r\n`);
         run.appendOutput(`Mode: ${isFile ? 'single file' : 'directory'}\r\n`);
@@ -878,11 +1051,11 @@ export class IslTestController {
                 outputFile,
                 functionFilters,
                 env,
-                (chunk) => run.appendOutput(chunk)
+                (chunk) => run.appendOutput(colorizeIslOutput(chunk)),
+                workspaceFolder.uri.fsPath
             );
             execStdout = execResult.stdout;
             execStderr = execResult.stderr;
-            this.outputChannel.show(true);
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             run.appendOutput(`Execution failed: ${msg}\r\n`);
@@ -960,7 +1133,10 @@ export class IslTestController {
             } else {
                 const rawMessage = tr.message ?? 'Test failed';
                 const mockSuggestion = parseMockSuggestionFromError(tr.message ?? null);
-                const msg = buildTestFailureMessage(rawMessage, test.uri, mockSuggestion);
+                const displayName = (tr.testName && tr.testName !== tr.functionName)
+                    ? `${tr.testName} (${tr.functionName})`
+                    : (tr.testName || tr.functionName);
+                const msg = buildTestFailureMessage(rawMessage, test.uri, mockSuggestion, displayName);
                 if (tr.errorPosition) {
                     const fallbackUri = test.uri ?? workspaceFolder.uri;
                     const loc = this.resolveErrorLocation(tr.errorPosition, searchBase, workspaceFolder.uri.fsPath, fallbackUri);
@@ -1011,7 +1187,6 @@ export class IslTestController {
 
         run.appendOutput(`\r\n=== Summary ===\r\n`);
         run.appendOutput(`Results: ${results.passed} passed, ${results.failed} failed, ${results.total} total\r\n`);
-        this.outputChannel.show(true);
         run.end();
     }
 
@@ -1120,7 +1295,8 @@ export class IslTestController {
         outputFile: string,
         functionFilters: string[],
         env: NodeJS.ProcessEnv,
-        onOutput: (chunk: string, isStderr: boolean) => void
+        onOutput: (chunk: string, isStderr: boolean) => void,
+        pathPrefixToStrip?: string
     ): Promise<{ stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
             const args = ['-jar', jarPath, 'test', runPath, '-o', outputFile, '--verbose'];
@@ -1132,20 +1308,52 @@ export class IslTestController {
                 : runPath;
             const stdoutChunks: string[] = [];
             const stderrChunks: string[] = [];
-            const append = (data: Buffer | string, isStderr: boolean) => {
-                const s = data?.toString() ?? '';
-                if (!s) return;
-                if (isStderr) stderrChunks.push(s);
-                else stdoutChunks.push(s);
-                const normalized = s.replace(/\r?\n/g, '\r\n');
+
+            // Build a regex that matches the workspace prefix (with either slash type) so we can
+            // shorten absolute paths in the runner output to relative ones (e.g. .\tests\foo.isl).
+            let prefixPattern: RegExp | null = null;
+            const relativePrefix = '.' + path.sep;
+            if (pathPrefixToStrip) {
+                const escapedParts = pathPrefixToStrip.split(/[/\\]/).map(p => escapeRegex(p));
+                const prefixRe = escapedParts.join('[/\\\\]') + '[/\\\\]';
+                prefixPattern = new RegExp(prefixRe, process.platform === 'win32' ? 'gi' : 'g');
+            }
+
+            // Strip paths from a complete (line-aligned) chunk and forward to consumers.
+            const stripAndSend = (text: string, isStderr: boolean) => {
+                const stripped = prefixPattern ? text.replace(prefixPattern, relativePrefix) : text;
+                const normalized = stripped.replace(/\r?\n/g, '\r\n');
                 onOutput(normalized, isStderr);
                 this.outputChannel.append(normalized);
             };
+
+            // Buffer raw input so we only strip on complete lines (chunks may split mid-path).
+            let lineBuffer = '';
+            const append = (data: Buffer | string, isStderr: boolean) => {
+                const s = data?.toString() ?? '';
+                if (!s) return;
+                // Keep raw chunks for error-fallback reporting (unmodified).
+                if (isStderr) stderrChunks.push(s);
+                else stdoutChunks.push(s);
+                lineBuffer += s;
+                const lastNl = lineBuffer.lastIndexOf('\n');
+                if (lastNl >= 0) {
+                    const complete = lineBuffer.slice(0, lastNl + 1);
+                    lineBuffer = lineBuffer.slice(lastNl + 1);
+                    stripAndSend(complete, isStderr);
+                }
+            };
+
             const child = cp.spawn(javaPath, args, { env, cwd });
             child.stdout?.on('data', (d) => append(d, false));
             child.stderr?.on('data', (d) => append(d, true));
             child.on('error', (e) => reject(e));
             child.on('close', (code, signal) => {
+                // Flush any partial line that didn't end with a newline.
+                if (lineBuffer) {
+                    stripAndSend(lineBuffer, false);
+                    lineBuffer = '';
+                }
                 const stdoutStr = stdoutChunks.join('');
                 const stderrStr = stderrChunks.join('');
                 if (code !== 0 && code !== 1) {

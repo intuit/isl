@@ -81,12 +81,12 @@
         "isl.naming.convention": {
           "type": "string",
           "enum": [
-            "PascalCase",
             "camelCase",
+            "PascalCase",
             "snake_case"
           ],
-          "default": "PascalCase",
-          "description": "Naming convention for functions and modifiers (PascalCase, camelCase, or snake_case)"
+          "default": "camelCase",
+          "description": "Naming convention for functions and modifiers (camelCase, PascalCase, or snake_case)"
         },
         "isl.formatting.enabled": {
           "type": "boolean",
@@ -179,6 +179,10 @@
       {
         "command": "isl.addMockFromTestError",
         "title": "ISL: Add Mock from Test Error"
+      },
+      {
+        "command": "isl.showResultDiffViewer",
+        "title": "ISL: See Differences Side by Side"
       }
     ],
     "menus": {

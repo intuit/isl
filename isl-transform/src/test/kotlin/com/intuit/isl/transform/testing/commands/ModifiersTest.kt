@@ -1679,6 +1679,7 @@ class ModifiersTest : BaseTransformTest() {
                 // to.json
                 Arguments.of("result: { a: 1, b: 2 } | to.json", """{"result":"{\"a\":1,\"b\":2}"}""", null),
                 Arguments.of("result: [1, 2, 3] | to.json", """{"result":"[1,2,3]"}""", null),
+                Arguments.of("result: { a: 1, b: 2 } | to.json(4)", """{"result":"{\n    \"a\": 1,\n    \"b\": 2\n}"}""", null),
                 
                 // to.yaml
                 Arguments.of("result: { a: 1, b: 2 } | to.yaml", """{"result":"---\na: 1\nb: 2\n"}""", null),

@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { getVariableDefinitionLocation } from './variableScope';
 
 export class IslDefinitionProvider implements vscode.DefinitionProvider {
     
@@ -9,7 +10,7 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): vscode.Definition | undefined {
-        const range = document.getWordRangeAtPosition(position);
+        const range = document.getWordRangeAtPosition(position, /\$?[a-zA-Z_][a-zA-Z0-9_]*/);
         if (!range) {
             return undefined;
         }
@@ -17,6 +18,15 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
         const word = document.getText(range);
         const line = document.lineAt(position.line).text;
         const beforeCursor = line.substring(0, position.character);
+
+        // Variable: $var or "var" when cursor is on $var (word is the part after $)
+        const variableName = word.startsWith('$') ? word.slice(1) : (range.start.character > 0 && line[range.start.character - 1] === '$' ? word : null);
+        if (variableName !== null) {
+            const loc = getVariableDefinitionLocation(document, position, variableName);
+            if (loc) {
+                return loc;
+            }
+        }
 
         // Check if this is an imported function call: @.ModuleName.functionName()
         // Look for the pattern before the cursor, allowing for the function name to extend to cursor

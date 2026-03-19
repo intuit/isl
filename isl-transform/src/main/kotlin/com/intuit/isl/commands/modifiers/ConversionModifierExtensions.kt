@@ -1,9 +1,12 @@
 package com.intuit.isl.commands.modifiers
 
+import com.fasterxml.jackson.core.util.DefaultIndenter
+import com.fasterxml.jackson.core.util.DefaultPrettyPrinter
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.BinaryNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import com.google.common.net.UrlEscapers
 import com.intuit.isl.common.FunctionExecuteContext
@@ -15,12 +18,15 @@ import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.utils.ObjectRefNode
 import com.intuit.isl.utils.Position
 import com.intuit.isl.utils.zip.ZipObject
+import org.apache.commons.lang3.LocaleUtils
 import java.net.URLEncoder
 import java.nio.charset.Charset
 import java.nio.charset.StandardCharsets
 import java.time.Instant
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import javax.mail.internet.InternetAddress
 
@@ -38,6 +44,7 @@ object ConversionModifierExtensions {
     
     // Performance optimization: Cache DateTimeFormatter instances to avoid repeated pattern compilation
     private val formatterCache = ConcurrentHashMap<String, DateTimeFormatter>()
+    private val localeCache = ConcurrentHashMap<String, Locale>()
     
     fun registerExtensions(context: IOperationContext) {
         // Conversion modifiers
@@ -128,13 +135,16 @@ object ConversionModifierExtensions {
                 // Convert to JSON string
                 val node = JsonConvert.convert(first)
                 val indent = ConvertUtils.tryParseInt(context.thirdParameter)
-                
+                val mapper = com.fasterxml.jackson.databind.ObjectMapper()
+
                 return if (indent != null && indent > 0) {
-                    // Pretty print with indentation
-                    com.fasterxml.jackson.databind.ObjectMapper().writerWithDefaultPrettyPrinter().writeValueAsString(node)
+                    // Pretty print with requested indentation (e.g. 4 spaces)
+                    val indenter = DefaultIndenter(" ".repeat(indent), "\n")
+                    val printer = DefaultPrettyPrinter().withObjectIndenter(indenter).withArrayIndenter(indenter)
+                    mapper.writer(printer).writeValueAsString(node)
                 } else {
                     // Compact JSON
-                    com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(node)
+                    mapper.writeValueAsString(node)
                 }
             }
             
@@ -204,21 +214,27 @@ object ConversionModifierExtensions {
     
     private fun formatInstant(value: Instant, context: FunctionExecuteContext): String {
         val format = ConvertUtils.tryToString(context.thirdParameter)
+        val options = context.fourthParameter as? ObjectNode
+        val localeTag = options?.get("locale")?.textValue() ?: "en_US"
+        val locale = localeCache.getOrPut(localeTag) { LocaleUtils.toLocale(localeTag) }
+        val timeZoneTag = options?.get("timeZone")?.textValue()?.takeIf { it.isNotBlank() } ?: "UTC"
+        val zoneId = ZoneId.of(timeZoneTag)
         val formatter =
             if (format == null)
                 ConvertUtils.IsoDateTimeFormatter
             else
-                getOrCreateFormatter(format)
+                getOrCreateFormatter(format, locale, zoneId)
         return formatter.format(value)
     }
     
     /**
-     * Get or create a cached DateTimeFormatter for the given pattern.
+     * Get or create a cached DateTimeFormatter for the given pattern, locale, and timezone.
      * Performance optimization: Avoids repeated pattern compilation.
      */
-    private fun getOrCreateFormatter(pattern: String): DateTimeFormatter {
-        return formatterCache.getOrPut(pattern) {
-            DateTimeFormatter.ofPattern(pattern).withZone(ZoneOffset.UTC)
+    private fun getOrCreateFormatter(pattern: String, locale: Locale = Locale.forLanguageTag("en-US"), zoneId: ZoneId = ZoneOffset.UTC): DateTimeFormatter {
+        val cacheKey = "$pattern|${locale.toLanguageTag()}|${zoneId.id}"
+        return formatterCache.getOrPut(cacheKey) {
+            DateTimeFormatter.ofPattern(pattern).withZone(zoneId).withLocale(locale)
         }
     }
     

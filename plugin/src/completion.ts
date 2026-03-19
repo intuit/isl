@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
+import * as path from 'path';
+import * as fs from 'fs';
 import { IslExtensionsManager, IslFunctionDefinition, IslModifierDefinition } from './extensions';
 import { getModifiersMap, getFunctionsByNamespace, getServicesMap, getAnnotations, type BuiltInModifier, type BuiltInFunction } from './language';
 import { IslTypeManager } from './types';
 import type { SchemaInfo } from './types';
+import { getVariablesDeclaredAboveInCurrentScope } from './variableScope';
 
 export class IslCompletionProvider implements vscode.CompletionItemProvider {
     
@@ -49,12 +52,21 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         if (linePrefix.match(/@\.This\.[\w]*$/)) {
             return this.getFunctionsFromDocument(document);
         }
-        // Check for @.ServiceName. - show methods for that service (built-in) or single call for global extension
+        // Check for @.ServiceName. - show methods for that service (built-in) or from imported module
         const serviceMethodMatch = linePrefix.match(/@\.([A-Za-z_][a-zA-Z0-9_]*)\.(\w*)$/);
         if (serviceMethodMatch) {
             const serviceName = serviceMethodMatch[1];
             const methodPrefix = serviceMethodMatch[2] || '';
-            return this.getServiceMethodCompletions(serviceName, methodPrefix, extensions);
+            const builtInMethods = this.getServiceMethodCompletions(serviceName, methodPrefix, extensions);
+            if (builtInMethods.length > 0) {
+                return builtInMethods;
+            }
+            // Not a built-in service; try imported module (e.g. import CoreUtils from 'core.isl' -> @.CoreUtils.funcName())
+            const importedFuncs = this.getImportedModuleFunctionCompletions(document, serviceName, methodPrefix);
+            if (importedFuncs.length > 0) {
+                return importedFuncs;
+            }
+            return builtInMethods;
         }
         // @. -> built-in services (Date, Math, This, ...) + global extension function names (called as @.name())
         else if (linePrefix.endsWith('@.')) {
@@ -64,6 +76,16 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         else if (linePrefix.match(/^\s*@(\w*)$/)) {
             return this.getAnnotationCompletions(linePrefix);
         } else if (linePrefix.match(/\|\s*[\w.]*$/)) {
+            // Check for | ModuleName. - show modifiers from that imported module
+            const importedModifierMatch = linePrefix.match(/\|\s*([A-Za-z_][a-zA-Z0-9_]*)\.(\w*)$/);
+            if (importedModifierMatch) {
+                const moduleName = importedModifierMatch[1];
+                const modifierPrefix = importedModifierMatch[2] || '';
+                const importedMods = this.getImportedModuleModifierCompletions(document, moduleName, modifierPrefix);
+                if (importedMods.length > 0) {
+                    return importedMods;
+                }
+            }
             return this.getModifierCompletions(document, extensions);
         } else if (linePrefix.match(/\$\w*$/)) {
             return this.getVariableCompletions(document, position);
@@ -485,13 +507,13 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         const prefixMatch = document.lineAt(position).text.substring(0, position.character).match(/\$([a-zA-Z0-9_]*)$/);
         const prefix = (prefixMatch ? prefixMatch[1] : '').toLowerCase();
 
-        const variables = this.getVariablesDeclaredAboveInCurrentScope(document, position);
+        const variables = getVariablesDeclaredAboveInCurrentScope(document, position);
         const items: vscode.CompletionItem[] = [];
 
         for (const varName of variables) {
             if (prefix && !varName.toLowerCase().startsWith(prefix)) continue;
             const item = new vscode.CompletionItem('$' + varName, vscode.CompletionItemKind.Variable);
-            item.detail = 'Variable';
+            item.detail = 'Variable (this scope)';
             item.insertText = '$' + varName;
             item.filterText = varName;
             items.push(item);
@@ -512,104 +534,109 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
     }
 
     /**
-     * Find the range of the function or modifier that contains the given position.
-     * Returns { startLine, endLine } (0-based) or null if not inside a fun/modifier body.
+     * Resolve the file path for an imported module (import ModuleName from 'path').
      */
-    private getEnclosingFunctionOrModifierRange(document: vscode.TextDocument, position: vscode.Position): { startLine: number; endLine: number } | null {
-        const lines = document.getText().split('\n');
-        const cursorLine = position.line;
-        let declLine = -1;
-        let braceLine = -1;
-
-        for (let i = cursorLine; i >= 0; i--) {
-            const match = lines[i].match(/^\s*(fun|modifier)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)\s*\{?\s*/);
+    private resolveImportPath(document: vscode.TextDocument, moduleName: string): vscode.Uri | null {
+        const text = document.getText();
+        const lines = text.split('\n');
+        const importPattern = new RegExp(`import\\s+${moduleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+from\\s+['"]([^'"]+)['"]`);
+        for (let i = 0; i < lines.length; i++) {
+            const match = lines[i].match(importPattern);
             if (match) {
-                declLine = i;
-                break;
-            }
-        }
-        if (declLine < 0) return null;
-
-        // Find the line where the opening brace is (same line as decl or shortly after)
-        let openLine = declLine;
-        if (!lines[declLine].includes('{')) {
-            for (let i = declLine + 1; i <= Math.min(declLine + 5, lines.length - 1); i++) {
-                if (lines[i].includes('{')) {
-                    openLine = i;
-                    break;
+                const importPath = match[1];
+                const currentDir = path.dirname(document.uri.fsPath);
+                let resolvedPath: string;
+                if (path.isAbsolute(importPath)) {
+                    resolvedPath = importPath;
+                } else {
+                    resolvedPath = path.resolve(currentDir, importPath);
+                }
+                if (!resolvedPath.endsWith('.isl')) {
+                    const withExtension = resolvedPath + '.isl';
+                    if (fs.existsSync(withExtension)) {
+                        resolvedPath = withExtension;
+                    }
+                }
+                if (fs.existsSync(resolvedPath)) {
+                    return vscode.Uri.file(resolvedPath);
                 }
             }
         }
-        let depth = 0;
-        for (let i = openLine; i < lines.length; i++) {
-            const line = lines[i];
-            for (const ch of line) {
-                if (ch === '{') depth++;
-                else if (ch === '}') depth--;
-            }
-            if (depth === 0) {
-                braceLine = i;
-                break;
-            }
-        }
-        if (braceLine < 0 || cursorLine > braceLine) return null;
-
-        return { startLine: declLine, endLine: braceLine };
+        return null;
     }
 
     /**
-     * Collect variable names declared in the current function/modifier on or above the current line.
+     * Parse an imported ISL file and return function and modifier names (with param lists for detail).
      */
-    private getVariablesDeclaredAboveInCurrentScope(document: vscode.TextDocument, position: vscode.Position): Set<string> {
-        const variables = new Set<string>();
-        const lines = document.getText().split('\n');
-        const cursorLine = position.line;
-
-        const range = this.getEnclosingFunctionOrModifierRange(document, position);
-        const startLine = range ? range.startLine : 0;
-        const endLine = range ? range.endLine : lines.length - 1;
-        const lastLineToScan = Math.min(cursorLine, endLine);
-
-        for (let i = startLine; i <= lastLineToScan; i++) {
-            const raw = lines[i];
-            const commentIdx = Math.min(
-                raw.indexOf('//') !== -1 ? raw.indexOf('//') : Infinity,
-                raw.indexOf('#') !== -1 ? raw.indexOf('#') : Infinity
-            );
-            const line = commentIdx !== Infinity ? raw.substring(0, commentIdx) : raw;
-
-            // Function/modifier parameters: fun name($a, $b) or modifier name($value)
-            const funParamMatch = line.match(/^\s*(fun|modifier)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(([^)]*)\)/);
-            if (funParamMatch) {
-                const params = funParamMatch[2];
-                const paramNames = params.split(',').map(p => p.trim().replace(/^\$/, '').split(':')[0].trim()).filter(Boolean);
-                for (const param of paramNames) {
-                    if (param) variables.add(param);
+    private getExportsFromImportedFile(uri: vscode.Uri): { functions: { name: string; params: string }[]; modifiers: { name: string; params: string }[] } {
+        const functions: { name: string; params: string }[] = [];
+        const modifiers: { name: string; params: string }[] = [];
+        try {
+            const text = fs.readFileSync(uri.fsPath, 'utf-8');
+            const lines = text.split('\n');
+            const funPattern = /^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)/;
+            const modifierPattern = /^\s*modifier\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)/;
+            for (const line of lines) {
+                const funMatch = line.match(funPattern);
+                if (funMatch) {
+                    functions.push({ name: funMatch[1], params: funMatch[2].trim() });
+                    continue;
+                }
+                const modMatch = line.match(modifierPattern);
+                if (modMatch) {
+                    modifiers.push({ name: modMatch[1], params: modMatch[2].trim() });
                 }
             }
-
-            // Variable declarations: $var = ... or $var: ...
-            const varDeclPattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]/g;
-            let match;
-            while ((match = varDeclPattern.exec(line)) !== null) {
-                variables.add(match[1]);
-            }
-
-            // foreach $item in $items -> $item and $itemIndex
-            const foreachMatch = line.match(/foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in/);
-            if (foreachMatch) {
-                variables.add(foreachMatch[1]);
-                variables.add(foreachMatch[1] + 'Index');
-            }
-
-            // @.Pagination.*( $varName, ... )
-            const paginationMatch = line.match(/@\.Pagination\.[A-Za-z_][A-Za-z0-9_]*\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
-            if (paginationMatch) {
-                variables.add(paginationMatch[1]);
-            }
+        } catch {
+            // ignore read errors
         }
+        return { functions, modifiers };
+    }
 
-        return variables;
+    /**
+     * Completions for @.ModuleName. — functions from the imported module.
+     */
+    private getImportedModuleFunctionCompletions(document: vscode.TextDocument, moduleName: string, methodPrefix: string): vscode.CompletionItem[] {
+        const uri = this.resolveImportPath(document, moduleName);
+        if (!uri) return [];
+        const { functions } = this.getExportsFromImportedFile(uri);
+        const prefix = methodPrefix.toLowerCase();
+        const items: vscode.CompletionItem[] = [];
+        for (const { name, params } of functions) {
+            if (prefix && !name.toLowerCase().startsWith(prefix)) continue;
+            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Method);
+            item.detail = `fun ${name}(${params}) (from ${moduleName})`;
+            const paramNames = params.split(',').map(p => p.trim().replace(/^\$/, '').split(':')[0].trim()).filter(Boolean);
+            const paramSnippets = paramNames.map((p, idx) => `\${${idx + 1}:${p}}`);
+            item.insertText = paramSnippets.length > 0
+                ? new vscode.SnippetString(`${name}(${paramSnippets.join(', ')})`)
+                : new vscode.SnippetString(`${name}()`);
+            items.push(item);
+        }
+        return items;
+    }
+
+    /**
+     * Completions for | ModuleName. — modifiers from the imported module.
+     */
+    private getImportedModuleModifierCompletions(document: vscode.TextDocument, moduleName: string, modifierPrefix: string): vscode.CompletionItem[] {
+        const uri = this.resolveImportPath(document, moduleName);
+        if (!uri) return [];
+        const { modifiers } = this.getExportsFromImportedFile(uri);
+        const prefix = modifierPrefix.toLowerCase();
+        const items: vscode.CompletionItem[] = [];
+        for (const { name, params } of modifiers) {
+            if (prefix && !name.toLowerCase().startsWith(prefix)) continue;
+            const item = new vscode.CompletionItem(name, vscode.CompletionItemKind.Method);
+            item.detail = `modifier ${name}(${params}) (from ${moduleName})`;
+            const paramNames = params.split(',').map(p => p.trim().replace(/^\$/, '').split(':')[0].trim()).filter(Boolean);
+            const paramSnippets = paramNames.map((p, idx) => `\${${idx + 1}:${p}}`);
+            item.insertText = paramSnippets.length > 0
+                ? new vscode.SnippetString(`${name}(${paramSnippets.join(', ')})`)
+                : new vscode.SnippetString(name);
+            items.push(item);
+        }
+        return items;
     }
 
     /**

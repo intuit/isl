@@ -14,7 +14,8 @@ import com.intuit.isl.utils.JsonConvert
 import java.nio.file.Path
 
 object MockFunction {
-    private const val funcRegex = "[A-Za-z_]+\\.[A-Za-z0-9_]+(#[0-9]+)?"
+    /** Allows multiple dotted segments, e.g. Properties.Acquire, Modifier.tokenize.AccountNumber */
+    private const val funcRegex = "[A-Za-z_]+(\\.[A-Za-z0-9_]+)+(#[0-9]+)?"
     private const val annotationRegex = "[A-Za-z0-9_]+(#[0-9]+)?"
 
     fun registerExtensions(context: TestOperationContext) {

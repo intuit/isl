@@ -15,6 +15,7 @@ import { IslExtensionsManager } from './extensions';
 import { initIslLanguage } from './language';
 import { IslTypeManager } from './types';
 import { IslTestController, isTestFile, yamlHasIslTests, addMockToFile, addMockToTestFile } from './testExplorer';
+import { showResultDiffViewer } from './diffViewer';
 import { IslYamlTestsCompletionProvider } from './islYamlTestsCompletion';
 import { IslPasteEditProvider } from './islPasteProvider';
 
@@ -40,7 +41,7 @@ export function activate(context: vscode.ExtensionContext) {
 
     // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl and *.tests.yaml (islTests)
     // Use a dedicated "ISL Tests" output channel for test run results
-    const islTestsOutputChannel = vscode.window.createOutputChannel('ISL Tests');
+    const islTestsOutputChannel = vscode.window.createOutputChannel('ISL Tests', 'ansi');
     const testController = new IslTestController(islTestsOutputChannel, context.extensionPath);
     context.subscriptions.push({ dispose: () => testController.dispose() });
 
@@ -353,6 +354,50 @@ export function activate(context: vscode.ExtensionContext) {
                 vscode.window.showErrorMessage(`ISL: Failed to add mock: ${msg}`);
                 outputChannel.appendLine(`[ISL] addMockFromTestError failed: ${msg}`);
             }
+        })
+    );
+
+    context.subscriptions.push(
+        vscode.commands.registerCommand('isl.showResultDiffViewer', async (...allArgs: unknown[]) => {
+            let arr: unknown[];
+            if (allArgs.length >= 3) {
+                arr = allArgs;
+            } else if (allArgs.length === 1 && typeof allArgs[0] === 'string') {
+                try {
+                    const parsed = JSON.parse(allArgs[0]) as unknown;
+                    arr = (typeof parsed === 'string' ? JSON.parse(parsed) : parsed) as unknown[];
+                } catch {
+                    arr = allArgs;
+                }
+            } else {
+                arr = allArgs;
+            }
+            const [testName, expectedArg, actualArg] = arr as [string?, string?, string?];
+            if (!testName || expectedArg == null || actualArg == null) {
+                vscode.window.showErrorMessage('ISL: Invalid diff viewer arguments.');
+                return;
+            }
+            let expected: string;
+            let actual: string;
+            const isFileUri = (s: string) => typeof s === 'string' && (s.startsWith('file:') || s.startsWith('file://'));
+            if (isFileUri(expectedArg) && isFileUri(actualArg)) {
+                try {
+                    const [expectedBuf, actualBuf] = await Promise.all([
+                        vscode.workspace.fs.readFile(vscode.Uri.parse(expectedArg)),
+                        vscode.workspace.fs.readFile(vscode.Uri.parse(actualArg))
+                    ]);
+                    expected = new TextDecoder().decode(expectedBuf);
+                    actual = new TextDecoder().decode(actualBuf);
+                } catch (e) {
+                    const msg = e instanceof Error ? e.message : String(e);
+                    vscode.window.showErrorMessage(`ISL: Could not read diff temp files: ${msg}`);
+                    return;
+                }
+            } else {
+                expected = expectedArg as string;
+                actual = actualArg as string;
+            }
+            showResultDiffViewer(testName, expected, actual);
         })
     );
 

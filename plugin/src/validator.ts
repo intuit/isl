@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from './extensions';
 import { validateControlFlowBalance as validateControlFlowBalanceUtil } from './controlFlowMatcher';
 import { getBuiltInModifiersSet, getBuiltInFunctionsSet, getBuiltInNamespacesSet } from './language';
+import { getVariablesDeclaredAboveInCurrentScope, getEnclosingFunctionOrModifierRange } from './variableScope';
 import type { IslTypeManager } from './types';
 
 export class IslValidator {
@@ -79,7 +80,6 @@ export class IslValidator {
         // Semantic validation
         const userDefinedFunctions = this.extractUserDefinedFunctions(document);
         const userDefinedModifiers = this.extractUserDefinedModifiers(document);
-        const declaredVariables = this.extractDeclaredVariables(document);
 
         // Extract imports and their exported functions/modifiers
         const importedFunctions = await this.extractImportedFunctions(document);
@@ -92,7 +92,8 @@ export class IslValidator {
             const line = lines[i];
             this.checkFunctionCalls(line, i, diagnostics, document, userDefinedFunctions, extensions, importedFunctions, importedModifiers);
             this.checkModifierUsage(line, i, diagnostics, document, userDefinedModifiers, extensions, importedModifiers);
-            this.checkVariableUsage(line, i, diagnostics, document, declaredVariables);
+            const declaredInScope = getVariablesDeclaredAboveInCurrentScope(document, new vscode.Position(i, 0));
+            this.checkVariableUsage(line, i, diagnostics, document, declaredInScope);
             this.checkPaginationPropertyAccess(line, i, diagnostics, document, paginationVariables);
             this.checkLongObjectDeclaration(line, i, diagnostics, document);
             this.checkUnnecessaryStringInterpolation(line, i, diagnostics, document);
@@ -526,7 +527,7 @@ export class IslValidator {
                     // Match function definitions: fun functionName(
                     const funMatch = line.match(/^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
                     if (funMatch) {
-                        functions.add(funMatch[1]);
+                        functions.add(funMatch[1].toLowerCase());
                     }
                 }
 
@@ -563,7 +564,7 @@ export class IslValidator {
                     // Match modifier definitions: modifier modifierName(
                     const modMatch = line.match(/^\s*modifier\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
                     if (modMatch) {
-                        modifiers.add(modMatch[1]);
+                        modifiers.add(modMatch[1].toLowerCase());
                     }
                 }
 
@@ -586,7 +587,7 @@ export class IslValidator {
             // Match function definitions: fun functionName(
             const funMatch = line.match(/^\s*fun\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
             if (funMatch) {
-                functions.add(funMatch[1]);
+                functions.add(funMatch[1].toLowerCase());
             }
         }
 
@@ -602,11 +603,17 @@ export class IslValidator {
             // Match modifier definitions: modifier modifierName(
             const modMatch = line.match(/^\s*modifier\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/);
             if (modMatch) {
-                modifiers.add(modMatch[1]);
+                modifiers.add(modMatch[1].toLowerCase());
             }
         }
 
         return modifiers;
+    }
+
+    /** Case-insensitive check for variable name in declared set (ISL names are case-insensitive). */
+    private hasVariableDeclared(declaredVariables: Set<string>, varName: string): boolean {
+        const lower = varName.toLowerCase();
+        return [...declaredVariables].some(v => v.toLowerCase() === lower);
     }
 
     private extractPaginationVariables(document: vscode.TextDocument): Map<string, string> {
@@ -645,67 +652,6 @@ export class IslValidator {
         return paginationVars;
     }
     
-    private extractDeclaredVariables(document: vscode.TextDocument): Map<string, number> {
-        const variables = new Map<string, number>(); // variable name -> first declaration line
-        const text = document.getText();
-        const lines = text.split('\n');
-
-        for (let i = 0; i < lines.length; i++) {
-            const line = lines[i];
-            
-            // Match variable declarations: $varName = ... or $varName: ...
-            const varDeclPattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)\s*[=:]/g;
-            let match;
-            
-            while ((match = varDeclPattern.exec(line)) !== null) {
-                const varName = match[1];
-                if (!variables.has(varName)) {
-                    variables.set(varName, i);
-                }
-            }
-
-            // Also track function parameters as declared variables
-            const funParamMatch = line.match(/^\s*(fun|modifier)\s+[a-zA-Z_][a-zA-Z0-9_]*\s*\(([^)]*)\)/);
-            if (funParamMatch) {
-                const params = funParamMatch[2];
-                const paramNames = params.split(',').map(p => p.trim().replace(/^\$/, ''));
-                for (const param of paramNames) {
-                    if (param && !variables.has(param)) {
-                        variables.set(param, i);
-                    }
-                }
-            }
-
-            // Track foreach loop variables: foreach $item in $items
-            // Creates both $item and $itemIndex (zero-based index)
-            const foreachMatch = line.match(/foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in/);
-            if (foreachMatch) {
-                const varName = foreachMatch[1];
-                if (!variables.has(varName)) {
-                    variables.set(varName, i);
-                }
-                
-                // Also add the index variable: $iteratorIndex
-                const indexVarName = varName + 'Index';
-                if (!variables.has(indexVarName)) {
-                    variables.set(indexVarName, i);
-                }
-            }
-            
-            // Track pagination function parameters: @.Pagination.[Type]( $varName, ... )
-            // The first parameter to pagination functions is a variable declaration
-            const paginationMatch = line.match(/@\.Pagination\.[A-Za-z_][A-Za-z0-9_]*\s*\(\s*\$([a-zA-Z_][a-zA-Z0-9_]*)/);
-            if (paginationMatch) {
-                const varName = paginationMatch[1];
-                if (!variables.has(varName)) {
-                    variables.set(varName, i);
-                }
-            }
-        }
-
-        return variables;
-    }
-
     private checkFunctionCalls(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, userDefinedFunctions: Set<string>, extensions: import('./extensions').IslExtensions, importedFunctions: Map<string, Set<string>>, importedModifiers: Map<string, Set<string>>) {
         // Skip comments - only check code part
         const commentIndex = Math.min(
@@ -781,7 +727,7 @@ export class IslValidator {
                 
                 // For @.This.functionName(), only same-file functions (not global extensions)
                 if (moduleName === 'This') {
-                    if (userDefinedFunctions.has(funcName)) {
+                    if (userDefinedFunctions.has(funcName.toLowerCase())) {
                         this.logValidation(`@.${compoundName}() resolved as same-file function`);
                         continue;
                     } else {
@@ -811,12 +757,12 @@ export class IslValidator {
 
             // Check if it's an imported module
             if (importedFunctions.has(moduleName)) {
-                if (importedFunctions.get(moduleName)!.has(funcName)) {
+                if (importedFunctions.get(moduleName)!.has(funcName.toLowerCase())) {
                     this.logValidation(`@.${compoundName}() resolved as imported function`);
                     continue;
                 }
                 // @.Module.name() can also call exported modifiers (e.g. @.BankingUtils.mapAccountCategory($x))
-                if (importedModifiers.get(moduleName)?.has(funcName)) {
+                if (importedModifiers.get(moduleName)?.has(funcName.toLowerCase())) {
                     this.logValidation(`@.${compoundName}() resolved as imported modifier`);
                     continue;
                 }
@@ -887,7 +833,7 @@ export class IslValidator {
 
             const funcName = match[1];
             
-            if (userDefinedFunctions.has(funcName)) {
+            if (userDefinedFunctions.has(funcName.toLowerCase())) {
                 continue;
             }
 
@@ -918,7 +864,7 @@ export class IslValidator {
             const modifierName = match[1];
             
             // Check if it's a user-defined modifier or custom extension modifier
-            if (userDefinedModifiers.has(modifierName) || getExtensionModifier(extensions, modifierName)) {
+            if (userDefinedModifiers.has(modifierName.toLowerCase()) || getExtensionModifier(extensions, modifierName)) {
                 continue;
             }
             
@@ -984,7 +930,7 @@ export class IslValidator {
 
                 // Check if it's an imported module
                 if (importedModifiers.has(moduleName)) {
-                    if (importedModifiers.get(moduleName)!.has(modName)) {
+                    if (importedModifiers.get(moduleName)!.has(modName.toLowerCase())) {
                         continue;
                     } else {
                         const modifierStart = match.index + match[0].indexOf(modifierName) + (moduleName.length + 1);
@@ -1041,7 +987,7 @@ export class IslValidator {
         }
     }
 
-    private checkVariableUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, declaredVariables: Map<string, number>) {
+    private checkVariableUsage(line: string, lineNumber: number, diagnostics: vscode.Diagnostic[], document: vscode.TextDocument, declaredVariables: Set<string>) {
         // Skip comments - remove everything after // or #
         const commentIndex = Math.min(
             line.indexOf('//') !== -1 ? line.indexOf('//') : Infinity,
@@ -1084,7 +1030,7 @@ export class IslValidator {
         this.checkVariablesInExpression(codeOnlyLine, lineNumber, diagnostics, declaredVariables, 0, null);
     }
 
-    private checkVariablesInExpression(expression: string, lineNumber: number, diagnostics: vscode.Diagnostic[], declaredVariables: Map<string, number>, offset: number, excludeVar: string | null) {
+    private checkVariablesInExpression(expression: string, lineNumber: number, diagnostics: vscode.Diagnostic[], declaredVariables: Set<string>, offset: number, excludeVar: string | null) {
         // Find all variable references: $varName or $varName.property
         const varPattern = /\$([a-zA-Z_][a-zA-Z0-9_]*)(?:\.[a-zA-Z_][a-zA-Z0-9_]*)*/g;
         let match;
@@ -1109,8 +1055,8 @@ export class IslValidator {
                 continue;
             }
 
-            // Check if variable has been declared
-            if (!declaredVariables.has(baseVarName)) {
+            // Check if variable has been declared (case-insensitive for ISL variable names)
+            if (!this.hasVariableDeclared(declaredVariables, baseVarName)) {
                 const startPos = offset + match.index;
                 const range = new vscode.Range(lineNumber, startPos, lineNumber, startPos + match[0].length);
                 diagnostics.push(new vscode.Diagnostic(
@@ -2401,9 +2347,14 @@ export class IslValidator {
             }
         }
         
-        // Check if loop variables are used after their loops
+        // Check if loop variables are used after their loops (only within the same function/modifier)
         for (const loop of foreachLoops) {
+            const enclosingRange = getEnclosingFunctionOrModifierRange(document, new vscode.Position(loop.startLine, 0));
+            const scopeEndLine = enclosingRange ? enclosingRange.endLine : lines.length - 1;
+
             for (let i = loop.endLine + 1; i < lines.length; i++) {
+                if (i > scopeEndLine) break; // Only consider lines inside the same function/modifier
+
                 const line = lines[i];
                 
                 // Skip comments
@@ -2412,7 +2363,14 @@ export class IslValidator {
                     line.indexOf('#') !== -1 ? line.indexOf('#') : Infinity
                 );
                 const codeOnlyLine = commentIndex !== Infinity ? line.substring(0, commentIndex) : line;
-                
+                const trimmed = codeOnlyLine.trim();
+
+                // Skip foreach lines that declare this variable (same name in a different loop)
+                const foreachDeclMatch = trimmed.match(/^foreach\s+\$([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+/);
+                if (foreachDeclMatch && foreachDeclMatch[1] === loop.loopVar) {
+                    continue;
+                }
+
                 // Check if loop variable is used
                 const varPattern = new RegExp(`\\$${loop.loopVar}(?:\\.[a-zA-Z_][a-zA-Z0-9_]*)*\\b`, 'g');
                 const varMatch = varPattern.exec(codeOnlyLine);

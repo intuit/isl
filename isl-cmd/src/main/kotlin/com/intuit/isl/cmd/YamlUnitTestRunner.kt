@@ -11,6 +11,8 @@ import com.intuit.isl.runtime.TransformCompilationException
 import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.TransformPackage
 import com.intuit.isl.runtime.TransformPackageBuilder
+import com.intuit.isl.test.TestExitException
+import com.intuit.isl.test.TestFailException
 import com.intuit.isl.test.TestOperationContext
 import com.intuit.isl.test.annotations.ComparisonDiff
 import com.intuit.isl.test.annotations.TestResult
@@ -40,7 +42,7 @@ object YamlUnitTestRunner {
 
     /**
      * Runs a single *.tests.yaml suite and appends results to [resultContext].
-     * [yamlPath] is the path to the .tests.yaml file; [basePath] is the directory containing it (used for resolving islSource and mockSource).
+     * [yamlPath] is the path to the .tests.yaml file; [basePath] is the directory containing it (used to resolve islSource, which is relative to the test file). The effective base for the test run is the directory of the resolved ISL file, so paths in logs and @.Load.From are relative to the script under test.
      * When [functionFilter] is non-empty, only test entries whose functionName matches (or "suiteFile:functionName") are run.
      */
     fun runSuite(
@@ -53,6 +55,7 @@ object YamlUnitTestRunner {
     ) {
         val suite = parseSuite(yamlPath.toFile().readText())
         val setup = suite.setup
+        // islSource is relative to the test file (basePath); effective base is the directory of the resolved ISL file
         val islPath = basePath.resolve(setup.islSource).normalize()
         val islFile = islPath.toFile()
         if (!islFile.exists() || !islFile.isFile) {
@@ -69,11 +72,12 @@ object YamlUnitTestRunner {
             return
         }
         val islContent = islFile.readText()
-        val moduleName = basePath.relativize(islPath).toString().replace("\\", "/")
+        val effectiveBasePath = islPath.parent
+        val moduleName = islPath.fileName.toString()
         val fileInfos = mutableListOf(FileInfo(moduleName, islContent))
         val resolvedPaths = mutableMapOf<String, Path>()
         resolvedPaths[moduleName] = islPath.toAbsolutePath().normalize()
-        val findExternalModule = IslModuleResolver.createModuleFinder(basePath, resolvedPaths)
+        val findExternalModule = IslModuleResolver.createModuleFinder(effectiveBasePath, resolvedPaths)
         val transformPackage: TransformPackage = try {
             TransformPackageBuilder().build(fileInfos, findExternalModule)
         } catch (e: Exception) {
@@ -117,7 +121,8 @@ object YamlUnitTestRunner {
                 moduleName = moduleName,
                 entry = entry,
                 setup = setup,
-                basePath = basePath,
+                basePath = effectiveBasePath,
+                yamlBasePath = basePath,
                 groupName = groupName,
                 yamlPath = yamlPath,
                 contextCustomizers = contextCustomizers,
@@ -135,6 +140,7 @@ object YamlUnitTestRunner {
         entry: YamlUnitTestEntry,
         setup: YamlTestSetup,
         basePath: Path,
+        yamlBasePath: Path,
         groupName: String,
         yamlPath: Path,
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
@@ -142,7 +148,7 @@ object YamlUnitTestRunner {
         printMockSummary: Boolean = false,
         verbose: Boolean = false
     ): TestResult {
-        val testFileName = basePath.relativize(yamlPath).toString().replace("\\", "/")
+        val testFileName = yamlBasePath.relativize(yamlPath).toString().replace("\\", "/")
         val context = TestOperationContext.create(
             testResultContext = TestResultContext(),
             currentFile = moduleName,
@@ -154,9 +160,9 @@ object YamlUnitTestRunner {
         )
 
         try {
-            // 1. Load mockSource file(s) in order (each can override the previous)
+            // 1. Load mockSource file(s) in order; paths are relative to the .tests.yaml file (yamlBasePath)
             for (mockFileEntry in setup.mockSourceFiles()) {
-                val mockPath = basePath.resolve(mockFileEntry).normalize()
+                val mockPath = yamlBasePath.resolve(mockFileEntry).normalize()
                 val mockFile = mockPath.toFile()
                 if (mockFile.exists() && mockFile.isFile) {
                     val ext = mockFile.extension.lowercase()
@@ -183,30 +189,21 @@ object YamlUnitTestRunner {
             val paramNames = getFunctionParamNames(transformPackage, moduleName, entry.functionName)
             setInputVariables(context, entry.input, paramNames)
 
-            // 4. Run the function (or capture result from @.Test.Exit(...))
+            // 4. Run the function (or capture result from @.Test.Exit / @.Test.Fail)
             if (verbose) println("[ISL Mock] Running ${entry.functionName}")
             val fullName = TransformPackage.toFullFunctionName(moduleName, entry.functionName)
             val result = try {
                 transformPackage.runTransformNew(fullName, context)
+            } catch (e: TestFailException) {
+                // Test.Fail — skip comparison, return failure immediately
+                return makeFailResult(yamlPath, entry, groupName, e)
             } catch (e: TestExitException) {
-                val r = e.result
-                when {
-                    r == null -> null
-                    r is JsonNode && r.isNull -> null
-                    else -> JsonConvert.convert(r)
-                }
+                resolveTestExitResult(e)
             } catch (e: TransformException) {
-                val testExit = e.cause as? TestExitException
-                if (testExit != null) {
-                    val r = testExit.result
-                    when {
-                        r == null -> null
-                        r is JsonNode && r.isNull -> null
-                        else -> JsonConvert.convert(r)
-                    }
-                } else {
-                    throw e
-                }
+                val testFail = findCause<TestFailException>(e)
+                if (testFail != null) return makeFailResult(yamlPath, entry, groupName, testFail)
+                val testExit = findCause<TestExitException>(e)
+                if (testExit != null) resolveTestExitResult(testExit) else throw e
             }
 
             // 5. Compare with expected (deep compare; on failure report exact field diffs)
@@ -250,7 +247,8 @@ object YamlUnitTestRunner {
                 testGroup = groupName,
                 success = false,
                 message = msg ?: e.toString(),
-                errorPosition = pos
+                errorPosition = pos,
+                exception = e
             )
         }
     }
@@ -391,6 +389,60 @@ object YamlUnitTestRunner {
                 else false to listOf(JsonDiff(path, formatJsonValue(expected), formatJsonValue(actual)))
             }
         }
+    }
+
+    /**
+     * Builds a failed [TestResult] for a [TestFailException].
+     * Extracts a human-readable message from the result: plain string → used as-is,
+     * object with a "message" field → that field's text, anything else → full JSON.
+     */
+    private fun makeFailResult(
+        yamlPath: Path,
+        entry: YamlUnitTestEntry,
+        groupName: String,
+        e: TestFailException
+    ): TestResult {
+        val msg = when (val r = e.result) {
+            null -> "Test.Fail called with no message"
+            else -> {
+                val node = runCatching { JsonConvert.convert(r) }.getOrNull()
+                when {
+                    node == null -> r.toString()
+                    node.isTextual -> node.textValue()
+                    node.isObject && node.has("message") -> node.get("message").asText()
+                    else -> JsonConvert.mapper.writeValueAsString(node)
+                }
+            }
+        }
+        return TestResult(
+            testFile = yamlPath.toString(),
+            functionName = entry.functionName,
+            testName = entry.name,
+            testGroup = groupName,
+            success = false,
+            message = "[Test.Fail] $msg",
+            errorPosition = e.position
+        )
+    }
+
+    /** Converts a [TestExitException] result to the JSON node used for assertion. */
+    private fun resolveTestExitResult(e: TestExitException): JsonNode? {
+        val r = e.result
+        return when {
+            r == null -> null
+            r is JsonNode && r.isNull -> null
+            else -> JsonConvert.convert(r)
+        }
+    }
+
+    /** Walks the full [Throwable] cause chain and returns the first instance of [T], or null. */
+    private inline fun <reified T : Throwable> findCause(e: Throwable): T? {
+        var current: Throwable? = e
+        while (current != null) {
+            if (current is T) return current
+            current = current.cause
+        }
+        return null
     }
 
     private fun formatJsonValue(node: JsonNode): String =

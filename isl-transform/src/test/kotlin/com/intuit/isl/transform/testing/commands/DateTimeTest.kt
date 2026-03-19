@@ -227,6 +227,62 @@ class DateTimeTest : YamlTransformTest("modifiers") {
         }
 
         @JvmStatic
+        fun dateToStringLocale(): Stream<Arguments> {
+            return Stream.of(
+                // French locale: month name in French
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"d MMMM yyyy\", { locale: \"fr_FR\" })",
+                    """{ "r": "15 juin 2024" }""", null
+                ),
+                // German locale: month name in German
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"d MMMM yyyy\", { locale: \"de_DE\" })",
+                    """{ "r": "15 Juni 2024" }""", null
+                ),
+                // Spanish locale: month name in Spanish
+                Arguments.of(
+                    "r: \"2024-03-01T00:00:00Z\" | date.parse() | to.string(\"d MMMM yyyy\", { locale: \"es_ES\" })",
+                    """{ "r": "1 marzo 2024" }""", null
+                ),
+                // Default locale (en_US): English month name
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"d MMMM yyyy\")",
+                    """{ "r": "15 June 2024" }""", null
+                ),
+                // Abbreviated day/month with French locale
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"EEE d MMM yyyy\", { locale: \"fr_FR\" })",
+                    """{ "r": "sam. 15 juin 2024" }""", null
+                ),
+                // America/Chicago is UTC-5 (CST) in winter — 2024-01-15T20:00:00Z → 15:00 local
+                Arguments.of(
+                    "r: \"2024-01-15T20:00:00Z\" | date.parse() | to.string(\"yyyy-MM-dd HH:mm\", { timeZone: \"America/Chicago\" })",
+                    """{ "r": "2024-01-15 14:00" }""", null
+                ),
+                // America/Chicago is UTC-5 (CST) — date rolls back when time crosses midnight
+                Arguments.of(
+                    "r: \"2024-01-15T04:00:00Z\" | date.parse() | to.string(\"yyyy-MM-dd HH:mm\", { timeZone: \"America/Chicago\" })",
+                    """{ "r": "2024-01-14 22:00" }""", null
+                ),
+                // Explicit UTC timezone (same as default)
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"yyyy-MM-dd HH:mm\", { timeZone: \"UTC\" })",
+                    """{ "r": "2024-06-15 14:30" }""", null
+                ),
+                // Null/absent timeZone falls back to UTC
+                Arguments.of(
+                    "r: \"2024-06-15T14:30:00Z\" | date.parse() | to.string(\"yyyy-MM-dd HH:mm\", { locale: \"en_US\" })",
+                    """{ "r": "2024-06-15 14:30" }""", null
+                ),
+                // Locale + timeZone together: French month name in Chicago time
+                Arguments.of(
+                    "r: \"2024-06-15T20:00:00Z\" | date.parse() | to.string(\"d MMMM yyyy HH:mm\", { locale: \"fr_FR\", timeZone: \"America/Chicago\" })",
+                    """{ "r": "15 juin 2024 15:00" }""", null
+                ),
+            )
+        }
+
+        @JvmStatic
         fun dateDiff(): Stream<Arguments> {
             return Stream.of(
                 Arguments.of(
@@ -256,7 +312,8 @@ class DateTimeTest : YamlTransformTest("modifiers") {
         "dateParsing",
         "dateArrayParsing",
         "dateOperations",
-        "dateDiff"
+        "dateDiff",
+        "dateToStringLocale"
     )
     fun runFixtures(script: String, expectedResult: String, map: Map<String, Any?>? = null) {
         run(script, expectedResult, map);

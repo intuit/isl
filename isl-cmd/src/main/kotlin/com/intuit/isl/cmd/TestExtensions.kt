@@ -2,29 +2,32 @@ package com.intuit.isl.cmd
 
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.IOperationContext
-
-/**
- * Exception thrown by @.Test.Exit(...) to signal an early test exit with a result.
- * The YAML test runner catches this and uses [result] as the test result for comparison with expected.
- */
-class TestExitException(val result: Any?) : RuntimeException("Test.Exit with result")
+import com.intuit.isl.test.TestExitException
+import com.intuit.isl.test.TestFailException
 
 /**
  * Test extension functions for ISL scripts when running tests from the command line.
  *
  * Usage in ISL:
- *   @.Test.Exit()           // exit with null result
- *   @.Test.Exit($value)     // exit with $value as the test result
+ *   @.Test.Exit()                        // exit with null result (compared against expected)
+ *   @.Test.Exit($value)                  // exit with $value as the test result
+ *   @.Test.Fail("reason")               // immediately fail the test with a message
+ *   @.Test.Fail({ message: "reason" })  // immediately fail the test (message field extracted)
  *
- * When the runner catches this, the result is compared with the test's expected value.
+ * Test.Exit result is compared with the test's expected value.
+ * Test.Fail skips comparison and marks the test as failed with the given message.
  */
 object TestExtensions {
     fun registerExtensions(context: IOperationContext) {
         context.registerExtensionMethod("Test.Exit", TestExtensions::exit)
+        context.registerExtensionMethod("Test.Fail", TestExtensions::fail)
     }
 
     private fun exit(context: FunctionExecuteContext): Nothing {
-        val result = context.firstParameter
-        throw TestExitException(result)
+        throw TestExitException(context.firstParameter)
+    }
+
+    private fun fail(context: FunctionExecuteContext): Nothing {
+        throw TestFailException(context.firstParameter)
     }
 }

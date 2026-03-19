@@ -172,7 +172,14 @@ class TestCommand : Runnable {
                 exitProcess(1)
             }
         } catch (e: Exception) {
-            System.err.println(red("[ISL Error] Error: ${e.message}"))
+            System.err.println(red("[ISL Error] Error: ${e.message ?: e.toString()}"))
+            val root = generateSequence(e as Throwable) { it.cause }.last()
+            if (root !== e) {
+                System.err.println(red("[ISL Error] Caused by: ${root.javaClass.simpleName}: ${root.message ?: "no message"}"))
+            }
+            root.stackTrace.take(8).forEach { frame ->
+                System.err.println(red("  at $frame"))
+            }
             if (System.getProperty("debug") == "true") {
                 e.printStackTrace()
             }
@@ -285,6 +292,15 @@ class TestCommand : Runnable {
                         tr.errorPosition?.let { pos ->
                             val loc = "${pos.file}:${pos.line}:${pos.column}"
                             println("[ISL Result]         ${red("at $loc")}")
+                        }
+                        tr.exception?.let { ex ->
+                            val root = generateSequence(ex as Throwable) { it.cause }.last()
+                            if (root !== ex) {
+                                println("[ISL Result]         ${red("Caused by: ${root.javaClass.simpleName}: ${root.message ?: "no message"}")}")
+                            }
+                            root.stackTrace.take(8).forEach { frame ->
+                                println("[ISL Result]           ${red("at $frame")}")
+                            }
                         }
                     }
                 }
