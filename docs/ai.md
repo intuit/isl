@@ -212,6 +212,20 @@ $isActive: if ($status == "active") true else false endif;
 $isActive: if ($status == "active") true endif;
 ```
 
+**Conditional Multi-Property Block:**
+
+A bare `if` with an object value inside an object body merges all properties of the chosen branch into the parent. Use this when a single condition controls multiple properties:
+```isl
+$result: {
+    id: $input.id,
+    if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif,
+    if ( $hasDates )  { start: $input.startDate, end: $input.endDate } endif
+}
+```
+- Condition **true** → object properties are merged into parent.
+- Condition **false**, no `else` → nothing added.
+- `endif` is optional when the block is the last entry before `}`.
+
 **Coalesce Operator (`??`)**
 
 Returns the first non-null, non-empty-string value.

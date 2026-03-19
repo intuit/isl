@@ -231,6 +231,15 @@ if ($user.role == "admin" and $user.active)
 else
     $permissions: ["read"];
 endif
+
+// Conditional multi-property block inside an object:
+// use a bare if with an object value — properties from the chosen branch
+// are merged into the parent object
+$result: {
+    id: $input.id,
+    if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif,
+    if ( $hasDates )  { start: $input.startDate, end: $input.endDate } endif
+}
 ```
 
 ### Switch/Case

@@ -83,6 +83,15 @@ $message: `Total: \${{ $price * $qty }}`;  // Escape $ for literal
    `Total: {{ $a + $b }}`
    ```
 
+6. **Conditional multi-property block is valid inside objects**:
+   ```isl
+   // ✅ CORRECT — bare if with object value merges properties into parent
+   $result: {
+       id: $id,
+       if ( $cond ) { a: 1, b: 2 } else { a: 3, b: 4 } endif
+   }
+   ```
+
 ## Standard File Structure
 
 ```isl
@@ -138,6 +147,14 @@ endif
 
 // As expression
 $result: if ($paid) "success" else "pending" endif;
+
+// Conditional multi-property block inside an object:
+// bare if with an object value — properties merged into parent
+$result: {
+    id: $input.id,
+    if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif,
+    if ( $hasDates )  { start: $input.startDate, end: $input.endDate } endif
+}
 ```
 
 ### Switch/Case
@@ -248,11 +265,13 @@ items: $input.orders | map({
 
 ### Conditional object properties
 ```isl
-{
+// A bare if with an object value inside an object body merges all properties
+// from the chosen branch into the parent — no condition duplication needed.
+$result: {
     id: $input.id,
     name: $input.name,
-    // Include email only if present
-    ...if ($input.email) { email: $input.email } else {} endif
+    if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif,
+    if ( $input.email ) { email: $input.email } endif
 }
 ```
 

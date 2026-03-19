@@ -239,6 +239,18 @@ public interface IslParserVisitor<T> extends ParseTreeVisitor<T> {
 	 */
 	T visitSpreadSelector(IslParser.SpreadSelectorContext ctx);
 	/**
+	 * Visit a parse tree produced by {@link IslParser#inlineIfObjectStatement}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitInlineIfObjectStatement(IslParser.InlineIfObjectStatementContext ctx);
+	/**
+	 * Visit a parse tree produced by {@link IslParser#inlineElseObject}.
+	 * @param ctx the parse tree
+	 * @return the visitor result
+	 */
+	T visitInlineElseObject(IslParser.InlineElseObjectContext ctx);
+	/**
 	 * Visit a parse tree produced by {@link IslParser#declareObjectStatement}.
 	 * @param ctx the parse tree
 	 * @return the visitor result

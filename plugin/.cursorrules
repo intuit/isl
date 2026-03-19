@@ -41,6 +41,13 @@ items: $input.lineItems | map({
 ### Conditionals
 ```isl
 status: if ($input.paid) "completed" else "pending" endif;
+
+// Conditional multi-property block — one condition, multiple properties merged:
+$result: {
+    id: $input.id,
+    if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif,
+    if ( $hasDates )  { start: $input.startDate, end: $input.endDate } endif
+}
 ```
 
 ### Helper Functions
@@ -94,6 +101,10 @@ fun calculateTotal($items) {
 
 8. **Null access is safe**:
    - ✅ `$val: $object.property.property.property` - ISL doesn't suffer from null references; returns null if any property in chain is missing
+
+9. **Conditional multi-property block in objects is valid**:
+   - ✅ A bare `if` with an object value inside `{ }` merges the chosen branch's properties into the parent; no property name needed
+   - ✅ `{ id: $id, if ( $cond ) { a: 1, b: 2 } else { a: 3, b: 4 } endif }`
 
 ## File Structure Template
 

@@ -129,6 +129,53 @@ Will output:
 }
 ```
 
+## Conditional Multi-Property Block
+When a single condition should control multiple properties at once, use a bare `if` statement directly inside the object body with an object as its value. All properties from the chosen object are merged into the parent — no property name, no duplication of the condition.
+
+```isl
+$isPremium: true;
+
+$result: {
+	id: $input.id,
+	if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif
+}
+```
+Will output:
+```json
+{
+	"id": "...",
+	"tier": "premium",
+	"limit": 1000
+}
+```
+
+Multiple independent conditional blocks can be combined inside the same object:
+```isl
+$result: {
+	id: $input.id,
+	if ( $hasDates ) { start: $input.startDate, end: $input.endDate } endif,
+	if ( $isAdmin )  { role: "admin", permissions: $input.perms } endif
+}
+```
+
+- When the condition is **true** the object's properties are merged into the parent.
+- When the condition is **false** and there is no `else` branch, nothing is added.
+- `endif` is optional when the statement is the last entry (or followed by `}`).
+
+This avoids both duplicating the condition across individual properties and the clone-via-spread workaround:
+```isl
+// ❌ repetitive
+$result: {
+	prop1: if ( $condition ) "123" endif,
+	prop2: if ( $condition ) "abcd" endif
+}
+
+// ✅ clean
+$result: {
+	if ( $condition ) { prop1: "123", prop2: "abcd" } endif
+}
+```
+
 ## Switch Case
 A [switch case statement](conditions.md) can be embedded inside an object to generate a conditional property
 ```isl 
