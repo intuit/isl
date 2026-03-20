@@ -1,0 +1,92 @@
+name: group.by modifier
+tests:
+  - name: group by string field — object output
+    script: |
+      $orders: [ { id: 1, status: "shipped" }, { id: 2, status: "pending" }, { id: 3, status: "shipped" } ];
+      result: $orders | group.by( "status" );
+    expected:
+      result:
+        shipped:
+          - { id: 1, status: "shipped" }
+          - { id: 3, status: "shipped" }
+        pending:
+          - { id: 2, status: "pending" }
+
+  - name: group by JSON path
+    script: |
+      $users: [ { name: "a", address: { city: "NYC" } }, { name: "b", address: { city: "LA" } }, { name: "c", address: { city: "NYC" } } ];
+      result: $users | group.by( $.address.city );
+    expected:
+      result:
+        NYC:
+          - { name: "a", address: { city: "NYC" } }
+          - { name: "c", address: { city: "NYC" } }
+        LA:
+          - { name: "b", address: { city: "LA" } }
+
+  - name: array output mode
+    script: |
+      $orders: [ { id: 1, status: "a" }, { id: 2, status: "b" } ];
+      result: $orders | group.by( "status", { as: "array" } );
+    expected:
+      result:
+        - { key: "a", items: [ { id: 1, status: "a" } ] }
+        - { key: "b", items: [ { id: 2, status: "b" } ] }
+
+  - name: array output with keyAs and valuesAs
+    script: |
+      $orders: [ { id: 1, status: "x" } ];
+      result: $orders | group.by( "status", { as: "array", keyAs: "group", valuesAs: "members" } );
+    expected:
+      result:
+        - { group: "x", members: [ { id: 1, status: "x" } ] }
+
+  - name: missing field groups under null key
+    script: |
+      $rows: [ { id: 1, k: "a" }, { id: 2 } ];
+      result: $rows | group.by( "k" );
+    expected:
+      result:
+        a:
+          - { id: 1, k: "a" }
+        "null":
+          - { id: 2 }
+
+  - name: empty array
+    script: |
+      $empty: [];
+      result: $empty | group.by( "x" );
+    expected:
+      result: {}
+
+  - name: nullKeyAs for missing field
+    script: |
+      $rows: [ { id: 1, k: "a" }, { id: 2 } ];
+      result: $rows | group.by( "k", { nullKeyAs: "missing" } );
+    expected:
+      result:
+        a:
+          - { id: 1, k: "a" }
+        missing:
+          - { id: 2 }
+
+  - name: emptyKeyAs for empty string values
+    script: |
+      $rows: [ { id: 1, code: "" }, { id: 2, code: "x" } ];
+      result: $rows | group.by( "code", { emptyKeyAs: "__empty__" } );
+    expected:
+      result:
+        __empty__:
+          - { id: 1, code: "" }
+        x:
+          - { id: 2, code: "x" }
+
+  - name: nullKeyAs and emptyKeyAs with array output
+    script: |
+      $rows: [ { t: "ok" }, { t: "" }, { } ];
+      result: $rows | group.by( "t", { as: "array", nullKeyAs: "unset", emptyKeyAs: "blank" } );
+    expected:
+      result:
+        - { key: "ok", items: [ { t: "ok" } ] }
+        - { key: "blank", items: [ { t: "" } ] }
+        - { key: "unset", items: [ { } ] }

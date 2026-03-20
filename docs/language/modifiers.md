@@ -295,6 +295,12 @@ $items = [] | default(["none"]);  // ["none"]
 18. `| indexOf( value )` - returns the index of the first occurrence of the value in the array, or `-1` if not found. E.g. `[1, 2, 3, 2] | indexOf(2)` > `1`.
 19. `| lastIndexOf( value )` - returns the index of the last occurrence of the value in the array, or `-1` if not found. E.g. `[1, 2, 3, 2] | lastIndexOf(2)` > `3`.
 20. `| chunk( size )` - splits the array into chunks of the specified size. E.g. `[1, 2, 3, 4, 5] | chunk(2)` > `[[1, 2], [3, 4], [5]]`.
+21. `| group.by( fieldName )` - groups array elements into an object whose keys are distinct values of `fieldName` on each object, and whose values are arrays of elements sharing that key. Order of keys follows first occurrence in the source array.
+    - JSON path keys: `| group.by( $.nested.field )` or `| group.by( "$.nested.field" )` (same idea as `| unique` / `| select` with `$.path`).
+    - Array output (e.g. for `for ... in`): `| group.by( "status", { as: "array" } )` yields `[ { "key": "...", "items": [ ... ] }, ... ]`. Optional `keyAs` and `valuesAs` rename those properties.
+    - **Null / missing keys (when `nullKeyAs` is not set):** If the grouping value is missing, JSON `null`, or otherwise not turned into a string (e.g. grouping by field on a non-object row), the group key is the **literal string** `"null"` — not a JSON `null` key (object keys are always strings). In object mode you get a property named `"null"`; in array mode the `key` (or `keyAs`) field is that string.
+    - **Empty string keys (when `emptyKeyAs` is not set):** If the grouping value is the empty string `""`, the group key stays **`""`**. That is valid JSON (`{ "": [ ... ] }`) but can be hard to spot; use `emptyKeyAs` to substitute a visible label if you need one.
+    - **Options:** Pass a second argument object. `nullKeyAs` overrides the default `"null"` key for null/missing cases. `emptyKeyAs` overrides the default `""` key for empty-string values. Example: `| group.by( "k", { nullKeyAs: "missing", emptyKeyAs: "(blank)" } )`.
 
 ### Mapping
 The `| map ( statement )` modifier can be used to map data in an array from one shape to another. 

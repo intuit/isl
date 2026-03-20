@@ -1,23 +1,81 @@
 name: ""
 tests:
-- name: ""
+- name: "simple text"
   script: |
     result: `simple result`
   expected: { "result": "simple result" }
   
-- name: ""
+- name: "simple variable"
   script: |
     $val: 123result: `simple $val result`
   expected: { "result": "simple 123 result" }
   
-- name: ""
+- name: "multiple simple variables"
   script: |
     $val: 123result: `simple $val result $val`
   expected: { "result": "simple 123 result 123" }
   
-- name: ""
+- name: "variable with modifier in expression interpolate"
   script: |
     $val: '  123   ';result: `simple ${ $val | trim } result '$val'`
   expected: { "result": "simple 123 result '  123   '" }
-  
+
+- name: "modifier on function call result in expression interpolate"
+  script: |
+    $name: "hello world"
+    result: `${ $name | uppercase }`
+  expected: { "result": "HELLO WORLD" }
+
+- name: "chained modifiers on variable in expression interpolate"
+  script: |
+    $name: "  hello world  "
+    result: `[${ $name | trim | uppercase }]`
+  expected: { "result": "[HELLO WORLD]" }
+
+- name: "coalesce inside expression interpolate"
+  script: |
+    result: `value is ${ $missing ?? "default" }`
+  expected: { "result": "value is default" }
+
+- name: "coalesce with variable inside expression interpolate"
+  script: |
+    $actual: "real"
+    result: `value is ${ $actual ?? "default" }`
+  expected: { "result": "value is real" }
+
+- name: "inline if inside expression interpolate - true branch"
+  script: |
+    $flag: true
+    result: `status: ${ if ( $flag ) "on" else "off" endif }`
+  expected: { "result": "status: on" }
+
+- name: "inline if inside expression interpolate - false branch"
+  script: |
+    $flag: false
+    result: `status: ${ if ( $flag ) "on" else "off" endif }`
+  expected: { "result": "status: off" }
+
+- name: "inline if without else inside expression interpolate - true"
+  script: |
+    $flag: true
+    result: `prefix ${ if ( $flag ) "present" endif } suffix`
+  expected: { "result": "prefix present suffix" }
+
+- name: "modifier on math result in mathInterpolate"
+  script: |
+    $qty: 3
+    $price: 3.33333
+    result: `total: {{ $qty * $price | round.up(2) }}`
+  expected: { "result": "total: 10.00" }
+
+- name: "modifier on inline funcCallInterpolate - use ${ } form instead"
+  script: |
+    fun greet() {
+      return "hello world"
+    }
+    fun run() {
+      result: `${ @.This.greet() | uppercase }`
+    }
+  expected: { "result": "HELLO WORLD" }
+
 scripts: null

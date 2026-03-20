@@ -1,5 +1,6 @@
 package com.intuit.isl.commands
 
+import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.utils.JsonConvert
@@ -24,12 +25,11 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
         };
 
         val defaultSize = if(sourceCollection is Collection<Any?>) sourceCollection.size else 10;
-        val result = JsonNodeFactory.instance.arrayNode(defaultSize);
+        // Lazily allocated: only created when the first non-null iteration result is encountered.
+        // Side-effect-only loops (where every statement returns null) never allocate this array.
+        var result: ArrayNode? = null;
 
         source?.forEachIndexed { i, it ->
-            // To help debugging we can create internal variables
-            //executionContext.operationContext.setVariable("@It-${this.hashCode()}", JsonConvert.convert(it));
-
             executionContext.operationContext.setVariable(token.iterator, JsonConvert.convert(it));
             executionContext.operationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 
@@ -38,10 +38,18 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
             if(itValue.validResult == false)
                 return@forEachIndexed; // ignore
 
-            result.add(JsonConvert.convert(itValue.value));
+            // Skip null iteration values — avoids collecting NullNodes from side-effect statements
+            // like variable assignments ($var: value) that have no meaningful return value.
+            val converted = itValue.value ?: return@forEachIndexed;
+            if (result == null) result = JsonNodeFactory.instance.arrayNode(defaultSize);
+            result!!.add(JsonConvert.convert(converted));
         }
 
-        return CommandResult(result, null, true);
+        // cleanup
+        executionContext.operationContext.removeVariable(token.iterator);
+        executionContext.operationContext.removeVariable(token.iterator + "index");
+
+        return CommandResult(result ?: JsonNodeFactory.instance.arrayNode(), null, true);
     }
 
     @ExcludeFromJacocoGeneratedReport

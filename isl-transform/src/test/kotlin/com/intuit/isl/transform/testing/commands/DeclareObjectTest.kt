@@ -245,8 +245,111 @@ class DeclareObjectTest : YamlTransformTest("transform") {
                 )
             )
         }
-    }
 
+        @JvmStatic
+        @Suppress("unused")
+        fun selfSpreadOptimization(): Stream<Arguments> {
+            return Stream.of(
+                // Object: add a single new property via self-spread
+                Arguments.of(
+                    "\$var: { a: 1, b: 2 };\n" +
+                            "\$var = { ...\$var, c: 3 };\n" +
+                            "result: \$var",
+                    """{"result":{"a":1,"b":2,"c":3}}""", null
+                ),
+                // Object: override an existing property via self-spread
+                Arguments.of(
+                    "\$var: { a: 1, b: 2 };\n" +
+                            "\$var = { ...\$var, b: 99 };\n" +
+                            "result: \$var",
+                    """{"result":{"a":1,"b":99}}""", null
+                ),
+                // Object: self-spread only (no additional properties) — equivalent to a shallow copy
+                Arguments.of(
+                    "\$var: { a: 1, b: 2 };\n" +
+                            "\$var = { ...\$var };\n" +
+                            "result: \$var",
+                    """{"result":{"a":1,"b":2}}""", null
+                ),
+                // Object: self-spread with multiple new properties
+                Arguments.of(
+                    "\$var: { a: 1 };\n" +
+                            "\$var = { ...\$var, b: 2, c: 3 };\n" +
+                            "result: \$var",
+                    """{"result":{"a":1,"b":2,"c":3}}""", null
+                ),
+                // Object: self-spread applied in a loop — accumulate properties
+                Arguments.of(
+                    "\$items: [ \"x\", \"y\", \"z\" ];\n" +
+                            "\$acc: {};\n" +
+                            "foreach \$item in \$items\n" +
+                            "    \$acc = { ...\$acc, `\$item`: true }\n" +
+                            "endfor\n" +
+                            "result: \$acc",
+                    """{"result":{"x":true,"y":true,"z":true}}""", null
+                ),
+                // Object: second spread is a different variable — only first is self-spread optimized
+                Arguments.of(
+                    "\$base: { a: 1 };\n" +
+                            "\$extra: { c: 3 };\n" +
+                            "\$base = { ...\$base, ...\$extra, d: 4 };\n" +
+                            "result: \$base",
+                    """{"result":{"a":1,"c":3,"d":4}}""", null
+                ),
+                // Object: self-spread when variable does not yet exist — behaves like a fresh object
+                Arguments.of(
+                    "\$var = { ...\$var, a: 1 };\n" +
+                            "result: \$var",
+                    """{"result":{"a":1}}""", null
+                ),
+                // Array: append a single item via self-spread
+                Arguments.of(
+                    "\$a: [ 1, 2, 3 ];\n" +
+                            "\$a = [ ...\$a, 4 ];\n" +
+                            "result: \$a",
+                    """{"result":[1,2,3,4]}""", null
+                ),
+                // Array: append multiple items via self-spread
+                Arguments.of(
+                    "\$a: [ 1, 2 ];\n" +
+                            "\$a = [ ...\$a, 3, 4, 5 ];\n" +
+                            "result: \$a",
+                    """{"result":[1,2,3,4,5]}""", null
+                ),
+                // Array: concat another array via self-spread
+                Arguments.of(
+                    "\$a: [ 1, 2 ];\n" +
+                            "\$b: [ 3, 4 ];\n" +
+                            "\$a = [ ...\$a, ...\$b ];\n" +
+                            "result: \$a",
+                    """{"result":[1,2,3,4]}""", null
+                ),
+                // Array: self-spread only — equivalent to a shallow copy
+                Arguments.of(
+                    "\$a: [ 10, 20 ];\n" +
+                            "\$a = [ ...\$a ];\n" +
+                            "result: \$a",
+                    """{"result":[10,20]}""", null
+                ),
+                // Array: self-spread applied in a loop — accumulate items
+                Arguments.of(
+                    "\$nums: [ 1, 2, 3 ];\n" +
+                            "\$acc: [];\n" +
+                            "foreach \$n in \$nums\n" +
+                            "    \$acc = [ ...\$acc, \$n ]\n" +
+                            "endfor\n" +
+                            "result: \$acc",
+                    """{"result":[1,2,3]}""", null
+                ),
+                // Array: self-spread when variable does not yet exist — behaves like a fresh array
+                Arguments.of(
+                    "\$a = [ ...\$a, 1, 2 ];\n" +
+                            "result: \$a",
+                    """{"result":[1,2]}""", null
+                ),
+            )
+        }
+    }
 
     private fun readonlyVarsFixture(): Stream<Arguments> {
         return createTests("readonly-vars-fixture")
@@ -257,7 +360,8 @@ class DeclareObjectTest : YamlTransformTest("transform") {
         "basicAssignment",
         "dynamicAssignment",
         "spreadAssignment",
-        "arrayAssignment"
+        "arrayAssignment",
+        "selfSpreadOptimization"
     )
     fun runFixtures(script: String, expectedResult: String, map: Map<String, Any?>? = null) {
         run(script, expectedResult, map);

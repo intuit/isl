@@ -14,6 +14,7 @@ import com.intuit.isl.commands.modifiers.ConditionModifierValueCommand
 import com.intuit.isl.commands.modifiers.MapModifierValueCommand
 import com.intuit.isl.commands.modifiers.ReduceModifierValueCommand
 import com.intuit.isl.utils.parseSimpleJsonPath
+import com.jayway.jsonpath.JsonPath
 import java.util.*
 
 /**
@@ -33,6 +34,35 @@ class ExecutionBuilder(
 
     // Used for hard-wiring all internal methods & extensions
     companion object {
+        /**
+         * When every arm of a switch/endswitch is either `==` with a string literal RHS or a single `else`, build a hash-dispatched switch.
+         */
+        internal fun tryBuildStringLiteralHashSwitch(
+            token: SwitchCaseToken,
+            value: IIslCommand,
+            cases: Array<SwitchCaseCommand.SwitchCaseBranchCommand>
+        ): HashDispatchSwitchCommand? {
+            var defaultArm: IIslCommand? = null
+            var elseCount = 0
+            val map = HashMap<String, IIslCommand>()
+            for (branch in cases) {
+                when (branch.condition) {
+                    "else" -> {
+                        elseCount++
+                        if (elseCount > 1) return null
+                        defaultArm = branch.result
+                    }
+                    "==" -> {
+                        val lit = branch.right as? LiteralValueCommand ?: return null
+                        val key = lit.token.value
+                        if (key !is String) return null
+                        map.putIfAbsent(key, branch.result)
+                    }
+                    else -> return null
+                }
+            }
+            return HashDispatchSwitchCommand(token, value, map, defaultArm)
+        }
     }
 
     fun build(): TransformModule {
@@ -115,9 +145,54 @@ class ExecutionBuilder(
     }
 
     override fun visit(token: AssignVariableToken): IIslCommand {
-        val value = token.value.visit(this);
+        // Optimization: $var = { ...$var, ... } and $var = [ ...$var, ... ] patterns avoid an
+        // unnecessary deepCopy by detecting at build time that the spread source is the same
+        // variable being assigned to, and emitting a shallow-copy-and-mutate command instead.
+        if (token.topPropertyName == null) {
+            val optimized = tryBuildSelfSpreadOptimization(token);
+            if (optimized != null) return optimized;
+        }
 
+        val value = token.value.visit(this);
         return decorate(AssignVariableCommand(token, value), value);
+    }
+
+    private fun tryBuildSelfSpreadOptimization(token: AssignVariableToken): IIslCommand? {
+        return when (val valueToken = token.value) {
+            is DeclareObjectToken -> {
+                val first = valueToken.statements.firstOrNull() ?: return null;
+                if (!isSelfSpread(first, token.name)) return null;
+                val remainingCommands = valueToken.statements.drop(1).map { it.visit(this) };
+                val seededBuild = decorate(
+                    ObjectBuildCommand(valueToken, remainingCommands.toMutableList(), token.name),
+                    *remainingCommands.toTypedArray()
+                );
+                decorate(AssignVariableCommand(token, seededBuild), seededBuild);
+            }
+            is DeclareArrayToken -> {
+                val first = valueToken.values.firstOrNull() ?: return null;
+                if (!isSelfSpread(first, token.name)) return null;
+                val remainingCommands = valueToken.values.drop(1).map { it.visit(this) };
+                val seededBuild = decorate(
+                    ArrayCommand(valueToken, ArrayList(remainingCommands), token.name),
+                    *remainingCommands.toTypedArray()
+                );
+                decorate(AssignVariableCommand(token, seededBuild), seededBuild);
+            }
+            else -> null;
+        }
+    }
+
+    private fun isSelfSpread(token: IIslToken, targetVarName: String): Boolean {
+        if (token !is SpreadToken) return false;
+        return when (val v = token.variable) {
+            is VariableSelectorValueToken ->
+                v.path.isNullOrBlank() && v.variableName.equals(targetVarName, ignoreCase = true);
+            is SimpleVariableSelectorValueToken ->
+                v.indexSelector == null && v.conditionSelector == null &&
+                "\$${v.name}".equals(targetVarName, ignoreCase = true);
+            else -> false;
+        }
     }
 
     override fun visit(token: FunctionCallToken): IIslCommand {
@@ -211,6 +286,18 @@ class ExecutionBuilder(
     }
 
     override fun visit(token: ModifierValueToken): IIslCommand {
+        if (token is MapModifierValueToken && token.previousToken is FilterModifierValueToken) {
+            val filterToken = token.previousToken as FilterModifierValueToken
+            val baseValue = filterToken.previousToken.visit(this)
+            val fused = FilterMapModifierValueCommand(
+                token,
+                baseValue,
+                filterToken.condition.visit(this) as IEvaluableConditionCommand,
+                token.argument.visit(this)
+            )
+            return decorate(fused, baseValue)
+        }
+
         val previousValue = token.previousToken.visit(this);
         val arguments = token.arguments.map { it.visit(this) };
 
@@ -290,6 +377,31 @@ class ExecutionBuilder(
         return decorate(modifierCommand, previousValue);
     }
 
+    /**
+     * Pre-compile JSON Path for the first modifier argument when it is syntactically static
+     * ([VariableSelectorValueToken] on `$` or string [LiteralValueToken] starting with `$`).
+     * Invalid paths return null so runtime still reports [com.intuit.isl.runtime.TransformException] with position.
+     */
+    private fun tryPrecompileJsonPathForModifierArgument(token: ModifierValueToken): JsonPath? {
+        val selectorArgument = token.arguments.firstOrNull() ?: return null
+        val selector = when (selectorArgument) {
+            is VariableSelectorValueToken -> {
+                if (selectorArgument.variableName != "$") return null
+                if (selectorArgument.path.isNullOrBlank())
+                    selectorArgument.variableName
+                else
+                    "${selectorArgument.variableName}.${selectorArgument.path}"
+            }
+            is LiteralValueToken -> {
+                val s = selectorArgument.value?.toString() ?: return null
+                if (!s.startsWith("$")) return null
+                s
+            }
+            else -> return null
+        }
+        return runCatching { JsonPath.compile(selector) }.getOrNull()
+    }
+
     private fun buildModifierCommand(
         token: ModifierValueToken,
         previousValue: IIslCommand,
@@ -305,12 +417,14 @@ class ExecutionBuilder(
                 val remainingName = token.name.substringAfter(".");
                 val method = findMethod("$potentialImportedName:$remainingName");
                 if (method != null) {
+                    val precompiledPath = tryPrecompileJsonPathForModifierArgument(token)
                     command = HardwiredModifierValueCommand(
                         token,
                         remainingName,
                         previousValue,
                         arguments,
-                        method
+                        method,
+                        precompiledPath
                     );
                 }
             } else {
@@ -318,22 +432,34 @@ class ExecutionBuilder(
                 // assume it's a full modifier name already imported
                 val nameToSearch = token.name.substringBefore(".") + ".*";
                 val method = findMethod("Modifier:${nameToSearch}");
-                if (method != null)
+                if (method != null) {
+                    val precompiledPath = tryPrecompileJsonPathForModifierArgument(token)
                     command = HardwiredModifierValueCommand(
                         token,
                         token.name,
                         previousValue,
                         arguments,
-                        method
+                        method,
+                        precompiledPath
                     );
+                }
             }
         } else {
             var method = findMethod("Modifier:${token.name}");
             if (method == null && localFunctionExists("Modifier:${token.name}"))
                 method = findMethod("this:${token.name}");
-            if (method != null)
+            if (method != null) {
+                val precompiledPath = tryPrecompileJsonPathForModifierArgument(token)
                 command =
-                    HardwiredModifierValueCommand(token, token.name, previousValue, arguments, method);
+                    HardwiredModifierValueCommand(
+                        token,
+                        token.name,
+                        previousValue,
+                        arguments,
+                        method,
+                        precompiledPath
+                    );
+            }
         }
 
         command = command ?: ModifierValueCommand(token, token.name, previousValue, arguments)
@@ -369,16 +495,20 @@ class ExecutionBuilder(
 
     override fun visit(token: StatementsToken): IIslCommand {
         val commands = token.map { it.visit(this) };
+        val built = ObjectBuildCommand(DeclareObjectToken(token, token.position), commands.toMutableList());
+        val folded = ObjectBuildConstantFolder.tryFold(built);
         return decorate(
-            ObjectBuildCommand(DeclareObjectToken(token, token.position), commands.toMutableList()),
+            folded,
             children = commands.toTypedArray()
         );
     }
 
     override fun visit(token: DeclareObjectToken): IIslCommand {
         val commands = token.statements.map { it.visit(this) };
+        val built = ObjectBuildCommand(token, commands.toMutableList());
+        val folded = ObjectBuildConstantFolder.tryFold(built);
         return decorate(
-            ObjectBuildCommand(token, commands.toMutableList()),
+            folded,
             children = commands.toTypedArray()
         );
     }
@@ -428,7 +558,8 @@ class ExecutionBuilder(
         val cases = token.cases.map {
             it.visit(this) as SwitchCaseCommand.SwitchCaseBranchCommand;
         }.toTypedArray();
-        return SwitchCaseCommand(token, value, cases);
+        val hashSwitch = tryBuildStringLiteralHashSwitch(token, value, cases);
+        return hashSwitch ?: SwitchCaseCommand(token, value, cases);
     }
 
     override fun visit(token: SwitchCaseBranchToken): IIslCommand {

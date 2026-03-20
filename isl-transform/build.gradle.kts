@@ -247,6 +247,10 @@ jmh {
     resultFormat.set("JSON")  // Output format
     resultsFile.set(project.layout.buildDirectory.file("reports/jmh/results.json").get().asFile)
     profilers.set(listOf("gc"))  // Enable GC profiler for memory allocation tracking
+    // Run a subset, e.g.: ./gradlew :isl-transform:jmh -PjmhIncludes=JsonPathModifierBenchmark
+    if (project.hasProperty("jmhIncludes")) {
+        includes.set(listOf(project.property("jmhIncludes") as String))
+    }
 }
 
 // Enable zip64 for large JMH jar (GraalVM dependencies are large)

@@ -10,10 +10,19 @@ import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.types.TypedJsonNodeFactory
 
-class ObjectBuildCommand(token: IIslToken, var commands: MutableList<IIslCommand>) : BaseCommand(token) {
+class ObjectBuildCommand(
+    token: IIslToken,
+    var commands: MutableList<IIslCommand>,
+    val seedVariableName: String? = null
+) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        // run the list of statements - collect the results into a JsonNode
-        val result = TypedJsonNodeFactory.instance.typedObjectNode(token.islType);
+        // When seeded, load the existing variable value directly and mutate it in place,
+        // avoiding both the deepCopy and the shallow-copy that a spread would otherwise require.
+        val result = if (seedVariableName != null)
+            executionContext.operationContext.getVariable(seedVariableName) as? ObjectNode
+                ?: TypedJsonNodeFactory.instance.typedObjectNode(token.islType)
+        else
+            TypedJsonNodeFactory.instance.typedObjectNode(token.islType);
 
         // To help debugging we can create fake variables
 //        val tempVariableName = "@Object-${this.hashCode()}";
