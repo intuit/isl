@@ -96,6 +96,14 @@ pre[class*="language-"] {
 }
 
 /* Override Prism colors - change from #db4c69 to #9cdcfe */
+// code.highlighter-rouge.languange-plaintext,
+body {
+  :not(pre) > code[class*="language-"] {
+    color: #9cdcfe !important;
+  }
+}
+
+/* Override Prism colors - change from #db4c69 to #9cdcfe */
 code.highlighter-rouge.languange-plaintext,
 body :not(pre) > code[class*="language-"] {
   color: #9cdcfe !important;

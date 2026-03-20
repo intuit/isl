@@ -80,7 +80,7 @@ Will output:
 
 
 
-# Structure
+## Structure
 ISL Code is structured as any programming language in multiple sections:
 
 1. `import` of other ISL files
