@@ -24,6 +24,7 @@ interface ICommandVisitor<T> {
     fun visit(command: LiteralValueCommand): T;
     fun visit(command: ModifierValueCommand): T;
     fun visit(command: FilterModifierValueCommand): T;
+    fun visit(command: FilterMapModifierValueCommand): T;
     fun visit(command: MapModifierValueCommand): T;
     fun visit(command: ReduceModifierValueCommand): T;
     fun visit(command: GenericConditionalModifierCommand): T;
@@ -33,6 +34,7 @@ interface ICommandVisitor<T> {
     fun visit(command: VariablePropertySelectorCommand): T;
 
     fun visit(command: ObjectBuildCommand): T;
+    fun visit(command: ConstantObjectBuildCommand): T;
     fun visit(command: SpreadCommand): T;
     fun visit(command: StatementsBuildCommand): T;
 
@@ -44,6 +46,7 @@ interface ICommandVisitor<T> {
 
     fun visit(command: SwitchCaseCommand): T;
     fun visit(command: SwitchCaseCommand.SwitchCaseBranchCommand): T;
+    fun visit(command: HashDispatchSwitchCommand): T;
 
     fun visit(command: ArrayCommand): T;
     fun visit(command: InterpolateCommand): T;

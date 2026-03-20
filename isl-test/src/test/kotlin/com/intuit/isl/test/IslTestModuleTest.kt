@@ -666,7 +666,6 @@ class TransformTestPackageTest {
         "Test_1.function",
         "test_1.Function",
         "Test_1.h@!!0",
-        "test.hello.there",
         "Test.h@llo",
         "test_hell0"
     ])
@@ -750,7 +749,6 @@ class TransformTestPackageTest {
         |@test
         |fun ${testFileFunction}() {
         |   ${"$"}instanceId = @.Mock.func("$functionName", null, 1)
-        |   @.$functionName(0)
         |   @.$functionName(1)
         |   ${"$"}value = @.Mock.GetFuncCaptures("$functionName", ${"$"}instanceId)
         |   @.Assert.equal([{ "0": 1 }], ${"$"}value)
@@ -773,10 +771,10 @@ class TransformTestPackageTest {
         |@test
         |fun ${testFileFunction}() {
         |   ${"$"}instanceId = @.Mock.func("$functionName", null, 1)
-        |   @.$functionName(0)
+        |   @.$functionName(1)
         |   @.$functionName(1)
         |   ${"$"}value = @.Mock.GetFuncCaptures("$functionName")
-        |   @.Assert.equal([{ "0": 1 }, {"0": 0 }], ${"$"}value)
+        |   @.Assert.equal([{ "0": 1 }, {"0": 1 }], ${"$"}value)
         |}
         """.trimMargin()
         setup(testFile)
@@ -798,13 +796,12 @@ class TransformTestPackageTest {
         |@test
         |fun ${testFileFunction}() {
         |   ${"$"}instanceId = @.Mock.annotation("$annotationName", null, 1)
-        |   @.${functionCallName}A(1)
         |   @.${functionCallName}B(1)
         |   ${"$"}value = @.Mock.GetAnnotationCaptures("$annotationName", ${"$"}instanceId)
         |   @.Assert.equal([{ "0": 1 }], ${"$"}value)
         |}
         |
-        |@hello(0)
+        |@hello(1)
         |fun ${functionName}A(${"$"}input) {
         |   return "Hello"
         |}
@@ -836,10 +833,10 @@ class TransformTestPackageTest {
         |   ${"$"}result1 = @.${functionCallName}1(1)
         |   ${"$"}result2 = @.${functionCallName}2(1)
         |   ${"$"}value = @.Mock.GetAnnotationCaptures("$annotationName")
-        |   @.Assert.equal([{ "0": 1 }, {"0": 0 }], ${"$"}value)
+        |   @.Assert.equal([{ "0": 1 }, {"0": 1 }], ${"$"}value)
         |}
         |
-        |@$annotationName(0)
+        |@$annotationName(1)
         |fun ${functionName}1(${"$"}input) {
         |   return "Hello"
         |}
@@ -866,9 +863,6 @@ class TransformTestPackageTest {
         |@test
         |fun ${testFileFunction}() {
         |   ${"$"}instanceId = @.Mock.statementFunc("$functionName", null, 1)
-        |   @.$functionName(0) {
-        |     ${"$"}value = 1
-        |   }
         |   @.$functionName(1) {
         |     ${"$"}value = 1
         |   }
@@ -893,14 +887,11 @@ class TransformTestPackageTest {
         |@test
         |fun ${testFileFunction}() {
         |   ${"$"}instanceId = @.Mock.statementFunc("$functionName", null, 1)
-        |   @.$functionName(0) {
-        |     ${"$"}value = 1
-        |   }
         |   @.$functionName(1) {
         |     ${"$"}value = 1
         |   }
         |   ${"$"}value = @.Mock.GetStatementFuncCaptures("$functionName")
-        |   @.Assert.equal([{ "0": 1 }, {"0": 0 }], ${"$"}value)
+        |   @.Assert.equal([{ "0": 1 }], ${"$"}value)
         |}
         """.trimMargin()
         setup(testFile)

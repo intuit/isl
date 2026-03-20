@@ -1,15 +1,22 @@
 package com.intuit.isl.commands.modifiers
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.VariableWithPathSelectorValueCommand
+import com.intuit.isl.parser.tokens.IIslToken
+import com.intuit.isl.parser.tokens.VariableSelectorValueToken
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.utils.ObjectRefNode
+import com.jayway.jsonpath.InvalidPathException
 import com.jayway.jsonpath.JsonPath
+import com.intuit.isl.runtime.TransformException
 import java.math.BigDecimal
+import java.util.LinkedHashMap
 
 /**
  * Array manipulation modifier extensions for ISL.
@@ -19,6 +26,7 @@ import java.math.BigDecimal
  * - at, push, pop, pushItems
  * - reverse, unique, slice
  * - range (Array.range for generating numeric ranges)
+ * - group.by (group array items by field name or JSON path; options: as, keyAs, valuesAs, nullKeyAs, emptyKeyAs)
  */
 object ArrayModifierExtensions {
 
@@ -45,6 +53,7 @@ object ArrayModifierExtensions {
         context.registerExtensionMethod("Modifier.indexOf", ArrayModifierExtensions::indexOf)
         context.registerExtensionMethod("Modifier.lastIndexOf", ArrayModifierExtensions::lastIndexOf)
         context.registerExtensionMethod("Modifier.chunk", ArrayModifierExtensions::chunk)
+        context.registerExtensionMethod("Modifier.group.*", ArrayModifierExtensions::group)
     }
 
     private fun isArrayEmpty(context: FunctionExecuteContext): Any {
@@ -119,20 +128,14 @@ object ArrayModifierExtensions {
             is ArrayNode -> second
             is Array<*> -> {
                 val target = JsonNodeFactory.instance.arrayNode(second.size)
-                second.forEach {
-                    target.add(JsonConvert.convert(it))
-                }
-                return second
+                second.forEach { target.add(JsonConvert.convert(it)) }
+                target
             }
-
             is List<*> -> {
                 val target = JsonNodeFactory.instance.arrayNode(second.size)
-                second.forEach {
-                    target.add(JsonConvert.convert(it))
-                }
-                return second
+                second.forEach { target.add(JsonConvert.convert(it)) }
+                target
             }
-
             else -> return first
         }
 
@@ -168,7 +171,6 @@ object ArrayModifierExtensions {
             is ArrayNode -> {
                 val from = resolveOffset(first.size(), second)
                 val to = resolveOffset(first.size(), third)
-                println("From=$from To=$to")
                 val output = JsonNodeFactory.instance.arrayNode(to - from + 1)
                 for (i in from until to) {
                     val value = first[i]
@@ -180,7 +182,6 @@ object ArrayModifierExtensions {
             is List<*> -> {
                 val from = resolveOffset(first.size, second)
                 val to = resolveOffset(first.size, third)
-                println("From=$from To=$to")
                 val output = JsonNodeFactory.instance.arrayNode(to - from + 1)
                 for (i in from until to) {
                     val value = first[i]
@@ -224,7 +225,7 @@ object ArrayModifierExtensions {
     private fun unique(context: FunctionExecuteContext): Any? {
         val first = context.firstParameter
 
-        val path = evaluateJsonPathFromParameter(context)
+        val path = JsonPathModifierSupport.evaluateJsonPathFromParameter(context)
         if (path != null) {
             // evaluate uniquness based on this path
             val tempSet = mutableSetOf<String?>()
@@ -254,34 +255,142 @@ object ArrayModifierExtensions {
     }
 
     /**
-     * Convert an argument to a JsonPath. This could have been | select ( "$.path" ) or | select ( $.path )
+     * Wildcard entry for `| group.by(...)`.
+     * [FunctionExecuteContext.secondParameter] is the segment after `group.` (e.g. `"by"`).
      */
-    private fun evaluateJsonPathFromParameter(context: FunctionExecuteContext): JsonPath? {
-        // let's be smart here - and support both `| select ( "$.stuff" )` and `|select ( $.stuff )`
-        // there is a danger in the second that is gets executed but we can avoid that a bit
+    private fun group(context: FunctionExecuteContext): Any? {
+        val sub = ConvertUtils.tryToString(context.secondParameter)?.lowercase()
+        return when (sub) {
+            "by" -> groupByKey(context)
+            else -> throw TransformException(
+                "|group.$sub is not supported",
+                context.command.token.position
+            )
+        }
+    }
 
-        // TODO: This could in theory be optimized as compilation time in the visitor!
-        val token = context.command.token as? com.intuit.isl.parser.tokens.ModifierValueToken?
-        val selectorArgument = token?.arguments?.firstOrNull()
-        if (selectorArgument == null)
-            return null
+    /**
+     * Group items from the piped collection by a key:
+     * - Field name: `| group.by( "status" )`
+     * - JSON path: `| group.by( $.address.city )` or `| group.by( "$.address.city" )`
+     *
+     * Optional second argument: `{ as: "array", keyAs: "key", valuesAs: "items",
+     * nullKeyAs: "...", emptyKeyAs: "..." }`.
+     */
+    private fun groupByKey(context: FunctionExecuteContext): Any? {
+        val collection = context.firstParameter
+        val token = context.command.token as? com.intuit.isl.parser.tokens.ModifierValueToken
+            ?: throw TransformException("|group.by internal error", context.command.token.position)
+        if (token.arguments.isEmpty()) {
+            throw TransformException(
+                "|group.by requires a key (field name or JSON path such as \"$.field\")",
+                token.position
+            )
+        }
 
-        val selector =
-            if (selectorArgument is com.intuit.isl.parser.tokens.VariableSelectorValueToken && selectorArgument.variableName == "$") {
-                if (selectorArgument.path.isNullOrBlank())
-                    selectorArgument.variableName
-                else
-                    "${selectorArgument.variableName}.${selectorArgument.path}"
-            } else
-                ConvertUtils.tryToString(context.secondParameter) ?: "\$"
+        val path = resolveGroupByJsonPath(context, token.arguments.first())
+        val options = context.fourthParameter as? ObjectNode
+        val outputAsArray =
+            ConvertUtils.tryToString(options?.get("as"))?.lowercase() == "array"
+        val keyAs = ConvertUtils.tryToString(options?.get("keyAs")) ?: "key"
+        val valuesAs = ConvertUtils.tryToString(options?.get("valuesAs")) ?: "items"
+        val nullKeyAs = optionStringOrNull(options, "nullKeyAs")
+        val emptyKeyAs = optionStringOrNull(options, "emptyKeyAs")
 
+        val keyExtractor: (Any?) -> String
+        val compiledPath = path
+        if (compiledPath != null) {
+            keyExtractor = { item: Any? ->
+                groupingKeyString(
+                    compiledPath.read(item, VariableWithPathSelectorValueCommand.configuration),
+                    nullKeyAs,
+                    emptyKeyAs
+                )
+            }
+        } else {
+            val fieldName = ConvertUtils.tryToString(context.thirdParameter)
+                ?: throw TransformException(
+                    "|group.by requires a non-empty field name when not using a JSON path",
+                    token.position
+                )
+            keyExtractor = { item: Any? ->
+                when (item) {
+                    is ObjectNode -> groupingKeyString(item.get(fieldName), nullKeyAs, emptyKeyAs)
+                    else -> groupingKeyString(null, nullKeyAs, emptyKeyAs)
+                }
+            }
+        }
+
+        val grouped = LinkedHashMap<String, ArrayNode>()
+        val source = ConvertUtils.getIterator(collection)
+        source?.forEach { item ->
+            val key = keyExtractor(item)
+            grouped.getOrPut(key) { JsonNodeFactory.instance.arrayNode() }
+                .add(JsonConvert.convert(item))
+        }
+
+        return if (outputAsArray) {
+            val result = JsonNodeFactory.instance.arrayNode(grouped.size)
+            grouped.forEach { (key, items) ->
+                val row = JsonNodeFactory.instance.objectNode()
+                row.put(keyAs, key)
+                row.set<JsonNode>(valuesAs, items)
+                result.add(row)
+            }
+            result
+        } else {
+            val result = JsonNodeFactory.instance.objectNode()
+            grouped.forEach { (key, items) -> result.set<JsonNode>(key, items) }
+            result
+        }
+    }
+
+    /**
+     * Turn a resolved key value into a string safe for JSON object keys.
+     * [nullKeyAs] replaces null / un-stringifiable keys (default `"null"`).
+     * [emptyKeyAs] replaces `""` (default remains `""`).
+     */
+    private fun groupingKeyString(value: Any?, nullKeyAs: String?, emptyKeyAs: String?): String {
+        val s = ConvertUtils.tryToString(value)
+        if (s == null) return nullKeyAs ?: "null"
+        if (s.isEmpty()) return emptyKeyAs ?: ""
+        return s
+    }
+
+    /** Read optional string option; missing key or JSON null → null (use defaults in groupingKeyString). */
+    private fun optionStringOrNull(options: ObjectNode?, name: String): String? {
+        if (options == null || !options.has(name)) return null
+        val node = options.get(name)
+        if (node == null || node.isNull) return null
+        return ConvertUtils.tryToString(node)
+    }
+
+    /**
+     * For `group.by`, the first user argument lives at [FunctionExecuteContext.thirdParameter]
+     * (after the piped value and the wildcard segment `"by"`).
+     */
+    private fun resolveGroupByJsonPath(context: FunctionExecuteContext, selectorArgument: IIslToken): JsonPath? {
+        if (selectorArgument is VariableSelectorValueToken && selectorArgument.variableName == "$") {
+            val selector = if (selectorArgument.path.isNullOrBlank()) {
+                "$"
+            } else {
+                "${selectorArgument.variableName}.${selectorArgument.path}"
+            }
+            return compileGroupByPath(selector, context)
+        }
+        val literal = ConvertUtils.tryToString(context.thirdParameter)
+        if (!literal.isNullOrBlank() && literal.startsWith("$")) {
+            return compileGroupByPath(literal, context)
+        }
+        return null
+    }
+
+    private fun compileGroupByPath(selector: String, context: FunctionExecuteContext): JsonPath {
         try {
-            val result =
-                JsonPath.compile(selector)
-            return result
-        } catch (e: com.jayway.jsonpath.InvalidPathException) {
-            throw com.intuit.isl.runtime.TransformException(
-                "|${context.functionName} Invalid Path '$selector' - ${e.message}",
+            return JsonPath.compile(selector)
+        } catch (e: InvalidPathException) {
+            throw TransformException(
+                "|group.by invalid JSON path '$selector' - ${e.message}",
                 context.command.token.position
             )
         }

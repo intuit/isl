@@ -13,13 +13,8 @@ import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.dynamic.CommandBuilder
 import com.intuit.isl.dynamic.run
-import com.intuit.isl.parser.tokens.ModifierValueToken
-import com.intuit.isl.parser.tokens.VariableSelectorValueToken
-import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
-import com.jayway.jsonpath.InvalidPathException
-import com.jayway.jsonpath.JsonPath
 import java.util.*
 
 /**
@@ -236,44 +231,10 @@ object ObjectModifierExtensions {
         }
     }
     
-    /**
-     * Convert an argument to a JsonPath. This could have been | select ( "$.path" ) or | select ( $.path )
-     */
-    private fun evaluateJsonPathFromParameter(context: FunctionExecuteContext): JsonPath? {
-        // let's be smart here - and support both `| select ( "$.stuff" )` and `|select ( $.stuff )`
-        // there is a danger in the second that is gets executed but we can avoid that a bit
-        
-        // TODO: This could in theory be optimized as compilation time in the visitor!
-        val token = context.command.token as? ModifierValueToken?
-        val selectorArgument = token?.arguments?.firstOrNull()
-        if (selectorArgument == null)
-            return null
-        
-        val selector =
-            if (selectorArgument is VariableSelectorValueToken && selectorArgument.variableName == "$") {
-                if (selectorArgument.path.isNullOrBlank())
-                    selectorArgument.variableName
-                else
-                    "${selectorArgument.variableName}.${selectorArgument.path}"
-            } else
-                ConvertUtils.tryToString(context.secondParameter) ?: "\$"
-        
-        try {
-            val result =
-                JsonPath.compile(selector)
-            return result
-        } catch (e: InvalidPathException) {
-            throw TransformException(
-                "|${context.functionName} Invalid Path '$selector' - ${e.message}",
-                context.command.token.position
-            )
-        }
-    }
-    
     private fun selectJson(context: FunctionExecuteContext): Any? {
         val first = JsonConvert.convert(context.firstParameter)
         
-        val path = evaluateJsonPathFromParameter(context)
+        val path = JsonPathModifierSupport.evaluateJsonPathFromParameter(context)
         if (path == null)
             return first
         

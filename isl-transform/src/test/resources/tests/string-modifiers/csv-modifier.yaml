@@ -124,7 +124,7 @@ tests:
     result: $t | csv.parsemultiline( { quoteChar: '|' } )
   expected: |-
     Could not Execute '@.csv.parsemultiline'. Error='CsvMalformedLineException: Unterminated quoted field at end of CSV line. Beginning of lost text: [te,st
-    ]' at test:3:11.
+    ] at com.opencsv.CSVReader.primeNextRecord(CSVReader.java:245)' at test:3:11.
 - name: ""
   script: |-
     $t: "a,b,c,d

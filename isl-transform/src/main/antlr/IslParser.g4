@@ -258,10 +258,12 @@ arrayArgument: argumentValue | spreadSelector;
 array: SQUAREOPEN (arrayArgument (COMMA arrayArgument)*)? SQUARECLOSE;
 
 // can we interpolate?
-// TODO: Improve this - this is crude, has no escaping and no mode processing but it's enough to illustrate the idea
-// Also should add support for ${ variable.property | modifier }
-expressionInterpolate: ENTER_EXPR_INTERP (variableWithModifier | functionCall | math) CURLYCLOSE;
-mathInterpolate: ENTER_MATH_INTERP mathExpresion CURLYCLOSECLOSE;
+// expressionInterpolate supports: variables with modifiers, function calls with modifiers, math, inline-if, and coalesce (??)
+// Note: object literals inside ${ } are not supported because the lexer uses } as the closing delimiter
+// Note: modifiers on funcCallInterpolate (@.Service.Name(...) | mod) are NOT supported because after ) the lexer
+//       pops back to INTERPOLATE mode where | is plain TEXT; use ${ @.Service.Name(...) | mod } instead.
+expressionInterpolate: ENTER_EXPR_INTERP assignmentValue CURLYCLOSE;
+mathInterpolate: ENTER_MATH_INTERP mathExpresion modifier* CURLYCLOSECLOSE;
 funcCallInterpolate: ENTER_FUNC_INTERP multiIdent arguments;
 simpleInterpolateVariable: ID_INTERP;
 interpolateText: TEXT | RECOVERTOKENS_INTERP;

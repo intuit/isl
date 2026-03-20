@@ -179,7 +179,7 @@ class MockLoadTest {
             |func:
             |  - name: "Util.Mask"
             |    isl: |
-            |         fun mask(${'$'}value) {
+            |         fun run(${'$'}value) {
             |             return `xxxxxx${'$'}value`;
             |         }
             """.trimMargin()

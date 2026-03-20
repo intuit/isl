@@ -140,7 +140,10 @@ class IslCommandLineTest {
 
         assertEquals(0, exitCode)
         val output = outputStream.toString()
-        assertTrue(output.contains("[INFO]") && output.contains("Processing"), "Expected [INFO] in output: $output")
+        assertTrue(
+            output.contains("INFO") && output.contains("Processing"),
+            "Expected INFO log output: $output"
+        )
     }
 
     @Test

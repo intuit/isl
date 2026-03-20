@@ -26,7 +26,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "}" +
                             "" +
                             "",
-                    """"Could not Execute '@.error.raise'. Error='CustomException: error' at test:1:10."""",
+                    """"Could not Execute '@.error.raise'. Error='CustomException: error at com.intuit.isl.transform.testing.commands.ExceptionHandlingTest${'$'}Companion.errorRaise(ExceptionHandlingTest.kt:86)' at test:1:10."""",
                     null
                 ),
                 // modifier one level down
@@ -40,7 +40,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "@.Error.Raise('error');" +
                             "}" +
                             "",
-                    """"Could not Execute '@.test' at test:3:17.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:7:17."""",
+                    """"Could not Execute '@.test' at test:3:17.\nCould not Execute '@.error.raise'. Error='CustomException: error at com.intuit.isl.transform.testing.commands.ExceptionHandlingTest${'$'}Companion.errorRaise(ExceptionHandlingTest.kt:86)' at test:7:17."""",
                     null
                 ),
 
@@ -58,7 +58,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "   @.Error.Raise('error');\n" +
                             "}\n" +
                             "",
-                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.test' at test:8:25.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:11:3."""",
+                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.test' at test:8:25.\nCould not Execute '@.error.raise'. Error='CustomException: error at com.intuit.isl.transform.testing.commands.ExceptionHandlingTest${'$'}Companion.errorRaise(ExceptionHandlingTest.kt:86)' at test:11:3."""",
                     null
                 ),
 
@@ -76,7 +76,7 @@ class ExceptionHandlingTest : BaseTransformTest() {
                             "   @.Error.Raise('error');\n" +
                             "}\n" +
                             "",
-                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.this.test' at test:8:18.\nCould not Execute '@.error.raise'. Error='CustomException: error' at test:11:3."""",
+                    """"Could not Execute '@.this.dowork' at test:3:13.\nCould not Execute '@.this.test' at test:8:18.\nCould not Execute '@.error.raise'. Error='CustomException: error at com.intuit.isl.transform.testing.commands.ExceptionHandlingTest${'$'}Companion.errorRaise(ExceptionHandlingTest.kt:86)' at test:11:3."""",
                     null
                 ),
             )

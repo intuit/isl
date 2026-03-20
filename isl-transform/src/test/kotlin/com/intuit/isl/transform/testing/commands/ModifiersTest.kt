@@ -1253,17 +1253,17 @@ class ModifiersTest : BaseTransformTest() {
                 // tests to validate errors
                 Arguments.of(
                     "min: @.Math.min(1.2, \"a\", 2.4)",
-                    """"Could not Execute '@.math.min'. Error='NumberFormatException: Character a is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:5."""",
+                    """"Could not Execute '@.math.min'. Error='NumberFormatException: Character a is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark. at java.math.BigDecimal.<init>(BigDecimal.java:608)' at test:1:5."""",
                     null
                 ),
                 Arguments.of(
                     "\$v:\"a\"; max: @.Math.max(1.2, 3.6, \$v)",
-                    """"Could not Execute '@.math.max'. Error='NumberFormatException: Character \" is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:13."""",
+                    """"Could not Execute '@.math.max'. Error='NumberFormatException: Character \" is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark. at java.math.BigDecimal.<init>(BigDecimal.java:608)' at test:1:13."""",
                     null
                 ),
                 Arguments.of(
                     "\$v:3.6; mean: @.Math.mean(\"a\", \$v)",
-                    """"Could not Execute '@.math.mean'. Error='NumberFormatException: Character n is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark.' at test:1:14."""",
+                    """"Could not Execute '@.math.mean'. Error='NumberFormatException: Character n is neither a decimal digit number, decimal point, nor \"e\" notation exponential mark. at java.math.BigDecimal.<init>(BigDecimal.java:608)' at test:1:14."""",
                     null
                 ),
             )

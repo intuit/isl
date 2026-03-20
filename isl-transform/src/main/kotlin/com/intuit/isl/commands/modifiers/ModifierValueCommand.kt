@@ -9,6 +9,7 @@ import com.intuit.isl.commands.FunctionCallCommand
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.AsyncContextAwareExtensionMethod
 import com.intuit.isl.parser.tokens.ModifierValueToken
+import com.jayway.jsonpath.JsonPath
 
 open class ModifierValueCommand(
     token: ModifierValueToken,
@@ -86,7 +87,12 @@ open class ModifierValueCommand(
 
 class HardwiredModifierValueCommand(
     token: ModifierValueToken, realModifierName: String, value: IIslCommand, arguments: List<IIslCommand>,
-    private val callback: AsyncContextAwareExtensionMethod
+    private val callback: AsyncContextAwareExtensionMethod,
+    /**
+     * When the first modifier argument is a static JSON Path (`$.field` or `"$.field"`),
+     * [com.intuit.isl.commands.builder.ExecutionBuilder] compiles it once at build time.
+     */
+    val precompiledModifierJsonPath: JsonPath? = null
 ) : ModifierValueCommand(token, realModifierName, value, arguments) {
     override suspend fun internalExecuteAsync(
         prevValue: CommandResult,

@@ -8,6 +8,8 @@ import com.intuit.isl.parser.tokens.IIslToken
 import java.lang.StringBuilder
 
 class InterpolateCommand(token: IIslToken, private val values: ArrayList<IIslCommand>) : BaseCommand(token) {
+
+    internal val interpolationParts: List<IIslCommand> get() = values
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
         val sb = StringBuilder();
 

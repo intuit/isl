@@ -835,28 +835,7 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
     }
 
     override fun visitExpressionInterpolate(ctx: IslParser.ExpressionInterpolateContext): Any {
-        return when {
-            ctx.variableWithModifier()?.variableSelector() != null -> {
-                val variable = visit(ctx.variableWithModifier().variableSelector()) as IIslToken
-                // apply modifier
-                val modifiedToken = visitModifiers(variable, ctx.variableWithModifier().modifier());
-                modifiedToken;
-            }
-
-            ctx.functionCall() != null -> {
-                visit(ctx.functionCall()) as IIslToken
-            }
-
-            ctx.math() != null -> {
-                visit(ctx.math()) as IIslToken
-            }
-
-            else -> throw TransformCompilationException(
-                "Unknown interpolation ${ctx.text}.",
-                ctx.getPosition(),
-                contents
-            )
-        };
+        return visitAssignmentValue(ctx.assignmentValue());
     }
 
     override fun visitVariableDeclaration(ctx: IslParser.VariableDeclarationContext?): Any? {
@@ -1084,6 +1063,11 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
 
     override fun visitMath(ctx: IslParser.MathContext): Any {
         return visitMathExpresion(ctx.mathExpresion());
+    }
+
+    override fun visitMathInterpolate(ctx: IslParser.MathInterpolateContext): Any {
+        val mathToken = visitMathExpresion(ctx.mathExpresion()) as IIslToken;
+        return visitModifiers(mathToken, ctx.modifier());
     }
 
     override fun visitMathExpresion(ctx: IslParser.MathExpresionContext): Any {
