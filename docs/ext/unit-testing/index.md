@@ -28,9 +28,15 @@ isl test
 # or specify a path
 isl test tests/
 isl test tests/sample.isl
+isl test tests/calculator.tests.yaml   # YAML-driven suite
 ```
 
 3. Or run tests programmatically from Kotlin/Java (see [Test Setup](setup.md)).
+
+## Two Ways to Define Tests
+
+- **Annotation-based** – In `.isl` files with `@setup` and `@test` (see [Test Annotations](annotations.md)).
+- **YAML-driven** – In `*.tests.yaml` files: specify `setup.islSource`, optional mocks, and a list of tests with `functionName`, `input`, and `expected`. No ISL test code required. See [YAML-Driven Test Suites](yaml-tests.md) for the full format, including `assertOptions` and `mockSource`/`mocks`.
 
 ## What You Can Test
 
@@ -128,8 +134,9 @@ Supported formats: `.json`, `.yaml`, `.yml`, `.csv` (all converted to JSON). See
 isl test [path] [options]
 ```
 
-- `path`: Directory, file, or glob (default: current directory)
-- `--glob PATTERN`: Filter files (e.g. `**/*.isl`)
+- `path`: Directory, single file (e.g. `sample.isl` or `suite.tests.yaml`), or default: current directory
+- `--glob PATTERN`: Filter .isl files when path is a directory (YAML suites use `**/*.tests.yaml` when not set)
+- `-f, --function NAME`: Run only tests whose function name matches; use `file:function` for a specific file (e.g. `sample.isl:test_customer` or `calculator.tests.yaml:add`)
 - `-o, --output FILE`: Write results to JSON
 
 ### Programmatic (Kotlin/Java)
@@ -160,6 +167,7 @@ See [Mocking](mocking.md) for parameter matching, indexed (sequential) returns, 
 ## Next Steps
 
 - [Test Setup](setup.md) – CLI usage, dependencies, programmatic API
+- [YAML-Driven Test Suites](yaml-tests.md) – `*.tests.yaml` format, assertOptions, mocks
 - [Test Annotations](annotations.md) – `@test` and `@setup` in detail
 - [Assertions](assertions.md) – Full assertion reference
 - [Loading Fixtures](loading.md) – `@.Load.From` for JSON/YAML/CSV

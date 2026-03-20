@@ -186,6 +186,71 @@ class DeclareObjectTest : YamlTransformTest("transform") {
         }
 
         @JvmStatic
+        fun conditionalObjectStatement(): Stream<Arguments> {
+            return Stream.of(
+                // condition true - both properties are merged
+                Arguments.of(
+                    "\$result: {\n" +
+                            "    always: true,\n" +
+                            "    if ( 1 > 0 ) { prop1: \"123\", prop2: \"abcd\" } endif\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"always":true,"prop1":"123","prop2":"abcd"}}""", null
+                ),
+                // condition false - properties are not added
+                Arguments.of(
+                    "\$result: {\n" +
+                            "    always: true,\n" +
+                            "    if ( 1 > 2 ) { prop1: \"123\", prop2: \"abcd\" } endif\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"always":true}}""", null
+                ),
+                // with else branch - true path
+                Arguments.of(
+                    "\$isPremium: true;\n" +
+                            "\$result: {\n" +
+                            "    id: \"u1\",\n" +
+                            "    if ( \$isPremium ) { tier: \"premium\", limit: 1000 } else { tier: \"free\", limit: 10 } endif\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"id":"u1","tier":"premium","limit":1000}}""", null
+                ),
+                // with else branch - false path
+                Arguments.of(
+                    "\$isPremium: false;\n" +
+                            "\$result: {\n" +
+                            "    id: \"u1\",\n" +
+                            "    if ( \$isPremium ) { tier: \"premium\", limit: 1000 } else { tier: \"free\", limit: 10 } endif\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"id":"u1","tier":"free","limit":10}}""", null
+                ),
+                // multiple conditional object statements
+                Arguments.of(
+                    "\$hasDates: true;\n" +
+                            "\$isAdmin: false;\n" +
+                            "\$result: {\n" +
+                            "    id: \"u1\",\n" +
+                            "    if ( \$hasDates ) { start: \"2024-01-01\", end: \"2024-12-31\" } endif,\n" +
+                            "    if ( \$isAdmin ) { role: \"admin\", permissions: \"all\" } endif\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"id":"u1","start":"2024-01-01","end":"2024-12-31"}}""", null
+                ),
+                // without endif (optional)
+                Arguments.of(
+                    "\$result: {\n" +
+                            "    always: true,\n" +
+                            "    if ( 1 > 0 ) { prop1: \"yes\" }\n" +
+                            "}\n" +
+                            "result: \$result",
+                    """{"result":{"always":true,"prop1":"yes"}}""", null
+                ),
+            )
+        }
+
+        @JvmStatic
         fun arrayAssignment(): Stream<Arguments> {
             return Stream.of(
                 // direct variable & property assignments
@@ -257,7 +322,8 @@ class DeclareObjectTest : YamlTransformTest("transform") {
         "basicAssignment",
         "dynamicAssignment",
         "spreadAssignment",
-        "arrayAssignment"
+        "arrayAssignment",
+        "conditionalObjectStatement"
     )
     fun runFixtures(script: String, expectedResult: String, map: Map<String, Any?>? = null) {
         run(script, expectedResult, map);

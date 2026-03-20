@@ -37,26 +37,43 @@ class TransformTestPackage(
         }
     }
 
-    fun runAllTests(testResultContext: TestResultContext? = null) : TestResultContext {
+    fun runAllTests(testResultContext: TestResultContext? = null, verbose: Boolean = false) : TestResultContext {
+        return runFilteredTests(testResultContext, { _, _ -> true }, verbose)
+    }
+
+    /**
+     * Run only tests that match the given predicate.
+     * @param includeTest Predicate (file, function) -> true to run the test
+     */
+    fun runFilteredTests(
+        testResultContext: TestResultContext? = null,
+        includeTest: (file: String, function: String) -> Boolean,
+        verbose: Boolean = false
+    ): TestResultContext {
         val context = testResultContext ?: TestResultContext()
         testFiles.forEach { (_, file) ->
-            file.testFunctions.forEach { function ->
-                runTest(file.fileName, function, context)
+            file.testFunctions.filter { includeTest(file.fileName, it) }.forEach { function ->
+                runTest(file.fileName, function, context, verbose = verbose)
             }
         }
-
         return context
     }
 
-    fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext? = null) : TestResultContext {
+    fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext? = null, verbose: Boolean = false) : TestResultContext {
         var context = testResultContext ?: TestResultContext()
-        runTest(testFile, testFunc, context, testFiles[testFile]?.setupFile)
+        println();
+        println("[ISLTest]>> Start Running=$testFunc");
+        try{
+            runTest(testFile, testFunc, context, testFiles[testFile]?.setupFile, verbose)
+        } finally{
+            println("[ISLTest]<< DONE Running=$testFunc");
+        }
         return context
     }
 
-    private fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext, setupFunc: String? = null) {
+    private fun runTest(testFile: String, testFunc: String, testResultContext: TestResultContext, setupFunc: String? = null, verbose: Boolean = false) {
         val fullFunctionName = TransformPackage.toFullFunctionName(testFile, testFunc)
-        val context = TestOperationContext.create(testResultContext, testFile, basePath, contextCustomizers)
+        val context = TestOperationContext.create(testResultContext, testFile, basePath, mockFileName = null, verboseLogging = verbose, contextCustomizers = contextCustomizers)
         // Run setup function if it exists
         if (setupFunc != null) {
             val fullSetupFunctionName = TransformPackage.toFullFunctionName(testFile, setupFunc)

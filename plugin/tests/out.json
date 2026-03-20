@@ -1,0 +1,19 @@
+{
+  "passed" : 0,
+  "failed" : 1,
+  "total" : 1,
+  "success" : false,
+  "results" : [ {
+    "testFile" : "sample.isl",
+    "functionName" : "compilation",
+    "testName" : "compilation",
+    "testGroup" : "sample.isl",
+    "success" : false,
+    "message" : "Failed parsing `=` > extraneous input '=' expecting {'if', 'switch', 'filter', 'map', 'in', 'matches', 'parallel', 'foreach', 'while', 'return', 'import', 'type', 'as', 'from', OPEN_BACKTICK, LOP, '$', '@', '[', '{', CURLYOPENOPEN, BOOL, NUM, ID, QUOTEDSTRING}\n    $val:= { }  // compilation error\n         ^\nat Position(file=sample.isl, line=29, column=9, endLine=null, endColumn=null).",
+    "errorPosition" : {
+      "file" : "sample.isl",
+      "line" : 29,
+      "column" : 9
+    }
+  } ]
+}

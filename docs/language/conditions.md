@@ -95,6 +95,32 @@ $result: {
 ```
 `prop` will not be created at all.
 
+### Conditional Multi-Property Block
+A bare `if` (with an **object** as its value) can appear directly as a statement inside an object body. All properties of the chosen branch are merged into the parent object — no property name needed, no condition duplication.
+
+```isl
+$result: {
+	id: $input.id,
+	if ( $isPremium ) { tier: "premium", limit: 1000 } else { tier: "free", limit: 10 } endif
+}
+```
+
+- **Condition true** → the "then" object's properties are merged in.
+- **Condition false, no `else`** → nothing is added.
+- **Condition false, with `else`** → the "else" object's properties are merged in.
+- `endif` is optional at end of object (before `}`).
+
+Multiple blocks can be used in the same object:
+```isl
+$result: {
+	id: $input.id,
+	if ( $hasDates ) { start: $input.startDate, end: $input.endDate } endif,
+	if ( $isAdmin )  { role: "admin", permissions: $input.perms } endif
+}
+```
+
+See [Objects — Conditional Multi-Property Block](objects.md#conditional-multi-property-block) for more examples.
+
 ### If Modifiers
 `if` statements can also be used in modifiers to condition the running of a specific modifier.
 If the `if` evaluates to false, the previous value in the modifier chain is passed down to the next modifier:

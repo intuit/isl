@@ -11,13 +11,18 @@ cd "$(dirname "$0")"
 # Read version from gradle.properties
 VERSION=$(grep "^version=" "../../gradle.properties" | cut -d'=' -f2 | tr -d '\r')
 
-# Check if JAR exists
-JAR="../build/libs/isl-$VERSION.jar"
+# Shadow JAR has classifier -all
+JAR="../build/libs/isl-$VERSION-all.jar"
+if [ ! -f "$JAR" ]; then
+  JAR="../build/libs/isl-$VERSION.jar"
+fi
 if [ ! -f "$JAR" ]; then
     echo "Building ISL CLI..."
     cd ..
     ./gradlew shadowJar
     cd examples
+    JAR="../build/libs/isl-$VERSION-all.jar"
+    [ ! -f "$JAR" ] && JAR="../build/libs/isl-$VERSION.jar"
 fi
 
 ISL="java -jar $JAR"
@@ -49,6 +54,12 @@ echo ""
 echo "5. Show Info"
 echo "   Command: isl info"
 $ISL info
+echo ""
+echo ""
+
+echo "6. Run Tests (ISL + YAML suites)"
+echo "   Command: isl test ."
+$ISL test .
 echo ""
 
 

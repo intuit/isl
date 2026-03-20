@@ -7,7 +7,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
-import com.intuit.isl.runtime.TransformCompiler
+import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
@@ -58,7 +58,7 @@ class TransformCommand : Runnable {
     
     @Option(
         names = ["-f", "--format"],
-        description = ["Output format: json, yaml, pretty-json (default: json)"]
+        description = ["Output format: json, yaml, pretty-json (default: json, or inferred from -o file extension)"]
     )
     var format: String = "json"
     
@@ -76,6 +76,16 @@ class TransformCommand : Runnable {
     
     override fun run() {
         try {
+            // Infer output format from output file extension when not explicitly set
+            if (outputFile != null && format == "json") {
+                when (outputFile!!.extension.lowercase()) {
+                    "yaml", "yml" -> format = "yaml"
+                    "json" -> { /* keep json */ }
+                    "txt" -> format = "txt"
+                    else -> { /* keep json */ }
+                }
+            }
+            
             // Validate script file
             if (!scriptFile.exists()) {
                 System.err.println("Error: Script file not found: ${scriptFile.absolutePath}")
@@ -126,17 +136,24 @@ class TransformCommand : Runnable {
                 variables["input"] = inputData
             }
             
-            // Execute transformation
-            val compiler = TransformCompiler()
-            val transformer = compiler.compileIsl("script", scriptContent)
+            // Add $context with input file info when -i was used
+            if (inputFile != null) {
+                variables["context"] = mapOf("inputFileName" to inputFile!!.name)
+            }
             
+            // Execute transformation using shared module resolution (supports relative imports like ../customer.isl)
+            val transformPackage = IslModuleResolver.compileSingleFile(scriptFile, scriptContent)
+            val transformer = transformPackage.getModule(scriptFile.name)
+                ?: throw IllegalStateException("Compiled module '${scriptFile.name}' not found in package")
+
             // Create operation context with variables and CLI extensions (e.g. Log)
             val context = OperationContext()
             LogExtensions.registerExtensions(context)
             variables.forEach { (key, value) ->
                 val varName = if (key.startsWith("$")) key else "$$key"
-                val varValue = JsonConvert.convert(value);
-                println("Setting variable " + varName + " to " + varValue );
+                val varValue = JsonConvert.convert(value)
+                val valuePreview = varValue.toString().let { if (it.length > 10) it.take(10) + "..." else it }
+                println("Setting variable $varName to $valuePreview")
                 context.setVariable(varName, varValue)
             }
             
@@ -149,7 +166,7 @@ class TransformCommand : Runnable {
             
             if (outputFile != null) {
                 outputFile!!.writeText(output)
-                println("Output written to: ${outputFile!!.absolutePath}")
+                // When -o/--output is set, result goes only to the file (no console output)
             } else {
                 println(output)
             }
@@ -199,6 +216,7 @@ class TransformCommand : Runnable {
     private fun formatOutput(result: Any?, format: String, pretty: Boolean): String {
         val mapper = when (format.lowercase()) {
             "yaml", "yml" -> ObjectMapper(YAMLFactory())
+            "txt" -> return ConvertUtils.tryToString( result ) ?: ""
             else -> jacksonObjectMapper()
         }
         

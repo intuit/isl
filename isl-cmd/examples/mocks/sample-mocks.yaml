@@ -1,0 +1,73 @@
+# Sample mock file for use with @.Mock.Load("mocks/sample-mocks.yaml")
+# Path is relative to the directory of the ISL file that loads it.
+#
+# Use in tests or scripts:
+#   @.Mock.Load("mocks/sample-mocks.yaml")
+#
+# Format: func and optional annotation arrays; each entry has name, result (or isl), and optional params.
+# Use "result" (or "return") for a static return value, or "isl" to define an ISL function that runs as the mock.
+#
+# Pipe modifiers: to mock "| name" (e.g. $x | mask2), use func with name "Modifier.[Name]" (e.g. Modifier.mask2).
+# Annotations: to mock "@name" on a function (e.g. @mask2 fun foo()), use the annotation array with name "name".
+
+func:
+  # Simple mock: same return every time
+  - name: "Api.Call"
+    result: { status: 200, body: "ok" }
+
+  # ISL mock: compile and run an ISL function in context (receives call parameters as function arguments)
+  - name: "mask"
+    isl: |
+         fun mask( $value ) {
+             return `xxxxxx$value`;
+         }
+
+  # Pipe modifier mock: "Modifier.[Name]" makes "| name" work (e.g. $x | mask2)
+  - name: "Modifier.mask2"
+    isl: |
+         fun mask2( $value ) {
+             return `xxxxxx$value`;
+         }
+
+  # Parameter-based mock: return only when arguments match (1 param)
+  - name: "Service.GetUser"
+    result: { id: 1, name: "Alice", role: "admin" }
+    params: ["user-1"]
+
+  # Two-parameter mock: match (a, b) and return computed result
+  - name: "Math.Compute"
+    result: 42
+    params: [10, 32]
+  - name: "Math.Compute"
+    result: 100
+    params: [50, 50]
+
+  # Three-parameter mock: e.g. lookup(table, key, id)
+  - name: "Lookup.Find"
+    result: { id: "u-1", name: "Alice", role: "admin" }
+    params: ["users", "id", "u-1"]
+  - name: "Lookup.Find"
+    result: null
+    params: ["users", "id", "unknown"]
+
+  # Indexed mocks: different return per call (#1 first call, #2 second, etc.)
+  - name: "Data.GetItems#1"
+    result: [ { id: 1 }, { id: 2 }, { id: 3 } ]
+  - name: "Data.GetItems#2"
+    result: [ { id: 4 }, { id: 5 } ]
+  - name: "Data.GetItems#3"
+    result: []
+
+  # Scalar and null returns
+  - name: "Config.GetLimit"
+    result: 100
+  - name: "Feature.IsEnabled"
+    result: true
+
+# Annotation mocks: for @name on a function (e.g. @mask2 fun foo() { ... })
+# These mock the annotation decorator; use "Modifier.name" in func to mock the pipe "| name".
+annotation:
+  - name: "mask2"
+    result: "masked"
+  # - name: "cache#1"
+  #   result: "cached-value"

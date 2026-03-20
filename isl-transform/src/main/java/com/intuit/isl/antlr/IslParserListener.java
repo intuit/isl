@@ -388,6 +388,26 @@ public interface IslParserListener extends ParseTreeListener {
 	 */
 	void exitSpreadSelector(IslParser.SpreadSelectorContext ctx);
 	/**
+	 * Enter a parse tree produced by {@link IslParser#inlineIfObjectStatement}.
+	 * @param ctx the parse tree
+	 */
+	void enterInlineIfObjectStatement(IslParser.InlineIfObjectStatementContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link IslParser#inlineIfObjectStatement}.
+	 * @param ctx the parse tree
+	 */
+	void exitInlineIfObjectStatement(IslParser.InlineIfObjectStatementContext ctx);
+	/**
+	 * Enter a parse tree produced by {@link IslParser#inlineElseObject}.
+	 * @param ctx the parse tree
+	 */
+	void enterInlineElseObject(IslParser.InlineElseObjectContext ctx);
+	/**
+	 * Exit a parse tree produced by {@link IslParser#inlineElseObject}.
+	 * @param ctx the parse tree
+	 */
+	void exitInlineElseObject(IslParser.InlineElseObjectContext ctx);
+	/**
 	 * Enter a parse tree produced by {@link IslParser#declareObjectStatement}.
 	 * @param ctx the parse tree
 	 */

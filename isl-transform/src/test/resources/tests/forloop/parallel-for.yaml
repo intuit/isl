@@ -122,7 +122,7 @@ tests:
       return $result
     }
   expected: # you can't modify vars outside the scope!
-    Could not set readonly outside scope variable=$result. at Position(file=test, line=11, column=8, endLine=14, endColumn=11)
+    Could not set readonly outside scope variable=$result. at test:11:8
 
 - name: Validate Thread Ids (6 by default)
   inputs:

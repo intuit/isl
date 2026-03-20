@@ -113,8 +113,7 @@ configure(subprojects.filter { it.name in publishModules }) {
         }
     }
 }
-
-tasks.register<Copy>("copyIslToPlugin") {
+tasks.register<Copy>("buildIslRuntimeLocal") {
     group = "build"
     description = "Build isl-cmd fat JAR and copy to plugin/lib for extension use"
     dependsOn(":isl-cmd:shadowJar")

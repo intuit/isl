@@ -150,13 +150,19 @@ assignTextProperty: QUOTEDSTRING COLON (objectType=typeNameDeclaration EQUAL)? a
 
 spreadSelector: SPREAD (variableSelector | functionCall);
 
+// inline if used as a bare statement inside an object, merging all its properties into the parent:
+// { if ( condition ) { prop1: "a", prop2: "b" } else { prop1: "c" } endif, other: "x" }
+inlineIfObjectStatement: IFCODE condition declareObject inlineElseObject? ENDIFCODE?;
+inlineElseObject: ELSE declareObject;
+
 // { prop: value, prop2: value }
 // separating this in case we want in the future to reuse objects (e.g. as method parameters?)
 declareObjectStatement:
     spreadSelector
     | assignTextProperty
     | assignProperty
-    | assignVariableProperty;
+    | assignVariableProperty
+    | inlineIfObjectStatement;
 
 declareObject:
     CURLYOPEN

@@ -50,9 +50,13 @@ open class FunctionCallCommand(token: FunctionCallToken, protected val arguments
                 return func();
             } catch (e: TransformException) {
                 val thisError = "Could not Execute '@.$name' at ${command.token.position}.\n${e.message}";
-                throw TransformException(thisError, command.token.position, e.cause);
+                throw TransformException(thisError, command.token.position, e);
             } catch (e: Exception) {
-                val error = "${e.javaClass.simpleName}: ${e.message}";
+                // e.message is null for NullPointerException; include the top stack frame so the crash site is visible.
+                val stackTop = e.stackTrace.firstOrNull()
+                    ?.let { " at ${it.className}.${it.methodName}(${it.fileName}:${it.lineNumber})" }
+                    ?: ""
+                val error = "${e.javaClass.simpleName}: ${e.message ?: "no message"}$stackTop";
                 throw TransformException(
                     "Could not Execute '@.$name'. Error='${error}' at ${command.token.position}.",
                     command.token.position,

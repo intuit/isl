@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
+import com.intuit.isl.runtime.FileInfo
+import com.intuit.isl.runtime.TransformCompilationException
+import com.intuit.isl.runtime.TransformPackageBuilder
 import com.intuit.isl.test.TestOperationContext
 import com.intuit.isl.common.*
 import com.intuit.isl.utils.ConvertUtils
@@ -11,7 +14,8 @@ import com.intuit.isl.utils.JsonConvert
 import java.nio.file.Path
 
 object MockFunction {
-    private const val funcRegex = "[A-Za-z_]+\\.[A-Za-z0-9_]+(#[0-9]+)?"
+    /** Allows multiple dotted segments, e.g. Properties.Acquire, Modifier.tokenize.AccountNumber */
+    private const val funcRegex = "[A-Za-z_]+(\\.[A-Za-z0-9_]+)+(#[0-9]+)?"
     private const val annotationRegex = "[A-Za-z0-9_]+(#[0-9]+)?"
 
     fun registerExtensions(context: TestOperationContext) {
@@ -89,26 +93,37 @@ object MockFunction {
             throw IllegalArgumentException("Mock file must have a root object with 'func' and/or 'annotation' keys")
         }
 
-        val obj = root as ObjectNode
-        val funcMocks = obj.get("func")
-        val annotationMocks = obj.get("annotation")
+        val relativePath = basePath.relativize(resolvedPath).toString().replace("\\", "/")
+        applyMocksFromNode(context, root as ObjectNode, relativePath)
+        return null
+    }
+
+    /**
+     * Applies mocks from a parsed object (e.g. from YAML/JSON) to the test context.
+     * Root must have "func" and/or "annotation" arrays in the same format as @.Mock.Load file.
+     * Mocks are always added; params differentiate multiple mocks for the same function.
+     * Clearing only happens when the next test starts (new TestOperationContext).
+     *
+     * @param islSourceFile Optional file path (e.g. mock file or test file) used as the module name when compiling inline ISL snippets, so compilation errors point to the correct file.
+     */
+    fun applyMocksFromNode(context: TestOperationContext, root: ObjectNode, islSourceFile: String? = null) {
+        val funcMocks = root.get("func")
+        val annotationMocks = root.get("annotation")
 
         if (funcMocks != null && funcMocks.isArray) {
             funcMocks.forEach { entry ->
                 if (entry.isObject) {
-                    registerMockFromNode(context, entry as ObjectNode, ::createFuncMock, funcRegex)
+                    registerMockFromNode(context, entry as ObjectNode, ::createFuncMock, funcRegex, islSourceFile)
                 }
             }
         }
         if (annotationMocks != null && annotationMocks.isArray) {
             annotationMocks.forEach { entry ->
                 if (entry.isObject) {
-                    registerMockFromNode(context, entry as ObjectNode, ::createAnnotationMock, annotationRegex)
+                    registerMockFromNode(context, entry as ObjectNode, ::createAnnotationMock, annotationRegex, islSourceFile)
                 }
             }
         }
-
-        return null
     }
 
     private fun resolvePath(basePath: Path, currentFile: String, fileName: String): Path {
@@ -120,7 +135,8 @@ object MockFunction {
         context: TestOperationContext,
         node: ObjectNode,
         registerMock: (TestOperationContext, String, Any?, Map<Int, JsonNode>) -> Int?,
-        nameRegex: String
+        nameRegex: String,
+        islSourceFile: String? = null
     ) {
         val nameNode = node.get("name") ?: throw IllegalArgumentException("Mock entry must have 'name' field")
         val name = ConvertUtils.tryToString(nameNode)?.trim()
@@ -132,21 +148,33 @@ object MockFunction {
             throw IllegalArgumentException("Invalid mock name: $name")
         }
 
-        val returnNode = node.get("return")
+        val key = name.lowercase()
+
+        val islNode = node.get("isl")
+        val islContent = if (islNode != null && !islNode.isNull) ConvertUtils.tryToString(islNode)?.trim() else null
+
+        val sourceFile = islSourceFile ?: context.mockFileName ?: context.testFileName ?: context.currentFile
+        val returnNode = if (islContent != null) null else (node.get("result") ?: node.get("return"))
         val returnValue: Any? = when {
+            islContent != null -> compileIslSnippetToExecutor(islContent, name, sourceFile)
             returnNode == null || returnNode.isNull -> null
             else -> returnNode
         }
 
         val params = mutableMapOf<Int, JsonNode>()
         val paramsNode = node.get("params")
-        if (paramsNode != null && paramsNode.isArray) {
-            (paramsNode as ArrayNode).forEachIndexed { i, param ->
-                params[i] = param
+        if (paramsNode != null) {
+            if (paramsNode.isArray) {
+                (paramsNode as ArrayNode).forEachIndexed { i, param ->
+                    params[i] = param
+                }
+            } else {
+                // Single value (e.g. params: "start_date") -> treat as single parameter at index 0
+                params[0] = paramsNode
             }
         }
 
-        registerMock(context, name.lowercase(), returnValue, params)
+        registerMock(context, key, returnValue, params)
     }
 
     /***
@@ -201,14 +229,19 @@ object MockFunction {
         context: TestOperationContext,
         funcName: String
     ): MockContext<AsyncStatementsExtensionMethod> {
-        return context.mockExtensions.mockStatementExtensions.getOrPut(funcName) {
+        val key = funcName.lowercase()
+        return context.mockExtensions.mockStatementExtensions.getOrPut(key) {
             MockContext { mockObj ->
                 { mockContext, statementExecution ->
+                    val name = mockContext.functionName
+                    val paramsShort = shortParams(mockContext.parameters)
+                    println("[ISL Mock] Calling mocked statement function $name($paramsShort)")
                     // Capture the argument inputs
                     tryFindMatch(mockObj, mockContext)
                     // Run the statement
                     statementExecution(mockContext.executionContext)
                     // Return null
+                    println("[ISL Mock] Returned mocked statement function $name=${shortValue(null)}")
                     null
                 }
             }
@@ -219,13 +252,20 @@ object MockFunction {
         context: TestOperationContext,
         funcName: String
     ): MockContext<AsyncExtensionAnnotation> {
-        return context.mockExtensions.mockAnnotations.getOrPut(funcName) {
+        val key = funcName.lowercase()
+        return context.mockExtensions.mockAnnotations.getOrPut(key) {
             MockContext { mockObj ->
                 { mockContext ->
-                    // Capture the argument inputs
-                    tryFindMatch(mockObj, mockContext)
-                    // Run and return the underlying function value
-                    mockContext.runNextCommand()
+                    val name = mockContext.annotationName
+                    val paramsShort = shortParams(mockContext.parameters)
+                    println("[ISL Mock] Calling mocked modifier $name($paramsShort)")
+                    val r = tryFindMatch(mockObj, mockContext)
+                    val result = when {
+                        r != null && r !is IslMockExecutor -> r
+                        else -> mockContext.runNextCommand()
+                    }
+                    println("[ISL Mock] Returned mocked modifier $name=${shortValue(result)}")
+                    result
                 }
             }
         }
@@ -235,13 +275,51 @@ object MockFunction {
         context: TestOperationContext,
         funcName: String
     ): MockContext<AsyncContextAwareExtensionMethod> {
-        return context.mockExtensions.mockExtensions.getOrPut(funcName) {
+        val key = funcName.lowercase()
+        return context.mockExtensions.mockExtensions.getOrPut(key) {
             MockContext { mockObj ->
                 { mockContext ->
-                    tryFindMatch(mockObj, mockContext)
+                    val name = mockContext.functionName
+                    val paramsShort = shortParams(mockContext.parameters)
+                    val r = tryFindMatch(mockObj, mockContext)
+                    println("[ISL Mock] Calling mocked function $name($paramsShort) Match=$r ")
+                    val result = if (r is IslMockExecutor) r.run(mockContext) else r
+                    println("[ISL Mock] Returned mocked function $name=${shortValue(result)}")
+                    result
                 }
             }
         }
+    }
+
+    /**
+     * Compiles an ISL snippet (e.g. a single function) and returns an executor that runs it in context.
+     * The snippet must define a function called "run": "fun run( ...)"
+     * When the mock is invoked, that function is run with the call's parameters bound to its arguments.
+     *
+     * @param islContent ISL source (e.g. "fun mask(\$value) { return `xxxxxx\$value`; }")
+     * @param mockName Mock name (for error messages)
+     * @param sourceFile Optional file path (e.g. mock YAML or test file) used as the module name so compilation errors show the correct file instead of __mock_isl__
+     * @throws TransformCompilationException if compilation fails
+     */
+    private fun compileIslSnippetToExecutor(islContent: String, mockName: String, sourceFile: String? = null): IslMockExecutor {
+        if (islContent.isBlank()) {
+            throw IllegalArgumentException("Mock '$mockName': 'isl' content must be non-empty")
+        }
+        val moduleName = sourceFile?.takeIf { it.isNotBlank() } ?: "__mock_isl__"
+        val pkg = try {
+            TransformPackageBuilder().build(mutableListOf(FileInfo(moduleName, islContent)), null)
+        } catch (e: Exception) {
+            val msg = (e as? TransformCompilationException)?.message ?: e.toString()
+            throw TransformCompilationException("Mock '$mockName': ISL compilation failed. $msg", (e as? TransformCompilationException)?.position)
+        }
+        val transformer = pkg.getModule(moduleName)
+            ?: throw TransformCompilationException("Mock '$mockName': compiled module not found", null)
+        val module = transformer.module
+        val firstFunc = module.getFunction("run")
+            ?: throw TransformCompilationException("Mock '$mockName': ISL snippet must define a function 'fun run(...){ ... }')", null)
+        val runner = module.getFunctionRunner(firstFunc.name)
+            ?: throw TransformCompilationException("Mock '$mockName': could not get runner for function ${firstFunc.name}", null)
+        return IslMockExecutor(runner)
     }
 
     private fun <T> mockFunction(
@@ -263,7 +341,7 @@ object MockFunction {
         val (baseName, index) = parseFunctionNameWithIndex(functionNameStr)
         val obtainedContext = getMockContext(baseName)
 
-        return obtainedContext.mockObject.addMock(returnValue, parameters, index)
+        return obtainedContext.mockObject.addMock(returnValue, parameters, index, baseName)
     }
 
     /**
@@ -332,7 +410,38 @@ object MockFunction {
         val inputParams = executeContext.parameters.mapIndexed { i, it ->
             i to JsonConvert.convert(it)
         }.toMap()
-        return mockObject.tryFindMatch(inputParams)
+        val (name, position) = when (executeContext) {
+            is FunctionExecuteContext -> executeContext.functionName to executeContext.command.token.position
+            is AnnotationExecuteContext -> executeContext.annotationName to executeContext.command.token.position
+            else -> null to null
+        }
+        val testContext = when (executeContext) {
+            is FunctionExecuteContext -> executeContext.executionContext.operationContext as? TestOperationContext
+            is AnnotationExecuteContext -> executeContext.executionContext.operationContext as? TestOperationContext
+            else -> null
+        }
+        val mockFileName = testContext?.mockFileName
+        val testFileName = testContext?.testFileName
+        return mockObject.tryFindMatch(inputParams, true, name, position, mockFileName, testFileName)
+    }
+
+    private const val SHORT_MAX_LEN = 80
+
+    private fun shortValue(value: Any?, maxLen: Int = SHORT_MAX_LEN): String {
+        val s = when (value) {
+            null -> "null"
+            else -> try {
+                JsonConvert.mapper.writeValueAsString(JsonConvert.convert(value))
+            } catch (_: Exception) {
+                value.toString()
+            }
+        }
+        return if (s.length <= maxLen) s else s.take(maxLen - 3) + "..."
+    }
+
+    private fun shortParams(parameters: Array<*>): String {
+        val s = parameters.mapIndexed { i, p -> shortValue(p, 40) }.joinToString(", ")
+        return if (s.length <= SHORT_MAX_LEN) s else s.take(SHORT_MAX_LEN - 3) + "..."
     }
 }
 

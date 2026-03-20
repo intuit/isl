@@ -29,6 +29,7 @@ class IslCommandLine : Runnable {
 }
 
 fun main(args: Array<String>) {
+    Transformer.getIslInfo()  // Log ISL and Jackson versions at startup
     val exitCode = CommandLine(IslCommandLine()).execute(*args)
     exitProcess(exitCode)
 }

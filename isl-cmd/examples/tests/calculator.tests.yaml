@@ -1,0 +1,43 @@
+# YAML-driven unit tests for calculator.isl
+# Run: isl test .   or   isl test calculator.tests.yaml
+
+category: calculator
+setup:
+  islSource: calculator.isl
+
+tests:
+  - name: add two numbers
+    functionName: add
+    input:
+      a: 2
+      b: 3
+    expected: 5
+
+  - name: add negatives
+    functionName: add
+    input:
+      a: -10
+      b: 5
+    expected: -5
+
+  - name: double a number
+    functionName: double
+    input: 7
+    expected: 14
+
+  - name: double zero
+    functionName: double
+    input: 0
+    expected: 0
+
+  - name: greet returns message
+    functionName: greet
+    input: "World"
+    expected: "Hello, World"
+
+  - name: echo returns input
+    functionName: echo
+    input: { foo: "bar", n: 42 }
+    expected:
+      foo: "bar"
+      n: 42

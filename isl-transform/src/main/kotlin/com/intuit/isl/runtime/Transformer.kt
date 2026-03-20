@@ -7,6 +7,7 @@ import com.intuit.isl.common.*
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
+import java.util.jar.Manifest
 
 class Transformer(override val module: TransformModule) : ITransformer {
     val token: IIslToken
@@ -21,23 +22,70 @@ class Transformer(override val module: TransformModule) : ITransformer {
         private fun initIslInfo(): ObjectNode {
             val info = JsonNodeFactory.instance.objectNode();
             info.put("version", "Unknown");
+            info.put("jacksonVersion", "Unknown");
+            info.put("maxParallelWorkers", 1);
             try {
-                val version = Transformer::class.java.`package`.specificationVersion ?: "Unknown";
-                val jacksonVersion = JsonNode::class.java.`package`.specificationVersion ?: "Unknown";
+                var version = detectIslVersion();
+                var jacksonVersion = detectJacksonVersion();
+                if (jacksonVersion == version) {
+                    jacksonVersion = "Unknown";
+                }
                 info.put("version", version);
                 info.put("jacksonVersion", jacksonVersion);
-                info.put("maxParallelWorkers", 1);
-                println("Loaded ISL Version $version Jackson $jacksonVersion");
+                if (jacksonVersion == "Unknown") {
+                    println("Loaded ISL Version $version");
+                } else {
+                    println("Loaded ISL Version $version Jackson $jacksonVersion");
+                }
             } catch (e: Exception) {
                 println("Could not detect ISL Version ${e.message}");
             }
             return info;
         }
 
+        private fun detectIslVersion(): String {
+            Transformer::class.java.`package`?.let { pkg ->
+                (pkg.implementationVersion ?: pkg.specificationVersion)?.let { return it }
+            }
+            readManifestMainAttribute("Implementation-Version")?.let { return it }
+            readManifestMainAttribute("Specification-Version")?.let { return it }
+            return "Unknown"
+        }
+
+        private fun detectJacksonVersion(): String {
+            JsonNode::class.java.`package`?.let { pkg ->
+                (pkg.specificationVersion ?: pkg.implementationVersion)?.let { return it }
+            }
+            readJacksonVersionFromPomProperties()?.let { return it }
+            return "Unknown"
+        }
+
+        private fun readManifestMainAttribute(name: String): String? {
+            return try {
+                Transformer::class.java.getResourceAsStream("/META-INF/MANIFEST.MF")?.use { stream ->
+                    Manifest(stream).mainAttributes.getValue(name)?.takeIf { it.isNotBlank() }
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
+        private fun readJacksonVersionFromPomProperties(): String? {
+            return try {
+                JsonNode::class.java.getResourceAsStream(
+                    "/META-INF/maven/com.fasterxml.jackson.core/jackson-databind/pom.properties"
+                )?.use { stream ->
+                    java.util.Properties().apply { load(stream) }.getProperty("version")?.takeIf { it.isNotBlank() }
+                }
+            } catch (e: Exception) {
+                null
+            }
+        }
+
         val version: String
             get() = islInfo["version"].textValue();
 
-        internal fun getIslInfo(): JsonNode {
+        fun getIslInfo(): JsonNode {
             return islInfo.deepCopy();
         }
 

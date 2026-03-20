@@ -1,6 +1,8 @@
 @echo off
 REM Example usage scripts for ISL CLI on Windows
 
+cd /d "%~dp0"
+
 echo === ISL CLI Examples ===
 echo.
 
@@ -9,13 +11,16 @@ for /f "tokens=1,2 delims==" %%a in (..\..\gradle.properties) do (
     if "%%a"=="version" set VERSION=%%b
 )
 
-REM Check if JAR exists
-set JAR=..\build\libs\isl-%VERSION%.jar
+REM Shadow JAR has classifier -all
+set JAR=..\build\libs\isl-%VERSION%-all.jar
+if not exist "%JAR%" set JAR=..\build\libs\isl-%VERSION%.jar
 if not exist "%JAR%" (
     echo Building ISL CLI...
     cd ..
     call gradlew.bat shadowJar
     cd examples
+    set JAR=..\build\libs\isl-%VERSION%-all.jar
+    if not exist "%JAR%" set JAR=..\build\libs\isl-%VERSION%.jar
 )
 
 set ISL=java -jar %JAR%
@@ -47,6 +52,12 @@ echo.
 echo 5. Show Info
 echo    Command: isl info
 %ISL% info
+echo.
+echo.
+
+echo 6. Run Tests (ISL + YAML suites)
+echo    Command: isl test .
+%ISL% test .
 echo.
 
 

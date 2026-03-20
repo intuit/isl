@@ -1,7 +1,9 @@
 package com.intuit.isl.test.mocks
 
 import com.fasterxml.jackson.databind.JsonNode
+import com.intuit.isl.test.TestFailException
 import com.intuit.isl.utils.JsonConvert
+import com.intuit.isl.utils.Position
 
 class MockObject {
     private val matchingParamMap = mutableMapOf<MockParamsMatcher, Any?>()
@@ -13,9 +15,25 @@ class MockObject {
     private val defaultReturnIndexed = mutableListOf<Any?>()
     private var defaultCallCount = 0
     private val defaultReturnCaptures = MockCaptureContext()
+    /** True when a default (no-params) mock was ever added; used to distinguish "no match" from "matched and returned null". */
+    private var hasDefaultReturn = false
 
-    fun addMock(returnValue: Any?, parameters: Map<Int, JsonNode>, index: Int? = null): Int? {
+    /** Clears all mocks and captures so this MockObject can be reused (e.g. for local overrides). */
+    fun clear() {
+        matchingParamMap.clear()
+        matchingParamMapIndexed.clear()
+        matchingParamCallCount.clear()
+        matchingParamCaptures.clear()
+        defaultReturnValue = null
+        defaultReturnIndexed.clear()
+        defaultCallCount = 0
+        defaultReturnCaptures.captures.clear()
+        hasDefaultReturn = false
+    }
+
+    fun addMock(returnValue: Any?, parameters: Map<Int, JsonNode>, index: Int? = null, functionName: String? = null): Int? {
         return if (parameters.isEmpty()) {
+            hasDefaultReturn = true
             if (index != null) {
                 ensureIndexCapacity(defaultReturnIndexed, index)
                 defaultReturnIndexed[index - 1] = returnValue
@@ -30,6 +48,10 @@ class MockObject {
                 ensureIndexCapacity(list, index)
                 list[index - 1] = returnValue
             } else {
+                if (matchingParamMap.containsKey(mockMatcher)) {
+                    val fn = if (functionName != null) " for function @.$functionName" else ""
+                    println("[ISL Mock] Overriding existing mock$fn for params: ${parameters.values}")
+                }
                 matchingParamMap[mockMatcher] = returnValue
             }
             mockMatcher.hashCode()
@@ -60,7 +82,22 @@ class MockObject {
         }
     }
 
-    fun tryFindMatch(targetParams: Map<Int, JsonNode>, looseMatch: Boolean = true): Any? {
+    /**
+     * Finds a matching mock for the given parameters.
+     * @param functionName Optional; used in the error message when no match is found.
+     * @param position Optional; attached to the thrown exception when no match is found.
+     * @param mockFileName Optional; used in the error message when testFileName is null (which mock file to add the entry to).
+     * @param testFileName Optional; when set, error message suggests adding to the test file (in setup.mocks or in the test) instead of mock files.
+     * @throws TransformException when no mock matches and no default mock is defined (with function name, params, and YAML snippet in the message).
+     */
+    fun tryFindMatch(
+        targetParams: Map<Int, JsonNode>,
+        looseMatch: Boolean = true,
+        functionName: String? = null,
+        position: Position? = null,
+        mockFileName: String? = null,
+        testFileName: String? = null
+    ): Any? {
         matchingParamMap.forEach { (matcher, returnValue) ->
             if (matcher.match(targetParams, looseMatch)) {
                 val captureContext = matchingParamCaptures.getOrPut(matcher.hashCode()) { MockCaptureContext() }
@@ -96,6 +133,38 @@ class MockObject {
             val result = defaultReturnIndexed[defaultCallCount]
             defaultCallCount++
             return result
+        }
+        if (!hasDefaultReturn) {
+            val paramsJson = targetParams.toSortedMap().values.let { JsonConvert.mapper.writeValueAsString(it) }
+            val addToHint = when {
+                testFileName != null -> "test file [$testFileName] (in setup.mocks or in the test)"
+                else -> "[${mockFileName ?: "your-mocks.yaml"}]"
+            }
+            val place = position?.let { pos ->
+                "file=${pos.file}, line=${pos.line}, column=${pos.column}" +
+                    (pos.endLine?.let { ", endLine=$it" } ?: "") +
+                    (pos.endColumn?.let { ", endColumn=$it" } ?: "")
+            }
+            val yamlSnippet = buildString {
+                appendLine("- name: \"${functionName ?: "<function>"}\"")
+                if (targetParams.isNotEmpty()) {
+                    appendLine("  params: $paramsJson")
+                }
+                appendLine("  result: <replace with expected return value>")
+            }
+            val message = buildString {
+                appendLine(if (functionName != null) "No mock matched for function @.$functionName. The test must only call with parameters that are mocked." else "No mock matched. The test must only call with parameters that are mocked.")
+                if (functionName != null) appendLine("Function: @.$functionName")
+                if (place != null) appendLine("Called from: $place")
+                appendLine("Parameters: $paramsJson")
+                appendLine("")
+                appendLine("To mock this function add this to your $addToHint then rerun the tests:")
+                appendLine("```yaml")
+                appendLine("func:")
+                appendLine(yamlSnippet)
+                appendLine("```")
+            }
+            throw TestFailException(message.trimEnd(), position)
         }
         return defaultReturnValue
     }

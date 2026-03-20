@@ -472,6 +472,30 @@ public class IslParserBaseListener implements IslParserListener {
 	 *
 	 * <p>The default implementation does nothing.</p>
 	 */
+	@Override public void enterInlineIfObjectStatement(IslParser.InlineIfObjectStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitInlineIfObjectStatement(IslParser.InlineIfObjectStatementContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void enterInlineElseObject(IslParser.InlineElseObjectContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
+	@Override public void exitInlineElseObject(IslParser.InlineElseObjectContext ctx) { }
+	/**
+	 * {@inheritDoc}
+	 *
+	 * <p>The default implementation does nothing.</p>
+	 */
 	@Override public void enterDeclareObjectStatement(IslParser.DeclareObjectStatementContext ctx) { }
 	/**
 	 * {@inheritDoc}

@@ -254,9 +254,13 @@ object ConditionEvaluator {
                 return true;
             "date" -> if (left is Instant || left is InstantNode)
                 return true;
+            "boolean" -> if(left is Boolean || left is BooleanNode)
+                return true;
             "string" -> if (left is String || left is TextNode)
                 return true;
             "node" -> if (left is ObjectNode)
+                return true;
+            "object" -> if (left is ObjectNode)
                 return true;
             "array" -> if (left is ArrayNode || left is Iterable<*>)
                 return true;

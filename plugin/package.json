@@ -1,0 +1,291 @@
+{
+  "name": "isl-language-support",
+  "displayName": "ISL - Intuitive Scripting Language",
+  "description": "Comprehensive language support for ISL (Intuitive Scripting Language) - JSON transformation language",
+  "version": "1.2.0",
+  "publisher": "isl-team",
+  "icon": "images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/intuit/isl"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Linters"
+  ],
+  "keywords": [
+    "isl",
+    "json",
+    "transformation",
+    "scripting",
+    "jolt"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.isl",
+    "workspaceContains:**/*.tests.yaml",
+    "onTerminalProfile:isl.terminal-profile"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "configurationDefaults": {
+      "[isl]": {
+        "editor.formatOnPaste": false
+      }
+    },
+    "languages": [
+      {
+        "id": "isl",
+        "aliases": [
+          "ISL",
+          "isl"
+        ],
+        "extensions": [
+          ".isl"
+        ],
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./images/file-icon.svg",
+          "dark": "./images/file-icon.svg"
+        }
+      }
+    ],
+    "grammars": [
+      {
+        "language": "isl",
+        "scopeName": "source.isl",
+        "path": "./syntaxes/isl.tmLanguage.json"
+      },
+      {
+        "scopeName": "markdown.isl.codeblock",
+        "path": "./syntaxes/isl-markdown-injection.tmLanguage.json",
+        "injectTo": [
+          "text.html.markdown"
+        ],
+        "embeddedLanguages": {
+          "meta.embedded.block.isl": "isl"
+        }
+      }
+    ],
+    "configuration": {
+      "title": "ISL",
+      "properties": {
+        "isl.validation.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL validation"
+        },
+        "isl.naming.convention": {
+          "type": "string",
+          "enum": [
+            "camelCase",
+            "PascalCase",
+            "snake_case"
+          ],
+          "default": "camelCase",
+          "description": "Naming convention for functions and modifiers (camelCase, PascalCase, or snake_case)"
+        },
+        "isl.formatting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL formatting"
+        },
+        "isl.formatting.indentSize": {
+          "type": "number",
+          "default": 4,
+          "description": "Number of spaces for indentation"
+        },
+        "isl.formatting.useTabs": {
+          "type": "boolean",
+          "default": false,
+          "description": "Use tabs instead of spaces"
+        },
+        "isl.formatting.alignProperties": {
+          "type": "boolean",
+          "default": false,
+          "description": "Align object property colons"
+        },
+        "isl.linting.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable/disable ISL linting"
+        },
+        "isl.execution.islCommand": {
+          "type": "string",
+          "default": "",
+          "description": "Optional. External ISL executable (isl.bat or isl.sh). Only used when the extension's embedded CLI (lib/isl-cmd-all.jar) is not present. Most users leave this empty."
+        },
+        "isl.execution.javaHome": {
+          "type": "string",
+          "default": "",
+          "description": "Path to Java home directory (if not in PATH)"
+        },
+        "isl.extensions.source": {
+          "type": "string",
+          "default": "",
+          "description": "Global source for .islextensions file. Can be a URL (e.g., https://example.com/extensions.json) or absolute file path. Workspace-local .islextensions files take precedence. Leave empty to use only workspace-local files."
+        },
+        "isl.extensions.cacheTTL": {
+          "type": "number",
+          "default": 3600,
+          "description": "Cache TTL in seconds for extensions loaded from URL (default: 3600 = 1 hour)"
+        },
+        "isl.trace.server": {
+          "type": "string",
+          "enum": [
+            "off",
+            "messages",
+            "verbose"
+          ],
+          "default": "off",
+          "description": "Traces the communication between VS Code and the language server"
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "isl.validate",
+        "title": "ISL: Validate Current File"
+      },
+      {
+        "command": "isl.run",
+        "title": "ISL: Run Transformation"
+      },
+      {
+        "command": "isl.runWithInput",
+        "title": "ISL: Run Transformation with Input File"
+      },
+      {
+        "command": "isl.format",
+        "title": "ISL: Format Document"
+      },
+      {
+        "command": "isl.showDocumentation",
+        "title": "ISL: Open Documentation"
+      },
+      {
+        "command": "isl.compile",
+        "title": "ISL: Compile (Validate) File",
+        "icon": "$(run-all)"
+      },
+      {
+        "command": "isl.runAllTestsInFile",
+        "title": "Run All Tests in File",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "isl.addMockFromTestError",
+        "title": "ISL: Add Mock from Test Error"
+      },
+      {
+        "command": "isl.showResultDiffViewer",
+        "title": "ISL: See Differences Side by Side"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.compile",
+          "group": "navigation"
+        },
+        {
+          "when": "isl.isTestFile",
+          "command": "isl.runAllTestsInFile",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.compile",
+          "group": "isl@1"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.run",
+          "group": "isl@2"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.runWithInput",
+          "group": "isl@3"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "isl.validate",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.run",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.runWithInput",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.format",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.compile",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.runAllTestsInFile",
+          "when": "isl.isTestFile"
+        }
+      ]
+    },
+    "snippets": [
+      {
+        "language": "isl",
+        "path": "./snippets/isl.json"
+      }
+    ],
+    "terminal": {
+      "profiles": [
+        {
+          "id": "isl.terminal-profile",
+          "title": "ISL",
+          "icon": "terminal"
+        }
+      ]
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile:production",
+    "compile": "tsc --noEmit && node esbuild.js",
+    "compile:production": "tsc --noEmit && node esbuild.js --production",
+    "watch": "node esbuild.js --watch",
+    "pretest": "npm run compile",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package",
+    "publish": "vsce publish",
+    "publish:ovsx": "ovsx publish"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.0",
+    "@types/node": "^18.0.0",
+    "@types/vscode": "^1.75.0",
+    "@typescript-eslint/eslint-plugin": "^6.0.0",
+    "@typescript-eslint/parser": "^6.0.0",
+    "@vscode/vsce": "^2.32.0",
+    "esbuild": "^0.24.0",
+    "eslint": "^8.40.0",
+    "ovsx": "^0.10.7",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "vscode-languageclient": "^8.1.0"
+  },
+  "extensionRecommendations": [
+    "streetsidesoftware.code-spell-checker"
+  ]
+}

@@ -21,14 +21,23 @@ isl test tests/
 # Run a specific file
 isl test tests/sample.isl
 
-# Custom glob pattern
+# Custom glob pattern (applies to .isl files; YAML suites use **/*.tests.yaml when not set)
 isl test tests/ --glob "**/*.test.isl"
+
+# Run only specific test function(s) (by function name or file:function)
+isl test . -f add -f test_customer
+isl test . -f calculator.tests.yaml:add -f sample.isl:test_simpleAssertion
 
 # Write results to JSON
 isl test -o results.json
 ```
 
-The CLI discovers all `.isl` files containing `@setup` or `@test` annotations and runs them.
+The CLI discovers:
+
+- **.isl files** containing `@setup` or `@test` annotations (default glob: `**/*.isl`)
+- **\*.tests.yaml** (or \*.tests.yml) YAML-driven test suites (default glob: `**/*.tests.yaml`)
+
+Both are run when you pass a directory (e.g. `isl test .`).
 
 ## Running Tests Programmatically
 

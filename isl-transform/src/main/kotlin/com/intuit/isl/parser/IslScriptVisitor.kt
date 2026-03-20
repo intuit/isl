@@ -273,6 +273,16 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
         return DeclareObjectToken(statements, ctx.getPosition());
     }
 
+    // if ( condition ) { prop1: "a" } else { prop1: "b" } endif  — bare inside an object body
+    override fun visitInlineIfObjectStatement(ctx: IslParser.InlineIfObjectStatementContext): Any {
+        val expression = visitConditionExpression(ctx.condition().conditionExpression()) as IIslToken;
+        val trueStatements = visitDeclareObject(ctx.declareObject()) as IIslToken;
+        val falseStatements = if (ctx.inlineElseObject() != null)
+            visitDeclareObject(ctx.inlineElseObject().declareObject()) as IIslToken
+        else null;
+        return ConditionToken(expression, trueStatements, falseStatements, ctx.getPosition());
+    }
+
     override fun visitSpreadSelector(ctx: IslParser.SpreadSelectorContext): Any? {
         val variable =
             if (ctx.variableSelector() != null)

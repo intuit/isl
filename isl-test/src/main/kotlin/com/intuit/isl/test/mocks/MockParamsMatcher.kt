@@ -2,11 +2,11 @@ package com.intuit.isl.test.mocks
 
 import com.fasterxml.jackson.databind.JsonNode
 
-class MockParamsMatcher(matchingParams: Map<Int, JsonNode>) {
+class MockParamsMatcher(private val rawParams: Map<Int, JsonNode>) {
     private val matchingParamMap = mutableMapOf<Int, MockMatcher>()
 
     init {
-        matchingParams.forEach { (i, it) ->
+        rawParams.forEach { (i, it) ->
             matchingParamMap[i] = MockMatcher(it)
         }
     }
@@ -27,4 +27,12 @@ class MockParamsMatcher(matchingParams: Map<Int, JsonNode>) {
         }
         return true
     }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is MockParamsMatcher) return false
+        return rawParams == other.rawParams
+    }
+
+    override fun hashCode(): Int = rawParams.hashCode()
 }

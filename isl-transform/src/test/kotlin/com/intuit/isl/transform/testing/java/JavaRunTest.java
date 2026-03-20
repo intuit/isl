@@ -194,12 +194,12 @@ public class JavaRunTest {
         Exception exception = assertThrows(TransformException.class, () -> {
             run("", "test1.isl", null);
         });
-        assertEquals("Unknown Function @.test1.isl.run at Position(file=test1.isl, line=1, column=0, endLine=1, endColumn=5)", exception.getMessage());
+        assertEquals("Unknown Function @.test1.isl.run at test1.isl:1:0", exception.getMessage());
 
         exception = assertThrows(TransformException.class, () -> {
             run("", "test1.isl:random", null);
         });
-        assertEquals("Unknown Function @.test1.isl.random at Position(file=test1.isl, line=1, column=0, endLine=1, endColumn=5)", exception.getMessage());
+        assertEquals("Unknown Function @.test1.isl.random at test1.isl:1:0", exception.getMessage());
     }
 
     private void run(String script, String function, String expectedResult) throws Exception {

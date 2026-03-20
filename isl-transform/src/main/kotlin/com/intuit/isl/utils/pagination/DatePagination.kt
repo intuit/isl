@@ -36,7 +36,12 @@ object DatePagination {
                 );
 
         val parameters = context.secondParameter as? ObjectNode;
-        val startDate = DateExtensions.getDate(parameters?.get("startDate"))!!;
+        val startDate = DateExtensions.getDate(parameters?.get("startDate"))
+            ?: throw TransformException(
+                "Pagination.Date: 'startDate' is required and must be a parsed date (Instant). " +
+                "Got: ${parameters?.get("startDate")} - did you forget '| date.parse' on the startDate argument?",
+                context.command.token.position
+            );
         val endDate = DateExtensions.getDate(parameters?.get("endDate")) ?: DateExtensions.now(null) as? Instant;
         val durationText = ConvertUtils.tryToString(parameters?.get("duration")) ?: "P1D";
 
