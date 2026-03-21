@@ -33,7 +33,9 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
             executionContext.operationContext.setVariable(token.iterator, JsonConvert.convert(it));
             executionContext.operationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 
+            executionContext.debugHook?.onBeforeExecute(statements, executionContext)
             val itValue = statements.executeAsync(executionContext);
+            executionContext.debugHook?.onAfterExecute(statements, executionContext, itValue)
 
             if(itValue.validResult == false)
                 return@forEachIndexed; // ignore

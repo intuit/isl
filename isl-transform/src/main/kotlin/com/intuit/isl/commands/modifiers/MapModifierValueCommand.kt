@@ -15,23 +15,27 @@ class MapModifierValueCommand(
     private val argument: IIslCommand
 ) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceCollection = previousValue.executeAsync(executionContext).value;
+        val hook = executionContext.debugHook
+        hook?.onBeforeExecute(this, executionContext)
+        val sourceCollection = previousValue.executeAsync(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
-            else -> null;
-        };
+            else -> null
+        }
 
-        val defaultSize = if(sourceCollection is Collection<Any?>) sourceCollection.size else 10;
-        val result = JsonNodeFactory.instance.arrayNode(defaultSize);
+        val defaultSize = if (sourceCollection is Collection<Any?>) sourceCollection.size else 10
+        val array = JsonNodeFactory.instance.arrayNode(defaultSize)
 
         source?.forEach { it ->
-            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it));
-            result.add(JsonConvert.convert(argument.executeAsync(executionContext).value));
-        };
-        executionContext.operationContext.removeVariable("\$");
+            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it))
+            array.add(JsonConvert.convert(argument.executeAsync(executionContext).value))
+        }
+        executionContext.operationContext.removeVariable("\$")
 
-        return CommandResult(result);
+        val result = CommandResult(array)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

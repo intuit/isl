@@ -2,7 +2,7 @@
   "name": "isl-language-support",
   "displayName": "ISL - Intuitive Scripting Language",
   "description": "Comprehensive language support for ISL (Intuitive Scripting Language) - JSON transformation language",
-  "version": "1.2.0",
+  "version": "1.3.0",
   "publisher": "isl-team",
   "icon": "images/icon.png",
   "repository": {
@@ -177,6 +177,14 @@
         "icon": "$(beaker)"
       },
       {
+        "command": "isl.debugFunction",
+        "title": "ISL: Debug Function"
+      },
+      {
+        "command": "isl.debugYamlTest",
+        "title": "ISL: Debug YAML Test"
+      },
+      {
         "command": "isl.addMockFromTestError",
         "title": "ISL: Add Mock from Test Error"
       },
@@ -246,6 +254,72 @@
       {
         "language": "isl",
         "path": "./snippets/isl.json"
+      }
+    ],
+    "breakpoints": [
+      {
+        "language": "isl"
+      }
+    ],
+    "debuggers": [
+      {
+        "type": "isl",
+        "label": "ISL Debug",
+        "languages": ["isl"],
+        "configurationAttributes": {
+          "launch": {
+            "required": ["script"],
+            "properties": {
+              "script": {
+                "type": "string",
+                "description": "Absolute path to the ISL script to debug",
+                "default": "${file}"
+              },
+              "input": {
+                "type": "string",
+                "description": "Path to the input JSON file (optional)",
+                "default": ""
+              },
+              "function": {
+                "type": "string",
+                "description": "ISL function to execute",
+                "default": "run"
+              },
+              "yamlSuite": {
+                "type": "string",
+                "description": "Absolute path to a *.tests.yaml file. When set with yamlTestIndex, the debug adapter applies suite mocks and YAML test input (same as isl test runner)."
+              },
+              "yamlTestIndex": {
+                "type": "number",
+                "description": "Zero-based index of the test entry in the suite (islTests or tests array as resolved by YamlUnitTestRunner.entries)."
+              }
+            }
+          }
+        },
+        "initialConfigurations": [
+          {
+            "type": "isl",
+            "request": "launch",
+            "name": "Debug ISL",
+            "script": "${file}",
+            "input": "",
+            "function": "run"
+          }
+        ],
+        "configurationSnippets": [
+          {
+            "label": "ISL: Debug Script",
+            "description": "Debug an ISL transformation script",
+            "body": {
+              "type": "isl",
+              "request": "launch",
+              "name": "Debug ISL: ${1:script.isl}",
+              "script": "^\"\\${file}\"",
+              "input": "${2:input.json}",
+              "function": "${3:run}"
+            }
+          }
+        ]
       }
     ],
     "terminal": {

@@ -75,10 +75,15 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
                 childContext.setVariable(name.name, JsonConvert.convert(value));
             }
 
-            val childExecutionContext = ExecutionContext(childContext, functionContext.executionContext.localContext);
+            val childExecutionContext = ExecutionContext(childContext, functionContext.executionContext.localContext, functionContext.executionContext.debugHook);
 
-            val result = executeAsync(childExecutionContext);
-            return@declaration result.value;
+            childExecutionContext.debugHook?.onFunctionEnter(this, childExecutionContext)
+            try {
+                val result = executeAsync(childExecutionContext);
+                return@declaration result.value;
+            } finally {
+                childExecutionContext.debugHook?.onFunctionExit(this, childExecutionContext)
+            }
         }
         return sameModuleRunner;
     }

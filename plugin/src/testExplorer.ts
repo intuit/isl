@@ -136,6 +136,141 @@ export function parseYamlIslTests(uri: vscode.Uri, content: string): YamlTestEnt
     return entries;
 }
 
+/** CodeLens placement for one `islTests` entry (anchored on the `-` list line so the lens sits above it). */
+export interface YamlTestCodeLensInfo {
+    index: number;
+    functionName: string;
+    label: string;
+    range: vscode.Range;
+}
+
+/**
+ * Map each `islTests` array entry to a range on the list item line (`-` …), not the following `name:` line,
+ * so VS Code draws CodeLens above `- name:` / `-` as users expect.
+ */
+export function parseYamlIslTestsCodeLensInfos(uri: vscode.Uri, content: string): YamlTestCodeLensInfo[] {
+    const results: YamlTestCodeLensInfo[] = [];
+    if (!yamlHasIslTests(content)) return results;
+    try {
+        const doc = yaml.load(content) as { islTests?: Array<{ name?: string; functionName?: string }> } | null;
+        const list = doc?.islTests;
+        if (!Array.isArray(list) || list.length === 0) return results;
+
+        const lines = content.split(/\r?\n/);
+        let islTestsIndent = -1;
+        const items: { start: number; nameLine: number | null; fnLine: number | null }[] = [];
+        let current: { start: number; nameLine: number | null; fnLine: number | null } | null = null;
+
+        for (let i = 0; i < lines.length; i++) {
+            const line = lines[i];
+            const trimmed = line.trim();
+            const indent = line.search(/\S/);
+            if (indent < 0) continue;
+
+            if (/^islTests\s*:/.test(trimmed)) {
+                islTestsIndent = indent;
+                continue;
+            }
+            if (islTestsIndent < 0) continue;
+
+            const isListItem = /^\s*-\s/.test(line) && indent <= islTestsIndent + 2;
+            if (isListItem) {
+                if (current) {
+                    items.push(current);
+                }
+                current = { start: i, nameLine: null, fnLine: null };
+                continue;
+            }
+            if (current) {
+                if (/^name\s*:/.test(trimmed)) {
+                    current.nameLine = i;
+                }
+                if (/^functionName\s*:/.test(trimmed)) {
+                    current.fnLine = i;
+                }
+            }
+        }
+        if (current) {
+            items.push(current);
+        }
+
+        const fallback = parseYamlIslTests(uri, content);
+
+        const rangeForLine = (lineNum: number): vscode.Range => {
+            const lineText = lines[lineNum] ?? '';
+            let valueStart = 0;
+            const nameM = lineText.match(/^\s*name\s*:\s*(.*)$/);
+            const fnM = lineText.match(/^\s*functionName\s*:\s*(.*)$/);
+            if (nameM) {
+                const afterKey = lineText.indexOf(':');
+                const rest = afterKey >= 0 ? lineText.slice(afterKey + 1) : '';
+                valueStart = lineText.length - rest.trimStart().length;
+            } else if (fnM) {
+                const afterKey = lineText.indexOf(':');
+                const rest = afterKey >= 0 ? lineText.slice(afterKey + 1) : '';
+                valueStart = lineText.length - rest.trimStart().length;
+            } else {
+                const dashIdx = lineText.indexOf('-');
+                if (dashIdx >= 0) {
+                    valueStart = dashIdx;
+                }
+            }
+            const endCol = Math.max(valueStart + 1, lineText.length);
+            return new vscode.Range(lineNum, valueStart, lineNum, endCol);
+        };
+
+        for (let idx = 0; idx < list.length; idx++) {
+            const entry = list[idx];
+            if (!entry || typeof entry !== 'object') continue;
+            const defaultLabel = `Test ${idx + 1}`;
+            const label =
+                entry.name != null && entry.name !== '' ? String(entry.name) : defaultLabel;
+            const functionName =
+                entry.functionName != null && entry.functionName !== ''
+                    ? String(entry.functionName)
+                    : label;
+
+            const item = items[idx];
+            const fb = fallback[idx];
+            const lineNum =
+                item?.start ??
+                item?.fnLine ??
+                item?.nameLine ??
+                fb?.range.start.line ??
+                0;
+
+            results.push({
+                index: idx,
+                functionName,
+                label,
+                range: rangeForLine(lineNum)
+            });
+        }
+    } catch {
+        // ignore
+    }
+    return results;
+}
+
+/** Split test id from {@link parseYamlIslTests}: `uri#functionName#index`. */
+function splitYamlTestId(testId: string): { yamlUri: vscode.Uri; functionName: string; index: number } | null {
+    const lastHash = testId.lastIndexOf('#');
+    if (lastHash < 0) return null;
+    const idxStr = testId.slice(lastHash + 1);
+    const rest = testId.slice(0, lastHash);
+    const secondLast = rest.lastIndexOf('#');
+    if (secondLast < 0) return null;
+    const functionName = rest.slice(secondLast + 1);
+    const uriStr = rest.slice(0, secondLast);
+    const index = parseInt(idxStr, 10);
+    if (!Number.isFinite(index) || index < 0) return null;
+    try {
+        return { yamlUri: vscode.Uri.parse(uriStr), functionName, index };
+    } catch {
+        return null;
+    }
+}
+
 /**
  * Parse @test and @setup annotations from ISL test file content.
  * Supports:
@@ -743,6 +878,144 @@ const DOCUMENT_CHANGE_DEBOUNCE_MS = 1500;
 /** Diagnostic collection for YAML test assertion diffs (squiggles in expected section). */
 const YAML_TEST_DIAGNOSTIC_SOURCE = 'isl-yaml-test';
 
+async function saveOpenDocumentIfDirty(uri: vscode.Uri): Promise<void> {
+    const doc = vscode.workspace.textDocuments.find(d => d.uri.toString() === uri.toString());
+    if (doc?.isDirty) {
+        await doc.save();
+    }
+}
+
+/** A YAML suite entry whose `functionName` targets a given ISL file. */
+export interface YamlTestMatch {
+    yamlUri: vscode.Uri;
+    testIndex: number;
+    label: string;
+}
+
+const YAML_SUITE_SEARCH_MAX = 8000;
+
+/**
+ * Find *.tests.yaml suites whose resolved `setup.islSource` matches [islScriptPath] and that
+ * expose [functionName] in `islTests` (used to debug from an ISL CodeLens with mocks).
+ */
+export async function findYamlTestsForIslScript(
+    islScriptPath: string,
+    functionName: string
+): Promise<YamlTestMatch[]> {
+    const normalizedScript = path.normalize(islScriptPath);
+    const scriptKey = normalizedScript.toLowerCase();
+    const fnKey = functionName.toLowerCase();
+    const matches: YamlTestMatch[] = [];
+    let files: vscode.Uri[];
+    try {
+        files = await vscode.workspace.findFiles('**/*.tests.yaml', '**/node_modules/**', YAML_SUITE_SEARCH_MAX);
+    } catch {
+        return [];
+    }
+    for (const yamlUri of files) {
+        let content: string;
+        try {
+            const raw = await vscode.workspace.fs.readFile(yamlUri);
+            content = new TextDecoder().decode(raw);
+        } catch {
+            continue;
+        }
+        if (!yamlHasIslTests(content)) continue;
+        let doc: {
+            setup?: { islSource?: string };
+            islTests?: Array<{ name?: string; functionName?: string }>;
+        };
+        try {
+            doc = yaml.load(content) as typeof doc;
+        } catch {
+            continue;
+        }
+        if (!doc?.setup?.islSource || typeof doc.setup.islSource !== 'string') continue;
+        const resolvedIsl = path.normalize(path.join(path.dirname(yamlUri.fsPath), doc.setup.islSource));
+        if (resolvedIsl.toLowerCase() !== scriptKey) continue;
+
+        const list = doc.islTests;
+        if (!Array.isArray(list)) continue;
+        for (let i = 0; i < list.length; i++) {
+            const entry = list[i];
+            if (!entry || typeof entry !== 'object') continue;
+            const defaultLabel = `Test ${i + 1}`;
+            const labelName =
+                entry.name != null && entry.name !== '' ? String(entry.name) : defaultLabel;
+            const entryFn =
+                entry.functionName != null && entry.functionName !== ''
+                    ? String(entry.functionName)
+                    : labelName;
+            if (entryFn.toLowerCase() === fnKey) {
+                matches.push({ yamlUri, testIndex: i, label: labelName });
+            }
+        }
+    }
+    return matches;
+}
+
+/**
+ * Start ISL debug for the given `islTests` index (suite mocks + YAML input via debug adapter).
+ */
+export async function startYamlIslTestDebugFromUri(yamlUri: vscode.Uri, testIndex: number): Promise<void> {
+    const raw = await vscode.workspace.fs.readFile(yamlUri);
+    const yamlText = new TextDecoder().decode(raw);
+    const doc = yaml.load(yamlText) as {
+        setup?: { islSource?: string };
+        islTests?: Array<{ name?: string; functionName?: string }>;
+    } | null;
+
+    if (!doc?.setup?.islSource || typeof doc.setup.islSource !== 'string') {
+        vscode.window.showErrorMessage('YAML suite is missing setup.islSource.');
+        return;
+    }
+
+    const list = doc.islTests;
+    if (!Array.isArray(list) || testIndex < 0 || testIndex >= list.length) {
+        vscode.window.showErrorMessage('YAML test entry not found.');
+        return;
+    }
+
+    const entry = list[testIndex];
+    if (!entry || typeof entry !== 'object') {
+        vscode.window.showErrorMessage('YAML test entry not found.');
+        return;
+    }
+
+    const defaultLabel = `Test ${testIndex + 1}`;
+    const labelName = entry.name != null && entry.name !== '' ? String(entry.name) : defaultLabel;
+    const entryFn =
+        entry.functionName != null && entry.functionName !== ''
+            ? String(entry.functionName)
+            : labelName;
+
+    const islPath = path.normalize(path.join(path.dirname(yamlUri.fsPath), doc.setup.islSource));
+    if (!fs.existsSync(islPath) || !fs.statSync(islPath).isFile()) {
+        vscode.window.showErrorMessage(`ISL file not found: ${doc.setup.islSource}`);
+        return;
+    }
+
+    const islUri = vscode.Uri.file(islPath);
+    await saveOpenDocumentIfDirty(yamlUri);
+    await saveOpenDocumentIfDirty(islUri);
+
+    const folder = vscode.workspace.getWorkspaceFolder(islUri) ?? vscode.workspace.getWorkspaceFolder(yamlUri);
+    if (!folder) {
+        vscode.window.showErrorMessage('Open a workspace folder to debug.');
+        return;
+    }
+
+    await vscode.debug.startDebugging(folder, {
+        type: 'isl',
+        request: 'launch',
+        name: `Debug ISL (YAML): ${labelName}`,
+        script: islPath,
+        function: entryFn,
+        yamlSuite: yamlUri.fsPath,
+        yamlTestIndex: testIndex
+    });
+}
+
 export class IslTestController {
     private readonly controller: vscode.TestController;
     private readonly watchers: vscode.FileSystemWatcher[] = [];
@@ -786,6 +1059,11 @@ export class IslTestController {
             'Run',
             vscode.TestRunProfileKind.Run,
             this.runProfileHandler
+        );
+        this.controller.createRunProfile(
+            'Debug',
+            vscode.TestRunProfileKind.Debug,
+            (request, token) => this.debugYamlTests(request, token)
         );
 
         // Watch for test file changes
@@ -1188,6 +1466,92 @@ export class IslTestController {
         run.appendOutput(`\r\n=== Summary ===\r\n`);
         run.appendOutput(`Results: ${results.passed} passed, ${results.failed} failed, ${results.total} total\r\n`);
         run.end();
+    }
+
+    /**
+     * Debug profile: launch the ISL debugger for a single *.tests.yaml islTests case.
+     * Passes yamlSuite + yamlTestIndex so the debug adapter uses YamlUnitTestRunner (mocks, inline setup, YAML input).
+     */
+    private async debugYamlTests(request: vscode.TestRunRequest, token: vscode.CancellationToken): Promise<void> {
+        const run = this.controller.createTestRun(request);
+        try {
+            if (token.isCancellationRequested) return;
+
+            let testsToRun = this.collectLeafTests(request);
+            for (const test of testsToRun) {
+                const parent = test.parent;
+                if (parent?.canResolveChildren && parent.children.size === 0) {
+                    await this.parseTestsInFile(parent);
+                }
+            }
+            testsToRun = this.collectLeafTests(request);
+
+            const yamlLeaves = testsToRun.filter(t => t.uri?.fsPath.endsWith('.tests.yaml'));
+            if (yamlLeaves.length === 0) {
+                vscode.window.showErrorMessage('Select a YAML test (*.tests.yaml islTests entry) to debug.');
+                return;
+            }
+            if (yamlLeaves.length > 1) {
+                vscode.window.showErrorMessage('Select exactly one YAML test to debug.');
+                return;
+            }
+
+            const testItem = yamlLeaves[0];
+            const parsed = splitYamlTestId(testItem.id);
+            if (!parsed) {
+                vscode.window.showErrorMessage('Invalid test id.');
+                return;
+            }
+
+            const yamlUri = parsed.yamlUri;
+            const raw = await vscode.workspace.fs.readFile(yamlUri);
+            const yamlText = new TextDecoder().decode(raw);
+            const doc = yaml.load(yamlText) as {
+                setup?: { islSource?: string };
+                islTests?: Array<{ name?: string; functionName?: string; input?: unknown }>;
+            } | null;
+
+            if (!doc?.setup?.islSource || typeof doc.setup.islSource !== 'string') {
+                vscode.window.showErrorMessage('YAML suite is missing setup.islSource.');
+                return;
+            }
+
+            const list = doc.islTests;
+            if (!Array.isArray(list) || parsed.index >= list.length) {
+                vscode.window.showErrorMessage('YAML test entry not found.');
+                return;
+            }
+
+            const entry = list[parsed.index];
+            if (!entry || typeof entry !== 'object') {
+                vscode.window.showErrorMessage('YAML test entry not found.');
+                return;
+            }
+
+            const defaultLabel = `Test ${parsed.index + 1}`;
+            const labelName =
+                entry.name != null && entry.name !== '' ? String(entry.name) : defaultLabel;
+            const entryFn =
+                entry.functionName != null && entry.functionName !== ''
+                    ? String(entry.functionName)
+                    : labelName;
+            if (entryFn !== parsed.functionName) {
+                vscode.window.showErrorMessage('YAML test entry mismatch; try refreshing tests.');
+                return;
+            }
+
+            const islPath = path.normalize(path.join(path.dirname(yamlUri.fsPath), doc.setup.islSource));
+            if (!fs.existsSync(islPath) || !fs.statSync(islPath).isFile()) {
+                vscode.window.showErrorMessage(`ISL file not found: ${doc.setup.islSource}`);
+                return;
+            }
+
+            run.appendOutput(`Starting ISL debug for YAML test "${testItem.label}" (${entryFn}) — suite mocks + input...\r\n`);
+
+            await startYamlIslTestDebugFromUri(yamlUri, parsed.index);
+        } finally {
+            run.end();
+        }
     }
 
     private collectLeafTests(request: vscode.TestRunRequest): vscode.TestItem[] {

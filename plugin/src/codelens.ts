@@ -1,6 +1,7 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import { findYamlTestsForIslScript, startYamlIslTestDebugFromUri } from './testExplorer';
 
 export class IslCodeLensProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -8,7 +9,7 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
 
     constructor() {}
 
-    public async provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): Promise<vscode.CodeLens[]> {
+    public provideCodeLenses(document: vscode.TextDocument, token: vscode.CancellationToken): vscode.ProviderResult<vscode.CodeLens[]> {
         const codeLenses: vscode.CodeLens[] = [];
         const text = document.getText();
         const lines = text.split('\n');
@@ -36,10 +37,8 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
             const isTestOrSetup = this.isTestOrSetupFunction(lines, func.line);
 
             if (!isTestOrSetup) {
-                // Count usages including imports (async)
-                const usageCount = await this.countUsagesAsync(document, func.name, func.type);
+                // Usage count CodeLens disabled (was slow: full-workspace scan per function).
 
-                // Add "Run" button
                 const runCommand: vscode.Command = {
                     title: `▶ Run`,
                     command: 'isl.runFunction',
@@ -47,23 +46,12 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
                 };
                 codeLenses.push(new vscode.CodeLens(range, runCommand));
 
-                // Add usage count
-                if (usageCount > 0) {
-                    const usageCommand: vscode.Command = {
-                        title: `📊 ${usageCount} ${usageCount === 1 ? 'usage' : 'usages'}`,
-                        command: 'isl.showUsages',
-                        arguments: [document.uri, func.name, func.type]
-                    };
-                    codeLenses.push(new vscode.CodeLens(range, usageCommand));
-                } else if (func.name !== 'run') {
-                    // Show "No usages" for functions other than 'run'
-                    const noUsageCommand: vscode.Command = {
-                        title: `⚠️ No usages found`,
-                        command: '',
-                        tooltip: 'This function is not being called anywhere'
-                    };
-                    codeLenses.push(new vscode.CodeLens(range, noUsageCommand));
-                }
+                const debugCommand: vscode.Command = {
+                    title: `🐛 Debug`,
+                    command: 'isl.debugFunction',
+                    arguments: [document.uri, func.name, func.params]
+                };
+                codeLenses.push(new vscode.CodeLens(range, debugCommand));
             }
         }
 
@@ -81,126 +69,6 @@ export class IslCodeLensProvider implements vscode.CodeLensProvider {
         }
         return false;
     }
-
-    private countUsages(text: string, functionName: string, functionType: string): number {
-        let count = 0;
-        
-        if (functionType === 'fun') {
-            // Count @.This.functionName() calls
-            const functionCallPattern = new RegExp(`@\\.This\\.${functionName}\\s*\\(`, 'g');
-            const matches = text.match(functionCallPattern);
-            count += matches ? matches.length : 0;
-        } else if (functionType === 'modifier') {
-            // Count | functionName usages
-            const modifierPattern = new RegExp(`\\|\\s*${functionName}(?:\\s*\\(|\\s|$)`, 'g');
-            const matches = text.match(modifierPattern);
-            count += matches ? matches.length : 0;
-        }
-        
-        return count;
-    }
-
-    private async countUsagesAsync(document: vscode.TextDocument, functionName: string, functionType: string): Promise<number> {
-        // Start with local usages
-        const text = document.getText();
-        let count = this.countUsages(text, functionName, functionType);
-        
-        // Find all files that import this file and get the module names they use
-        const importInfo = await this.findFilesAndModuleNamesThatImport(document.uri);
-        
-        // Count usages in imported files using the correct module name for each file
-        for (const { fileUri, moduleName } of importInfo) {
-            try {
-                const importedText = fs.readFileSync(fileUri.fsPath, 'utf-8');
-                
-                if (functionType === 'fun') {
-                    // Count @.ModuleName.functionName() calls (using the import name, not filename)
-                    const functionCallPattern = new RegExp(`@\\.${moduleName}\\.${functionName}\\s*\\(`, 'g');
-                    const matches = importedText.match(functionCallPattern);
-                    count += matches ? matches.length : 0;
-                } else if (functionType === 'modifier') {
-                    // Count | ModuleName.modifierName usages (using the import name, not filename)
-                    const modifierPattern = new RegExp(`\\|\\s*${moduleName}\\.${functionName}(?:\\s*\\(|\\s|$)`, 'g');
-                    const matches = importedText.match(modifierPattern);
-                    count += matches ? matches.length : 0;
-                }
-            } catch (error) {
-                // Silently skip files that can't be read
-                console.warn(`Could not read file ${fileUri.fsPath} for usage counting: ${error}`);
-            }
-        }
-        
-        return count;
-    }
-
-    /**
-     * Finds all files that import the given file and returns the module name each file uses
-     */
-    private async findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array<{ fileUri: vscode.Uri, moduleName: string }>> {
-        const results: Array<{ fileUri: vscode.Uri, moduleName: string }> = [];
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
-        
-        if (!workspaceFolder) {
-            return results;
-        }
-        
-        // Search for all .isl files in the workspace
-        const pattern = new vscode.RelativePattern(workspaceFolder, '**/*.isl');
-        const allIslFiles = await vscode.workspace.findFiles(pattern, null, 1000);
-        
-        // Check each file for imports that point to the current file
-        for (const fileUri of allIslFiles) {
-            // Skip the current file
-            if (fileUri.fsPath === uri.fsPath) {
-                continue;
-            }
-            
-            try {
-                const fileText = fs.readFileSync(fileUri.fsPath, 'utf-8');
-                const lines = fileText.split('\n');
-                
-                // Check each line for import statements
-                for (const line of lines) {
-                    // Pattern: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
-                    const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
-                    if (importMatch) {
-                        const moduleName = importMatch[1];
-                        const importPath = importMatch[2];
-                        
-                        // Resolve the import path relative to the importing file
-                        const importingDir = path.dirname(fileUri.fsPath);
-                        let resolvedPath: string;
-                        
-                        if (path.isAbsolute(importPath)) {
-                            resolvedPath = importPath;
-                        } else {
-                            resolvedPath = path.resolve(importingDir, importPath);
-                        }
-                        
-                        // Try with .isl extension if not present
-                        if (!resolvedPath.endsWith('.isl')) {
-                            const withExtension = resolvedPath + '.isl';
-                            if (fs.existsSync(withExtension)) {
-                                resolvedPath = withExtension;
-                            }
-                        }
-                        
-                        // Check if the resolved path matches the current file
-                        if (fs.existsSync(resolvedPath) && path.resolve(resolvedPath) === path.resolve(uri.fsPath)) {
-                            results.push({ fileUri, moduleName });
-                            break; // Found the import, no need to check more lines in this file
-                        }
-                    }
-                }
-            } catch (error) {
-                // Silently skip files that can't be read
-                console.warn(`Could not check file ${fileUri.fsPath} for imports: ${error}`);
-            }
-        }
-        
-        return results;
-    }
-
 
     public resolveCodeLens(codeLens: vscode.CodeLens, token: vscode.CancellationToken): vscode.CodeLens | Thenable<vscode.CodeLens> {
         return codeLens;
@@ -542,4 +410,101 @@ async function findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array
 
 export async function testFunction(uri: vscode.Uri, functionName: string, params: string, context: vscode.ExtensionContext) {
     await runIslFunction(uri, functionName, params, context);
+}
+
+export async function debugIslFunction(uri: vscode.Uri, functionName: string, params: string) {
+    const document = await vscode.workspace.openTextDocument(uri);
+    const filePath = uri.fsPath;
+
+    const yamlMatches = await findYamlTestsForIslScript(filePath, functionName);
+    if (yamlMatches.length === 1) {
+        if (document.isDirty) {
+            await document.save();
+        }
+        await startYamlIslTestDebugFromUri(yamlMatches[0].yamlUri, yamlMatches[0].testIndex);
+        return;
+    }
+    if (yamlMatches.length > 1) {
+        if (document.isDirty) {
+            await document.save();
+        }
+        type PickItem = vscode.QuickPickItem & { yamlUri: vscode.Uri; testIndex: number };
+        const root = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath;
+        const items: PickItem[] = yamlMatches.map(m => ({
+            label: m.label,
+            description: root
+                ? path.relative(root, m.yamlUri.fsPath).replace(/\\/g, '/') || m.yamlUri.fsPath
+                : m.yamlUri.fsPath,
+            yamlUri: m.yamlUri,
+            testIndex: m.testIndex
+        }));
+        const picked = await vscode.window.showQuickPick(items, {
+            placeHolder: 'Multiple YAML tests call this function. Pick one to debug (mocks + YAML input).',
+            ignoreFocusOut: true
+        });
+        if (!picked) {
+            return;
+        }
+        await startYamlIslTestDebugFromUri(picked.yamlUri, picked.testIndex);
+        return;
+    }
+
+    // Parse parameters to create input JSON
+    const paramList = params
+        .split(',')
+        .map(p => p.trim())
+        .filter(p => p.length > 0)
+        .map(p => p.split(':')[0].trim().replace('$', ''));
+
+    let inputJson = '{}';
+    if (paramList.length > 0) {
+        const userInput = await vscode.window.showInputBox({
+            prompt: `Enter input JSON for debugging ${functionName}(${params})`,
+            placeHolder: createSampleInput(paramList),
+            value: createSampleInput(paramList),
+            ignoreFocusOut: true
+        });
+
+        if (userInput === undefined) {
+            return;
+        }
+        inputJson = userInput;
+    }
+
+    if (document.isDirty) {
+        await document.save();
+    }
+
+    // Write input to temp file so the debug adapter can read it
+    const tempDir = path.join(path.dirname(filePath), '.isl-temp');
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    }
+    const tempInputFile = path.join(tempDir, `debug-input-${functionName}.json`);
+    fs.writeFileSync(tempInputFile, inputJson);
+
+    // Launch the debug session
+    await vscode.debug.startDebugging(
+        vscode.workspace.getWorkspaceFolder(uri),
+        {
+            type: 'isl',
+            request: 'launch',
+            name: `Debug ISL: ${functionName}`,
+            script: filePath,
+            input: tempInputFile,
+            function: functionName
+        }
+    );
+
+    // Clean up temp file after session ends
+    const disposable = vscode.debug.onDidTerminateDebugSession(() => {
+        try {
+            if (fs.existsSync(tempInputFile)) {
+                fs.unlinkSync(tempInputFile);
+            }
+        } catch (_e) {
+            // Ignore cleanup errors
+        }
+        disposable.dispose();
+    });
 }

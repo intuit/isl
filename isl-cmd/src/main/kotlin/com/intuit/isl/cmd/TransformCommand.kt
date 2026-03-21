@@ -7,6 +7,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
+import com.intuit.isl.common.TransformVariable
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
@@ -150,11 +151,11 @@ class TransformCommand : Runnable {
             val context = OperationContext()
             LogExtensions.registerExtensions(context)
             variables.forEach { (key, value) ->
-                val varName = if (key.startsWith("$")) key else "$$key"
+                val varName = if (key.startsWith("$")) key else "$" + key
                 val varValue = JsonConvert.convert(value)
                 val valuePreview = varValue.toString().let { if (it.length > 10) it.take(10) + "..." else it }
                 println("Setting variable $varName to $valuePreview")
-                context.setVariable(varName, varValue)
+                context.setVariable(varName, TransformVariable(varValue, readOnly = false, global = true))
             }
             
             val result = runBlocking {

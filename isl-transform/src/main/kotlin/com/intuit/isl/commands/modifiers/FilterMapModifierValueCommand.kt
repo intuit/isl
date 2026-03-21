@@ -21,6 +21,8 @@ class FilterMapModifierValueCommand(
     private val mapArgument: IIslCommand
 ) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+        val hook = executionContext.debugHook
+        hook?.onBeforeExecute(this, executionContext)
         val sourceCollection = value.executeAsync(executionContext).value
 
         val source = when (sourceCollection) {
@@ -41,12 +43,15 @@ class FilterMapModifierValueCommand(
         }
 
         executionContext.operationContext.removeVariable("\$")
-        if (oldIt == null)
+        if (oldIt == null) {
             executionContext.operationContext.removeVariable("\$fit")
-        else
+        } else {
             executionContext.operationContext.setVariable("\$fit", oldIt)
+        }
 
-        return CommandResult(resultArray)
+        val result = CommandResult(resultArray)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

@@ -16,35 +16,38 @@ class FilterModifierValueCommand(
     private val expression: IEvaluableConditionCommand
 ) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceCollection = value.executeAsync(executionContext).value;
+        val hook = executionContext.debugHook
+        hook?.onBeforeExecute(this, executionContext)
+        val sourceCollection = value.executeAsync(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
-            else -> null;
-        };
+            else -> null
+        }
 
-        // save and restore a potential old $it variable
-        val oldIt = executionContext.operationContext.getVariable("\$fit");
+        val oldIt = executionContext.operationContext.getVariable("\$fit")
 
-        val defaultSize = if(sourceCollection is Collection<Any?>) sourceCollection.size else 10;
-        val resultArray = JsonNodeFactory.instance.arrayNode(defaultSize);
+        val defaultSize = if (sourceCollection is Collection<Any?>) sourceCollection.size else 10
+        val resultArray = JsonNodeFactory.instance.arrayNode(defaultSize)
 
         source?.forEach { it ->
-            executionContext.operationContext.setVariable("\$fit", JsonConvert.convert(it));
-            // use the new $ format only
-            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it));
-            if( expression.evaluateConditionAsync(executionContext) ){
-                resultArray.add( JsonConvert.convert(it) );
+            executionContext.operationContext.setVariable("\$fit", JsonConvert.convert(it))
+            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it))
+            if (expression.evaluateConditionAsync(executionContext)) {
+                resultArray.add(JsonConvert.convert(it))
             }
-        };
+        }
 
-        executionContext.operationContext.removeVariable("\$");
-        if (oldIt == null)
-            executionContext.operationContext.removeVariable("\$fit");
-        else
-            executionContext.operationContext.setVariable("\$fit", oldIt);
+        executionContext.operationContext.removeVariable("\$")
+        if (oldIt == null) {
+            executionContext.operationContext.removeVariable("\$fit")
+        } else {
+            executionContext.operationContext.setVariable("\$fit", oldIt)
+        }
 
-        return CommandResult(resultArray);
+        val result = CommandResult(resultArray)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

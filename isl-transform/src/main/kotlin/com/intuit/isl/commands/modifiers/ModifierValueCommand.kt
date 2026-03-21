@@ -60,9 +60,12 @@ open class ModifierValueCommand(
     }
 
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val prevValue = value.executeAsync(executionContext);
-
-        return internalExecuteAsync(prevValue, executionContext);
+        val hook = executionContext.debugHook
+        hook?.onBeforeExecute(this, executionContext)
+        val prevValue = value.executeAsync(executionContext)
+        val result = internalExecuteAsync(prevValue, executionContext)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     protected open suspend fun internalExecuteAsync(

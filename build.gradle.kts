@@ -122,6 +122,15 @@ tasks.register<Copy>("buildIslRuntimeLocal") {
     rename { "isl-cmd-all.jar" }
 }
 
+tasks.register<Copy>("buildDebugAdapterLocal") {
+    group = "build"
+    description = "Build ISL debug adapter fat JAR and copy to plugin/lib"
+    dependsOn(":isl-debug-adapter:shadowJar")
+    from(project(":isl-debug-adapter").tasks.named("shadowJar").map { (it as org.gradle.api.tasks.bundling.Jar).archiveFile })
+    into(file("plugin/lib"))
+    rename { "isl-debug-adapter-all.jar" }
+}
+
 tasks.register("publishToMavenCentral") {
     group = "publishing"
     description = "Publish all modules to Maven Central"

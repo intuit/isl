@@ -65,7 +65,11 @@ class ParallelForEachCommand(
         val waits = source?.mapIndexed { i, it ->
             CoroutineScope(limitedDispatcher + coroutineContext + supervisorJob).async {
                 val localOperationContext = ParallelOperationContext(executionContext.operationContext);
-                val localExecutionContext = ExecutionContext(localOperationContext, executionContext.localContext);
+                val localExecutionContext = ExecutionContext(
+                    localOperationContext,
+                    executionContext.localContext,
+                    executionContext.debugHook
+                );
                 localOperationContext.setVariable(token.iterator, JsonConvert.convert(it));
                 localOperationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 
