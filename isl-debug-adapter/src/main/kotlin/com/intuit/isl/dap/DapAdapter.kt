@@ -19,6 +19,8 @@ import kotlinx.coroutines.*
 import java.io.File
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
+import kotlinx.coroutines.CancellableContinuation
+import kotlin.coroutines.resume
 import kotlin.system.exitProcess
 
 /**
@@ -36,6 +38,13 @@ class DapAdapter(private val transport: DapTransport) {
 
     private val variableReferences = ConcurrentHashMap<Int, () -> List<DapVariable>>()
     private var variableRefCounter = 0
+
+    @Volatile
+    private var completedResult: JsonNode? = null
+    @Volatile
+    private var completedContinuation: CancellableContinuation<Unit>? = null
+    @Volatile
+    private var pausedAtReturn = false
 
     private var scriptPath: String? = null
     private var inputPath: String? = null
@@ -174,31 +183,42 @@ class DapAdapter(private val transport: DapTransport) {
     private fun handleStackTrace(message: DapMessage) {
         val frames = mutableListOf<DapStackFrame>()
 
-        val currentCmd = debugHook.currentCommand
-        if (currentCmd != null) {
-            val pos = currentCmd.token.position
+        if (pausedAtReturn) {
+            val scriptFile = scriptPath?.let { Path.of(it) }
             frames.add(DapStackFrame(
                 id = 0,
-                name = currentCmd.token.toString(),
-                source = DapSource(name = Path.of(pos.file).fileName?.toString(), path = resolveSourcePath(pos.file)),
-                line = pos.line,
-                column = pos.column,
-                endLine = pos.endLine,
-                endColumn = pos.endColumn
+                name = "$functionName() returned",
+                source = DapSource(name = scriptFile?.fileName?.toString(), path = scriptFile?.toAbsolutePath()?.normalize()?.toString()),
+                line = 1,
+                column = 1
             ))
-        }
+        } else {
+            val currentCmd = debugHook.currentCommand
+            if (currentCmd != null) {
+                val pos = currentCmd.token.position
+                frames.add(DapStackFrame(
+                    id = 0,
+                    name = currentCmd.token.toString(),
+                    source = DapSource(name = Path.of(pos.file).fileName?.toString(), path = resolveSourcePath(pos.file)),
+                    line = pos.line,
+                    column = pos.column,
+                    endLine = pos.endLine,
+                    endColumn = pos.endColumn
+                ))
+            }
 
-        for (frame in debugHook.getCallStack()) {
-            val pos = frame.command.token.position
-            frames.add(DapStackFrame(
-                id = frame.id,
-                name = frame.name,
-                source = DapSource(name = Path.of(pos.file).fileName?.toString(), path = resolveSourcePath(pos.file)),
-                line = pos.line,
-                column = pos.column,
-                endLine = pos.endLine,
-                endColumn = pos.endColumn
-            ))
+            for (frame in debugHook.getCallStack()) {
+                val pos = frame.command.token.position
+                frames.add(DapStackFrame(
+                    id = frame.id,
+                    name = frame.name,
+                    source = DapSource(name = Path.of(pos.file).fileName?.toString(), path = resolveSourcePath(pos.file)),
+                    line = pos.line,
+                    column = pos.column,
+                    endLine = pos.endLine,
+                    endColumn = pos.endColumn
+                ))
+            }
         }
 
         sendResponse(message.seq, "stackTrace", StackTraceResponseBody(
@@ -209,6 +229,17 @@ class DapAdapter(private val transport: DapTransport) {
 
     private fun handleScopes(message: DapMessage) {
         val frameId = message.arguments?.get("frameId")?.asInt() ?: 0
+
+        if (pausedAtReturn) {
+            val returnRef = allocateVariableRef { buildReturnValueVariables() }
+            sendResponse(message.seq, "scopes", ScopesResponseBody(
+                scopes = listOf(
+                    DapScope(name = "Return Value", variablesReference = returnRef, expensive = false)
+                )
+            ))
+            return
+        }
+
         val ctx = resolveContextForFrame(frameId)
 
         val globalsRef = allocateVariableRef { buildGlobalVariables(ctx) }
@@ -237,23 +268,30 @@ class DapAdapter(private val transport: DapTransport) {
 
     private fun handleContinue(message: DapMessage) {
         sendResponse(message.seq, "continue")
-        debugHook.resume(SteppingMode.CONTINUE)
+        if (pausedAtReturn) {
+            resumeFromReturn()
+        } else {
+            debugHook.resume(SteppingMode.CONTINUE)
+        }
     }
 
     private fun handleNext(message: DapMessage) {
-        debugHook.stepDepth = debugHook.getCurrentDepth()
         sendResponse(message.seq, "next")
+        if (pausedAtReturn) { resumeFromReturn(); return }
+        debugHook.stepDepth = debugHook.getCurrentDepth()
         debugHook.resume(SteppingMode.STEP_OVER)
     }
 
     private fun handleStepIn(message: DapMessage) {
         sendResponse(message.seq, "stepIn")
+        if (pausedAtReturn) { resumeFromReturn(); return }
         debugHook.resume(SteppingMode.STEP_IN)
     }
 
     private fun handleStepOut(message: DapMessage) {
-        debugHook.stepDepth = debugHook.getCurrentDepth()
         sendResponse(message.seq, "stepOut")
+        if (pausedAtReturn) { resumeFromReturn(); return }
+        debugHook.stepDepth = debugHook.getCurrentDepth()
         debugHook.resume(SteppingMode.STEP_OUT)
     }
 
@@ -289,6 +327,7 @@ class DapAdapter(private val transport: DapTransport) {
 
     private fun shutdown() {
         debugHook.resume(SteppingMode.CONTINUE)
+        resumeFromReturn()
         transformJob?.cancel()
         isRunning = false
     }
@@ -303,6 +342,13 @@ class DapAdapter(private val transport: DapTransport) {
             Thread.sleep(100)
             exitProcess(0)
         }.apply { isDaemon = true }.start()
+    }
+
+    private fun resumeFromReturn() {
+        val cont = completedContinuation
+        completedContinuation = null
+        pausedAtReturn = false
+        cont?.resume(Unit)
     }
 
     // --- Transform execution ---
@@ -359,8 +405,7 @@ class DapAdapter(private val transport: DapTransport) {
                     }
                     sendEvent("output", OutputEventBody(output = "Starting ISL Debugging - ${prepared.functionName}() (YAML test: mocks + input applied)\n"))
                     val result = transformer.runTransformAsync(prepared.functionName, prepared.operationContext, debugHook)
-                    val resultStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result.result)
-                    sendEvent("output", OutputEventBody(output = "Transform result:\n$resultStr\n"))
+                    pauseWithReturnValue(result.result)
                 } else {
                     sendEvent("output", OutputEventBody(output = "Compiling ISL script: $path\n"))
 
@@ -391,9 +436,7 @@ class DapAdapter(private val transport: DapTransport) {
                     sendEvent("output", OutputEventBody(output = "Starting ISL Debugging - looking for fun $functionName() ...\n"))
 
                     val result = transformer.runTransformAsync(functionName, operationContext, debugHook)
-
-                    val resultStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result.result)
-                    sendEvent("output", OutputEventBody(output = "Transform result:\n$resultStr\n"))
+                    pauseWithReturnValue(result.result)
                 }
             } catch (e: CancellationException) {
                 sendEvent("output", OutputEventBody(output = "Transform cancelled.\n"))
@@ -409,6 +452,30 @@ class DapAdapter(private val transport: DapTransport) {
                     exitProcess(exitCode)
                 }.apply { isDaemon = true }.start()
             }
+        }
+    }
+
+    /**
+     * Suspend the transform coroutine so the user can inspect the return value.
+     * The debugger pauses as if it hit a breakpoint; the Variables panel shows
+     * a "Return Value" scope.  Pressing Continue resumes → terminates normally.
+     */
+    private suspend fun pauseWithReturnValue(result: JsonNode?) {
+        val resultStr = mapper.writerWithDefaultPrettyPrinter().writeValueAsString(result)
+        sendEvent("output", OutputEventBody(output = "\n── $functionName() returned ──\n$resultStr\n"))
+
+        completedResult = result
+        pausedAtReturn = true
+        variableReferences.clear()
+        variableRefCounter = 0
+
+        suspendCancellableCoroutine { continuation ->
+            completedContinuation = continuation
+            sendEvent("stopped", StoppedEventBody(
+                reason = "step",
+                description = "$functionName() returned",
+                text = "$functionName() returned"
+            ))
         }
     }
 
@@ -454,6 +521,19 @@ class DapAdapter(private val transport: DapTransport) {
         }
 
         return variables
+    }
+
+    private fun buildReturnValueVariables(): List<DapVariable> {
+        val result = completedResult ?: return listOf(
+            DapVariable(name = "$functionName()", value = "null", type = "null")
+        )
+        val (displayValue, childRef) = formatJsonValue(functionName, result)
+        return listOf(DapVariable(
+            name = "$functionName()",
+            value = displayValue,
+            type = getJsonType(result),
+            variablesReference = childRef
+        ))
     }
 
     private fun formatJsonValue(name: String, value: JsonNode?): Pair<String, Int> {

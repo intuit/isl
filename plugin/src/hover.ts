@@ -1,8 +1,15 @@
 import * as vscode from 'vscode';
-import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from './extensions';
+import * as path from 'path';
+import { IslExtensionsManager, getExtensionFunction, getExtensionModifier, type IslExtensions } from './extensions';
 import { getModifiersMap, getServicesMap, type BuiltInModifier } from './language';
 import { IslTypeManager } from './types';
 import type { SchemaInfo, SchemaProperty, TypeDeclaration } from './types';
+import {
+    findExportedSymbolInIslFile,
+    findImportUriForModule,
+    parseIslImportLine,
+    resolveImportPathToUri,
+} from './islImports';
 
 export class IslHoverProvider implements vscode.HoverProvider {
 
@@ -46,15 +53,16 @@ export class IslHoverProvider implements vscode.HoverProvider {
         if (this.isKeyword(word)) {
             return this.getKeywordHover(word);
         }
-        // @.word or @.Module.func – built-in service (Date, Math) or global extension (sendEmail, Call.Api, …)
-        if (line.includes('@.' + word) || line.includes('@. ' + word)) {
-            const extFunc = getExtensionFunction(extensions, word);
-            if (extFunc) {
-                return this.getCustomFunctionHover(extFunc);
-            }
-            // For compound names (e.g. Date.Now), show service hover only for the first part
-            const serviceWord = word.includes('.') ? word.split('.')[0] : word;
-            return this.getServiceHover(serviceWord);
+
+        const importBindingHover = this.getImportBindingHover(document, line, word);
+        if (importBindingHover) {
+            return importBindingHover;
+        }
+
+        // @.word or @.Module.func – import / @.This / extension / built-in service
+        const atDotHover = this.tryAtDotHover(document, line, word, extensions);
+        if (atDotHover) {
+            return atDotHover;
         }
         if (this.isModifier(word, line)) {
             const extMod = getExtensionModifier(extensions, word);
@@ -65,13 +73,6 @@ export class IslHoverProvider implements vscode.HoverProvider {
         }
         if (line.includes('$' + word)) {
             return this.getVariableHover(word, document);
-        }
-        // @.This.word – same-file function
-        if (line.includes('@.This.' + word)) {
-            const extFunc = getExtensionFunction(extensions, word);
-            if (extFunc) {
-                return this.getCustomFunctionHover(extFunc);
-            }
         }
 
         // Type name (e.g. idx:name in "type idx:name from '...'" or "$var: idx:name = { ... }")
@@ -100,6 +101,112 @@ export class IslHoverProvider implements vscode.HoverProvider {
         }
 
         return undefined;
+    }
+
+    /** Hover on `Module` in `import Module from '...'` or `import A, B from '...'`. */
+    private getImportBindingHover(document: vscode.TextDocument, line: string, word: string): vscode.Hover | undefined {
+        if (!/\bimport\b/.test(line) || !/\bfrom\b/.test(line)) {
+            return undefined;
+        }
+        const parsed = parseIslImportLine(line);
+        if (!parsed || !parsed.names.includes(word)) {
+            return undefined;
+        }
+        const uri = resolveImportPathToUri(document, parsed.importPath);
+        const md = new vscode.MarkdownString();
+        md.isTrusted = true;
+        if (!uri) {
+            md.appendMarkdown(
+                `**\`${word}\`** *(import)*\n\n**Path:** \`${parsed.importPath}\` *(file not found)*`
+            );
+            return new vscode.Hover(md);
+        }
+        md.appendMarkdown(
+            `**\`${word}\`** *(imported module alias)*\n\n` +
+                `**From:** [\`${path.basename(uri.fsPath)}\`](${uri.toString(true)})\n\n` +
+                `Use \`@.${word}.functionName()\` or \`| ${word}.modifierName\`.`
+        );
+        return new vscode.Hover(md);
+    }
+
+    /**
+     * Hover for `@.Identifier` / `@.Module.member` — extensions, imports, @.This, then built-in services.
+     */
+    private tryAtDotHover(
+        document: vscode.TextDocument,
+        line: string,
+        word: string,
+        extensions: IslExtensions
+    ): vscode.Hover | undefined {
+        if (!line.includes('@.')) {
+            return undefined;
+        }
+        if (!line.includes('@.' + word) && !line.replace(/\s+/g, ' ').includes('@. ' + word)) {
+            return undefined;
+        }
+
+        const extFunc = getExtensionFunction(extensions, word);
+        if (extFunc) {
+            return this.getCustomFunctionHover(extFunc);
+        }
+
+        const dotIdx = word.indexOf('.');
+        const moduleName = dotIdx === -1 ? word : word.slice(0, dotIdx);
+        const memberName = dotIdx === -1 ? '' : word.slice(dotIdx + 1);
+        const memberRoot = memberName.split('.')[0] ?? '';
+
+        if (moduleName === 'This' && memberRoot) {
+            const extThis = getExtensionFunction(extensions, memberRoot);
+            if (extThis) {
+                return this.getCustomFunctionHover(extThis);
+            }
+            const local = findExportedSymbolInIslFile(document.uri, memberRoot);
+            if (local) {
+                const md = new vscode.MarkdownString();
+                md.isTrusted = true;
+                const label = local.kind === 'fun' ? 'function' : 'modifier';
+                md.appendMarkdown(
+                    `**\`${word}\`** *(${label} in this file)*\n\n\`${local.lineText}\`\n\n`
+                );
+                return new vscode.Hover(md);
+            }
+        }
+
+        const importedUri = findImportUriForModule(document, moduleName);
+        if (importedUri) {
+            if (memberRoot) {
+                const sym = findExportedSymbolInIslFile(importedUri, memberRoot);
+                if (sym) {
+                    const md = new vscode.MarkdownString();
+                    md.isTrusted = true;
+                    const label = sym.kind === 'fun' ? 'function' : 'modifier';
+                    md.appendMarkdown(
+                        `**\`${word}\`** *(${label} from import \`${moduleName}\`)*\n\n` +
+                            `\`${sym.lineText}\`\n\n` +
+                            `**File:** [\`${path.basename(importedUri.fsPath)}\`](${importedUri.toString(true)})`
+                    );
+                    return new vscode.Hover(md);
+                }
+                const md = new vscode.MarkdownString();
+                md.isTrusted = true;
+                md.appendMarkdown(
+                    `**\`${word}\`** *(import \`${moduleName}\`)*\n\n` +
+                        `No \`fun\`/\`modifier\` **\`${memberRoot}\`** in ` +
+                        `[\`${path.basename(importedUri.fsPath)}\`](${importedUri.toString(true)}).`
+                );
+                return new vscode.Hover(md);
+            }
+            const md = new vscode.MarkdownString();
+            md.isTrusted = true;
+            md.appendMarkdown(
+                `**\`@.${moduleName}\`** *(imported module)*\n\n` +
+                    `**File:** [\`${path.basename(importedUri.fsPath)}\`](${importedUri.toString(true)})`
+            );
+            return new vscode.Hover(md);
+        }
+
+        const serviceWord = word.includes('.') ? word.split('.')[0] : word;
+        return this.getServiceHover(serviceWord);
     }
 
     /**

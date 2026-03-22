@@ -2,6 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
 import { findYamlTestsForIslScript, startYamlIslTestDebugFromUri } from './testExplorer';
+import { parseIslImportLine } from './islImports';
 
 export class IslCodeLensProvider implements vscode.CodeLensProvider {
     private _onDidChangeCodeLenses: vscode.EventEmitter<void> = new vscode.EventEmitter<void>();
@@ -367,34 +368,26 @@ async function findFilesAndModuleNamesThatImport(uri: vscode.Uri): Promise<Array
             
             // Check each line for import statements
             for (const line of lines) {
-                // Pattern: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
-                const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
-                if (importMatch) {
-                    const moduleName = importMatch[1];
-                    const importPath = importMatch[2];
-                    
-                    // Resolve the import path relative to the importing file
+                const parsed = parseIslImportLine(line);
+                if (parsed) {
                     const importingDir = path.dirname(fileUri.fsPath);
                     let resolvedPath: string;
-                    
-                    if (path.isAbsolute(importPath)) {
-                        resolvedPath = importPath;
+                    if (path.isAbsolute(parsed.importPath)) {
+                        resolvedPath = parsed.importPath;
                     } else {
-                        resolvedPath = path.resolve(importingDir, importPath);
+                        resolvedPath = path.resolve(importingDir, parsed.importPath);
                     }
-                    
-                    // Try with .isl extension if not present
                     if (!resolvedPath.endsWith('.isl')) {
                         const withExtension = resolvedPath + '.isl';
                         if (fs.existsSync(withExtension)) {
                             resolvedPath = withExtension;
                         }
                     }
-                    
-                    // Check if the resolved path matches the current file
                     if (fs.existsSync(resolvedPath) && path.resolve(resolvedPath) === path.resolve(uri.fsPath)) {
-                        results.push({ fileUri, moduleName });
-                        break; // Found the import, no need to check more lines in this file
+                        for (const moduleName of parsed.names) {
+                            results.push({ fileUri, moduleName });
+                        }
+                        break;
                     }
                 }
             }

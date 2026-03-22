@@ -132,14 +132,44 @@ class TransformCommand : Runnable {
                 }
             }
             
-            // Add input data to variables if provided
-            if (inputData != null) {
-                variables["input"] = inputData
+            // Add input data to variables if provided:
+            // - JSON/YAML root object → bind each top-level key as $key (same as debug adapter / YAML tests)
+            // - array or scalar → legacy single variable $input
+            when (inputData) {
+                is Map<*, *> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val map = inputData as Map<*, *>
+                    map.forEach { (k, v) ->
+                        variables[k.toString()] = v
+                    }
+                }
+                else -> {
+                    if (inputData != null) {
+                        variables["input"] = inputData
+                    }
+                }
             }
-            
-            // Add $context with input file info when -i was used
+
+            // When -i was used, add inputFileName into $context (merge; do not replace user JSON)
             if (inputFile != null) {
-                variables["context"] = mapOf("inputFileName" to inputFile!!.name)
+                val fileName = inputFile!!.name
+                val ctx = variables["context"]
+                variables["context"] = when (ctx) {
+                    null -> mapOf("inputFileName" to fileName)
+                    is MutableMap<*, *> -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val m = ctx as MutableMap<String, Any?>
+                        m["inputFileName"] = fileName
+                        m
+                    }
+                    is Map<*, *> -> {
+                        val m = LinkedHashMap<String, Any?>()
+                        ctx.forEach { (k, v) -> m[k.toString()] = v }
+                        m["inputFileName"] = fileName
+                        m
+                    }
+                    else -> mapOf("inputFileName" to fileName)
+                }
             }
             
             // Execute transformation using shared module resolution (supports relative imports like ../customer.isl)
