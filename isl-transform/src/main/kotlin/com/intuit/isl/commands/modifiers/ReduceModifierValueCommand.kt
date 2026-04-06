@@ -14,27 +14,33 @@ class ReduceModifierValueCommand(
     private val value: IIslCommand,
     private val argument: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val reduceSource: IIslCommand get() = value
+    internal val reduceArgument: IIslCommand get() = argument
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceCollection = value.executeAsync(executionContext).value;
+        val hook = executionContext.executionHook
+        hook?.onBeforeExecute(this, executionContext)
+        val sourceCollection = value.executeAsync(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
-            else -> null;
-        };
+            else -> null
+        }
 
-        // save and restore a potential old variables
-        val oldAcc = executionContext.operationContext.getVariable("\$acc");
-        val oldIt = executionContext.operationContext.getVariable("\$it");
-        var acc = "" as Any?;
+        val oldAcc = executionContext.operationContext.getVariable("\$acc")
+        val oldIt = executionContext.operationContext.getVariable("\$it")
+        var acc = "" as Any?
         source?.forEach { it ->
-            executionContext.operationContext.setVariable("\$it", JsonConvert.convert(it));
-            executionContext.operationContext.setVariable("\$acc", JsonConvert.convert(acc));
-            acc = argument.executeAsync(executionContext).value;
-        };
-        executionContext.operationContext.resetVariable("\$it", oldIt);
+            executionContext.operationContext.setVariable("\$it", JsonConvert.convert(it))
+            executionContext.operationContext.setVariable("\$acc", JsonConvert.convert(acc))
+            acc = argument.executeAsync(executionContext).value
+        }
+        executionContext.operationContext.resetVariable("\$it", oldIt)
         executionContext.operationContext.resetVariable("\$acc", oldAcc)
 
-        return CommandResult(acc);
+        val result = CommandResult(acc)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

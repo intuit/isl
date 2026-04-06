@@ -16,25 +16,30 @@ class ConditionModifierValueCommand(
     val trueModifier: IIslCommand
 ) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceValue = value.executeAsync(executionContext);
+        val hook = executionContext.executionHook
+        hook?.onBeforeExecute(this, executionContext)
+        val sourceValue = value.executeAsync(executionContext)
 
-        val oldValue = executionContext.operationContext.getVariable("\$mval");
-        try {
-            val value = JsonConvert.convert(sourceValue.value);
-            executionContext.operationContext.setVariable("\$mval", value);
-            executionContext.operationContext.setVariable("\$", value);
+        val oldValue = executionContext.operationContext.getVariable("\$mval")
+        val result = try {
+            val converted = JsonConvert.convert(sourceValue.value)
+            executionContext.operationContext.setVariable("\$mval", converted)
+            executionContext.operationContext.setVariable("\$", converted)
             if (expression.evaluateConditionAsync(executionContext)) {
-                return trueModifier.executeAsync(executionContext);
+                trueModifier.executeAsync(executionContext)
             } else {
-                return sourceValue;
+                sourceValue
             }
         } finally {
-            executionContext.operationContext.removeVariable("\$");
-            if (oldValue == null)
-                executionContext.operationContext.removeVariable("\$mval");
-            else
-                executionContext.operationContext.setVariable("\$mval", oldValue);
+            executionContext.operationContext.removeVariable("\$")
+            if (oldValue == null) {
+                executionContext.operationContext.removeVariable("\$mval")
+            } else {
+                executionContext.operationContext.setVariable("\$mval", oldValue)
+            }
         }
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

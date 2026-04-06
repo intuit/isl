@@ -2,15 +2,19 @@ import * as vscode from 'vscode';
 import * as cp from 'child_process';
 import * as path from 'path';
 import * as fs from 'fs';
+import type { IslCoverageDecorationManager } from './coverageDecorations';
+import { islCoverageUiEnabled } from './coverageDecorations';
 
 const EMBEDDED_JAR_NAME = 'isl-cmd-all.jar';
 
 export class IslExecutor {
     private outputChannel: vscode.OutputChannel;
     private readonly extensionPath: string;
+    private readonly coverageDecorations: IslCoverageDecorationManager | undefined;
 
-    constructor(extensionPath: string) {
+    constructor(extensionPath: string, coverageDecorations?: IslCoverageDecorationManager) {
         this.extensionPath = extensionPath;
+        this.coverageDecorations = coverageDecorations;
         this.outputChannel = vscode.window.createOutputChannel('ISL');
     }
 
@@ -164,7 +168,11 @@ export class IslExecutor {
      * Build command, args, and env for running ISL transform (run with input).
      * Prefers embedded lib/isl-cmd-all.jar (java -jar ...); otherwise uses isl.execution.islCommand or workspace isl.bat/isl.sh.
      */
-    private async buildRunConfig(scriptPath: string, inputFilePath: string): Promise<{ command: string; args: string[]; env: NodeJS.ProcessEnv; useEmbeddedJar: boolean }> {
+    private async buildRunConfig(
+        scriptPath: string,
+        inputFilePath: string,
+        coverageReportPath?: string
+    ): Promise<{ command: string; args: string[]; env: NodeJS.ProcessEnv; useEmbeddedJar: boolean }> {
         const env = { ...process.env };
         const config = vscode.workspace.getConfiguration('isl.execution');
         const javaHome = config.get<string>('javaHome', '');
@@ -179,9 +187,13 @@ export class IslExecutor {
             if (!javaPath) {
                 throw new Error('Java not found. Set isl.execution.javaHome or JAVA_HOME.');
             }
+            const args = ['-jar', jarPath, 'transform', scriptPath, '-i', inputFilePath];
+            if (coverageReportPath) {
+                args.push('--coverage-report', coverageReportPath);
+            }
             return {
                 command: javaPath,
-                args: ['-jar', jarPath, 'transform', scriptPath, '-i', inputFilePath],
+                args,
                 env,
                 useEmbeddedJar: true
             };
@@ -197,9 +209,13 @@ export class IslExecutor {
             }
             return 'isl';
         })();
+        const args = ['transform', scriptPath, '-i', inputFilePath];
+        if (coverageReportPath) {
+            args.push('--coverage-report', coverageReportPath);
+        }
         return {
             command: islCommand,
-            args: ['transform', scriptPath, '-i', inputFilePath],
+            args,
             env,
             useEmbeddedJar: false
         };
@@ -247,6 +263,15 @@ export class IslExecutor {
         const tempInputFile = path.join(tempDir, 'input.json');
         fs.writeFileSync(tempInputFile, inputJson);
 
+        const coverageCfg = vscode.workspace.getConfiguration('isl.coverage');
+        const showCoverage =
+            !!this.coverageDecorations &&
+            islCoverageUiEnabled() &&
+            coverageCfg.get<boolean>('showAfterRun', true);
+        const tempCoverageFile = showCoverage
+            ? path.join(tempDir, `coverage-${Date.now()}.json`)
+            : undefined;
+
         this.outputChannel.clear();
         this.outputChannel.show();
         this.outputChannel.appendLine('=== ISL Execution ===');
@@ -256,7 +281,11 @@ export class IslExecutor {
 
         let useEmbeddedJar = false;
         try {
-            const runConfig = await this.buildRunConfig(document.fileName, tempInputFile);
+            const runConfig = await this.buildRunConfig(
+                document.fileName,
+                tempInputFile,
+                tempCoverageFile
+            );
             useEmbeddedJar = runConfig.useEmbeddedJar;
             this.outputChannel.appendLine(`Command: ${runConfig.command} ${runConfig.args.join(' ')}`);
             this.outputChannel.appendLine('');
@@ -287,6 +316,15 @@ export class IslExecutor {
                 // Output is not valid JSON, just show it as is
             }
 
+            if (showCoverage && tempCoverageFile && fs.existsSync(tempCoverageFile)) {
+                this.coverageDecorations!.applyReportToOpenIslDocuments(tempCoverageFile);
+                const covLine = this.coverageDecorations.formatLastCoverageVerification();
+                if (covLine) {
+                    this.outputChannel.appendLine('');
+                    this.outputChannel.appendLine(covLine);
+                }
+            }
+
         } catch (error: any) {
             this.outputChannel.appendLine('=== Execution Failed ===');
             this.outputChannel.appendLine(error.message);
@@ -304,6 +342,9 @@ export class IslExecutor {
         } finally {
             try {
                 fs.unlinkSync(tempInputFile);
+                if (tempCoverageFile && fs.existsSync(tempCoverageFile)) {
+                    fs.unlinkSync(tempCoverageFile);
+                }
                 fs.rmdirSync(tempDir);
             } catch (e) {
                 // Ignore cleanup errors

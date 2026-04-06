@@ -1,7 +1,5 @@
 package com.intuit.isl.runtime
 
-//import com.intuit.isl.debug.TransformDebugBuilder
-//import com.intuit.isl.debug.TransformDebugger
 import com.intuit.isl.commands.builder.ExecutionBuilder
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.parser.TransformParser
@@ -16,7 +14,7 @@ class TransformCompiler {
     ): ITransformer {
         val moduleToken = TransformParser().parseTransform(moduleName, script);
 
-        val module = ExecutionBuilder(moduleName, moduleToken, null, moduleFinder).build();
+        val module = ExecutionBuilder(moduleName, moduleToken, moduleFinder).build();
 
         val transformer = Transformer(module);
 
@@ -29,24 +27,11 @@ class TransformCompiler {
     ): ILocalTransformer {
         val moduleToken = TransformParser().parseTransform(moduleName, script);
 
-        val module = ExecutionBuilder(moduleName, moduleToken, null, null, localContext).build();
+        val module = ExecutionBuilder(moduleName, moduleToken, null, localContext).build();
 
         val transformer = LocalTransformer(module);
         return transformer;
     }
 
 
-//    fun compileDebug(
-//        moduleName: String,
-//        script: String,
-//        moduleFinder: ((name: String) -> ITransformer?)? = null
-//    ): TransformDebugger {
-//        val token = TransformParser().parseTransform(moduleName, script);
-//
-//        val command = ExecutionBuilder(moduleName, token, TransformDebugBuilder(), moduleFinder).build();
-//
-//        val transformer = Transformer(command);
-//
-//        return TransformDebugger(transformer);
-//    }
 }

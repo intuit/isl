@@ -38,27 +38,25 @@ class PotentialGenericConditionalModifierCommand(
 //        println(">>>>>>>>>>>>>>>>>>> got confused by ${name}")
 //    }
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        // WARNING WARNING WARNING: Generic Conditional CAN accidentally pickup normal modifiers
-        // so we don't know which type of modifier we picked up
-        val standardModifier = executionContext.operationContext.getExtension("modifier.${modifierName}");
-        if (standardModifier != null) {
-            val prevValue = value.executeAsync(executionContext);
-            // standard modifier, where first param is the value
-            return internalRunModifier(this, executionContext, prevValue, super.modifierArguments, standardModifier)
-        }
-
-        // condition modifier!
-        val extension =
-            executionContext.operationContext.getConditionalExtension("modifier.${modifierName}")
-                ?: executionContext.operationContext.getConditionalExtension("modifier.${name.lowercase()}");
-        if (extension == null) {
-            // maybe it's a standard modifier
-            val error = "Unknown Extension: ${name}";
-            return CommandResult(error);
-        } else {
-            val result = extension.invoke(this, executionContext)
-            return CommandResult(result);
-        }
+        val hook = executionContext.executionHook
+        hook?.onBeforeExecute(this, executionContext)
+        val standardModifier = executionContext.operationContext.getExtension("modifier.${modifierName}")
+        val result =
+            if (standardModifier != null) {
+                val prevValue = value.executeAsync(executionContext)
+                internalRunModifier(this, executionContext, prevValue, super.modifierArguments, standardModifier)
+            } else {
+                val extension =
+                    executionContext.operationContext.getConditionalExtension("modifier.${modifierName}")
+                        ?: executionContext.operationContext.getConditionalExtension("modifier.${name.lowercase()}")
+                if (extension == null) {
+                    CommandResult("Unknown Extension: ${name}")
+                } else {
+                    CommandResult(extension.invoke(this, executionContext))
+                }
+            }
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {
@@ -93,17 +91,19 @@ class GenericConditionalModifierCommand(
     }
 
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+        val hook = executionContext.executionHook
+        hook?.onBeforeExecute(this, executionContext)
         val extension =
-            executionContext.operationContext.getConditionalExtension("modifier.$modifierName") ?:  // do.*
-            executionContext.operationContext.getConditionalExtension("modifier.$name");    // do.stuff
-        if (extension == null) {
-            // maybe it's a standard modifier
-            val error = "Unknown Extension: ${name}";
-            return CommandResult(error);
-        } else {
-            val result = extension.invoke(this, executionContext)
-            return CommandResult(result);
-        }
+            executionContext.operationContext.getConditionalExtension("modifier.$modifierName")
+                ?: executionContext.operationContext.getConditionalExtension("modifier.$name")
+        val result =
+            if (extension == null) {
+                CommandResult("Unknown Extension: ${name}")
+            } else {
+                CommandResult(extension.invoke(this, executionContext))
+            }
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

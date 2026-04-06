@@ -280,7 +280,8 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
         val falseStatements = if (ctx.inlineElseObject() != null)
             visitDeclareObject(ctx.inlineElseObject().declareObject()) as IIslToken
         else null;
-        return ConditionToken(expression, trueStatements, falseStatements, ctx.getPosition());
+        val endifSourceLine = ctx.ENDIFCODE()?.symbol?.let { it.line + startLine }
+        return ConditionToken(expression, trueStatements, falseStatements, ctx.getPosition(), endifSourceLine);
     }
 
     override fun visitSpreadSelector(ctx: IslParser.SpreadSelectorContext): Any? {
@@ -859,11 +860,13 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
             if (ctx.inlineElse().rhsval() != null) ctx.inlineElse().rhsval() else ctx.inlineElse().declareObject()
         ) as IIslToken? else null;
 
+        val endifSourceLine = ctx.ENDIFCODE()?.symbol?.let { it.line + startLine }
         return ConditionToken(
             expression,
             trueStatements,
             falseStatements,
-            ctx.getPosition()
+            ctx.getPosition(),
+            endifSourceLine
         );
     }
 
@@ -876,7 +879,8 @@ class IslScriptVisitor(private val moduleName: String, val contents: String, pri
                 null;
 
         val expression = visitConditionExpression(ctx.condition().conditionExpression()) as IIslToken;
-        return ConditionToken(expression, trueStatements, falseStatements, ctx.getPosition());
+        val endifSourceLine = ctx.ENDIFCODE().symbol.line + startLine
+        return ConditionToken(expression, trueStatements, falseStatements, ctx.getPosition(), endifSourceLine);
     }
 
     override fun visitConditionExpression(ctx: IslParser.ConditionExpressionContext?): IIslToken? {

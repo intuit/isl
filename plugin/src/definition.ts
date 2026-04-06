@@ -1,7 +1,6 @@
 import * as vscode from 'vscode';
-import * as path from 'path';
-import * as fs from 'fs';
 import { getVariableDefinitionLocation } from './variableScope';
+import { findExportedSymbolInIslFile, findImportUriForModule } from './islImports';
 
 export class IslDefinitionProvider implements vscode.DefinitionProvider {
     
@@ -10,16 +9,57 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
         position: vscode.Position,
         token: vscode.CancellationToken
     ): vscode.Definition | undefined {
+        const line = document.lineAt(position.line).text.replace(/\r$/, '');
+
+        // Column-based @./pipe first: works when the cursor is on `.`, `(`, or when word range is undefined
+        const atDotRef = this.parseAtDotModuleMember(line, position.character);
+        if (atDotRef) {
+            if (atDotRef.segment === 'member') {
+                if (atDotRef.module === 'This') {
+                    const loc = this.findFunctionDefinition(atDotRef.member, document);
+                    if (loc) {
+                        return loc;
+                    }
+                } else if (findImportUriForModule(document, atDotRef.module)) {
+                    const funLoc = this.findImportedFunctionDefinition(atDotRef.module, atDotRef.member, document);
+                    if (funLoc) {
+                        return funLoc;
+                    }
+                    const modLoc = this.findImportedModifierDefinition(atDotRef.module, atDotRef.member, document);
+                    if (modLoc) {
+                        return modLoc;
+                    }
+                }
+            } else if (atDotRef.segment === 'module' && atDotRef.module !== 'This') {
+                const fileLoc = this.findImportedFile(atDotRef.module, document);
+                if (fileLoc) {
+                    return fileLoc;
+                }
+            }
+        }
+
+        const pipeRef = this.parsePipeModuleMember(line, position.character);
+        if (pipeRef) {
+            if (pipeRef.segment === 'member' && findImportUriForModule(document, pipeRef.module)) {
+                const modLoc = this.findImportedModifierDefinition(pipeRef.module, pipeRef.member, document);
+                if (modLoc) {
+                    return modLoc;
+                }
+            } else if (pipeRef.segment === 'module' && pipeRef.module !== 'This') {
+                const fileLoc = this.findImportedFile(pipeRef.module, document);
+                if (fileLoc) {
+                    return fileLoc;
+                }
+            }
+        }
+
         const range = document.getWordRangeAtPosition(position, /\$?[a-zA-Z_][a-zA-Z0-9_]*/);
         if (!range) {
             return undefined;
         }
 
         const word = document.getText(range);
-        const line = document.lineAt(position.line).text;
-        const beforeCursor = line.substring(0, position.character);
 
-        // Variable: $var or "var" when cursor is on $var (word is the part after $)
         const variableName = word.startsWith('$') ? word.slice(1) : (range.start.character > 0 && line[range.start.character - 1] === '$' ? word : null);
         if (variableName !== null) {
             const loc = getVariableDefinitionLocation(document, position, variableName);
@@ -28,46 +68,6 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
             }
         }
 
-        // Check if this is an imported function call: @.ModuleName.functionName()
-        // Look for the pattern before the cursor, allowing for the function name to extend to cursor
-        const importedFunctionMatch = beforeCursor.match(/@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)$/);
-        if (importedFunctionMatch) {
-            const moduleName = importedFunctionMatch[1];
-            const functionName = importedFunctionMatch[2];
-            
-            // If the word matches the function name, go to definition
-            if (functionName === word) {
-                return this.findImportedFunctionDefinition(moduleName, functionName, document);
-            }
-        }
-
-        // Also check the full line for @.ModuleName.word pattern (in case cursor is in middle of word)
-        const fullLineFunctionMatch = line.match(new RegExp(`@\\.([a-zA-Z_][a-zA-Z0-9_]*)\\.${word}\\s*\\(`));
-        if (fullLineFunctionMatch) {
-            const moduleName = fullLineFunctionMatch[1];
-            return this.findImportedFunctionDefinition(moduleName, word, document);
-        }
-
-        // Check if this is an imported modifier: | ModuleName.modifierName
-        const importedModifierMatch = beforeCursor.match(/\|\s*([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)$/);
-        if (importedModifierMatch) {
-            const moduleName = importedModifierMatch[1];
-            const modifierName = importedModifierMatch[2];
-            
-            // If the word matches the modifier name, go to definition
-            if (modifierName === word) {
-                return this.findImportedModifierDefinition(moduleName, modifierName, document);
-            }
-        }
-
-        // Also check the full line for | ModuleName.word pattern (in case cursor is in middle of word)
-        const fullLineModifierMatch = line.match(new RegExp(`\\|\\s*([a-zA-Z_][a-zA-Z0-9_]*)\\.${word}(?:\\s*\\(|\\s|$)`));
-        if (fullLineModifierMatch) {
-            const moduleName = fullLineModifierMatch[1];
-            return this.findImportedModifierDefinition(moduleName, word, document);
-        }
-
-        // Check if this is a local function call
         if (line.includes('@.This.' + word)) {
             return this.findFunctionDefinition(word, document);
         }
@@ -85,17 +85,75 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
         return undefined;
     }
 
-    private findFunctionDefinition(functionName: string, document: vscode.TextDocument): vscode.Location | undefined {
-        const text = document.getText();
-        const lines = text.split('\n');
+    /**
+     * If cursor is on `Module` or `member` in `@.Module.member`, return which segment and names.
+     */
+    private parseAtDotModuleMember(
+        line: string,
+        column: number
+    ): { segment: 'module'; module: string } | { segment: 'member'; module: string; member: string } | undefined {
+        const re = /@\.([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(line)) !== null) {
+            const modStart = m.index + 2;
+            const modEnd = modStart + m[1].length;
+            const memStart = modEnd + 1;
+            const memEnd = memStart + m[2].length;
+            const tail = line.slice(memEnd);
+            const parenAfter = tail.match(/^\s*\(/);
+            const spanEnd = parenAfter ? memEnd + parenAfter[0].length : memEnd;
+            const inMember =
+                (column >= memStart && column < spanEnd) ||
+                (column >= modEnd && column < memStart);
+            if (inMember) {
+                return { segment: 'member', module: m[1], member: m[2] };
+            }
+            if (column >= modStart && column < modEnd) {
+                return { segment: 'module', module: m[1] };
+            }
+        }
+        return undefined;
+    }
 
-        // Look for function declaration
-        const functionPattern = new RegExp(`^\\s*(fun|modifier)\\s+${functionName}\\s*\\(`);
+    /**
+     * If cursor is on `Module` or `member` in `| Module.member`, return which segment and names.
+     */
+    private parsePipeModuleMember(
+        line: string,
+        column: number
+    ): { segment: 'module'; module: string } | { segment: 'member'; module: string; member: string } | undefined {
+        const re = /\|\s*([a-zA-Z_][a-zA-Z0-9_]*)\.([a-zA-Z_][a-zA-Z0-9_]*)/g;
+        let m: RegExpExecArray | null;
+        while ((m = re.exec(line)) !== null) {
+            const modStart = m.index + m[0].indexOf(m[1]);
+            const modEnd = modStart + m[1].length;
+            const memStart = modEnd + 1;
+            const memEnd = memStart + m[2].length;
+            const tail = line.slice(memEnd);
+            const parenAfter = tail.match(/^\s*\(/);
+            const spanEnd = parenAfter ? memEnd + parenAfter[0].length : memEnd;
+            const inMember =
+                (column >= memStart && column < spanEnd) ||
+                (column >= modEnd && column < memStart);
+            if (inMember) {
+                return { segment: 'member', module: m[1], member: m[2] };
+            }
+            if (column >= modStart && column < modEnd) {
+                return { segment: 'module', module: m[1] };
+            }
+        }
+        return undefined;
+    }
+
+    private findFunctionDefinition(functionName: string, document: vscode.TextDocument): vscode.Location | undefined {
+        const escaped = functionName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const functionPattern = new RegExp(`^\\s*(?:cache\\s+)?(fun|modifier)\\s+${escaped}\\s*\\(`);
+        const lines = document.getText().split('\n');
 
         for (let i = 0; i < lines.length; i++) {
-            if (functionPattern.test(lines[i])) {
-                const position = new vscode.Position(i, 0);
-                return new vscode.Location(document.uri, position);
+            const L = lines[i].replace(/\r$/, '');
+            if (functionPattern.test(L)) {
+                return new vscode.Location(document.uri, new vscode.Position(i, 0));
             }
         }
 
@@ -130,7 +188,7 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
     }
 
     private findImportedFile(moduleName: string, document: vscode.TextDocument): vscode.Location | undefined {
-        const importedUri = this.resolveImportPath(document, moduleName);
+        const importedUri = findImportUriForModule(document, moduleName);
         if (importedUri) {
             return new vscode.Location(importedUri, new vscode.Position(0, 0));
         }
@@ -138,92 +196,27 @@ export class IslDefinitionProvider implements vscode.DefinitionProvider {
     }
 
     private findImportedFunctionDefinition(moduleName: string, functionName: string, document: vscode.TextDocument): vscode.Location | undefined {
-        const importedUri = this.resolveImportPath(document, moduleName);
+        const importedUri = findImportUriForModule(document, moduleName);
         if (!importedUri) {
             return undefined;
         }
-
-        try {
-            const importedText = fs.readFileSync(importedUri.fsPath, 'utf-8');
-            const lines = importedText.split('\n');
-
-            // Look for function declaration
-            const functionPattern = new RegExp(`^\\s*fun\\s+${functionName}\\s*\\(`);
-
-            for (let i = 0; i < lines.length; i++) {
-                if (functionPattern.test(lines[i])) {
-                    const position = new vscode.Position(i, 0);
-                    return new vscode.Location(importedUri, position);
-                }
-            }
-        } catch (error) {
-            console.warn(`Could not read imported file ${importedUri.fsPath}: ${error}`);
+        const sym = findExportedSymbolInIslFile(importedUri, functionName);
+        if (!sym || sym.kind !== 'fun') {
+            return undefined;
         }
-
-        return undefined;
+        return new vscode.Location(importedUri, new vscode.Position(sym.line, 0));
     }
 
     private findImportedModifierDefinition(moduleName: string, modifierName: string, document: vscode.TextDocument): vscode.Location | undefined {
-        const importedUri = this.resolveImportPath(document, moduleName);
+        const importedUri = findImportUriForModule(document, moduleName);
         if (!importedUri) {
             return undefined;
         }
-
-        try {
-            const importedText = fs.readFileSync(importedUri.fsPath, 'utf-8');
-            const lines = importedText.split('\n');
-
-            // Look for modifier declaration
-            const modifierPattern = new RegExp(`^\\s*modifier\\s+${modifierName}\\s*\\(`);
-
-            for (let i = 0; i < lines.length; i++) {
-                if (modifierPattern.test(lines[i])) {
-                    const position = new vscode.Position(i, 0);
-                    return new vscode.Location(importedUri, position);
-                }
-            }
-        } catch (error) {
-            console.warn(`Could not read imported file ${importedUri.fsPath}: ${error}`);
+        const sym = findExportedSymbolInIslFile(importedUri, modifierName);
+        if (!sym || sym.kind !== 'modifier') {
+            return undefined;
         }
-
-        return undefined;
-    }
-
-    private resolveImportPath(document: vscode.TextDocument, moduleName: string): vscode.Uri | null {
-        const text = document.getText();
-        const lines = text.split('\n');
-
-        // Look for import statement
-        const importPattern = new RegExp(`import\\s+${moduleName}\\s+from\\s+['"]([^'"]+)['"]`);
-
-        for (let i = 0; i < lines.length; i++) {
-            const match = lines[i].match(importPattern);
-            if (match) {
-                const importPath = match[1];
-                const currentDir = path.dirname(document.uri.fsPath);
-                let resolvedPath: string;
-
-                if (path.isAbsolute(importPath)) {
-                    resolvedPath = importPath;
-                } else {
-                    resolvedPath = path.resolve(currentDir, importPath);
-                }
-
-                // Try with .isl extension if not present
-                if (!resolvedPath.endsWith('.isl')) {
-                    const withExtension = resolvedPath + '.isl';
-                    if (fs.existsSync(withExtension)) {
-                        resolvedPath = withExtension;
-                    }
-                }
-
-                if (fs.existsSync(resolvedPath)) {
-                    return vscode.Uri.file(resolvedPath);
-                }
-            }
-        }
-
-        return null;
+        return new vscode.Location(importedUri, new vscode.Position(sym.line, 0));
     }
 }
 

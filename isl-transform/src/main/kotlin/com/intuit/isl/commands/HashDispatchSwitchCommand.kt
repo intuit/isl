@@ -18,6 +18,11 @@ class HashDispatchSwitchCommand(
     val defaultArm: IIslCommand?
 ) : BaseCommand(token) {
 
+    internal fun forEachArmCommand(action: (IIslCommand) -> Unit) {
+        armsByKey.values.forEach(action)
+        defaultArm?.let(action)
+    }
+
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
         val leftResult = value.executeAsync(executionContext)
         val key = ConvertUtils.tryToString(leftResult.value)

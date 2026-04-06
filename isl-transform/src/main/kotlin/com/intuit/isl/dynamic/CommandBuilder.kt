@@ -21,7 +21,7 @@ class CommandBuilder {
         val visitor = IslScriptVisitor("expression.isl", expressionValue, System.out);
         val expressionToken = visitor.parseExpression();
 
-        val command = ExecutionBuilder("expression.isl", ModuleImplementationToken.Empty, null, null)
+        val command = ExecutionBuilder("expression.isl", ModuleImplementationToken.Empty, null)
             .buildExpression(expressionToken);
 
         return command;

@@ -17,6 +17,8 @@ open class ModifierValueCommand(
     val value: IIslCommand,
     protected val modifierArguments: List<IIslCommand>
 ) : BaseCommand(token) {
+
+    internal val modifierArgumentCommands: List<IIslCommand> get() = modifierArguments
     override val token: ModifierValueToken
         get() = super.token as ModifierValueToken;
 
@@ -60,9 +62,12 @@ open class ModifierValueCommand(
     }
 
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val prevValue = value.executeAsync(executionContext);
-
-        return internalExecuteAsync(prevValue, executionContext);
+        val hook = executionContext.executionHook
+        hook?.onBeforeExecute(this, executionContext)
+        val prevValue = value.executeAsync(executionContext)
+        val result = internalExecuteAsync(prevValue, executionContext)
+        hook?.onAfterExecute(this, executionContext, result)
+        return result
     }
 
     protected open suspend fun internalExecuteAsync(

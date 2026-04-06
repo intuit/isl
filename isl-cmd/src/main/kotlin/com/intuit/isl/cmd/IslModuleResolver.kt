@@ -87,7 +87,10 @@ object IslModuleResolver {
      * Creates a findExternalModule for TransformPackageBuilder when compiling a single ISL file.
      * Uses resolution history so nested imports (e.g. lib/foo.isl importing bar.isl) resolve relative to the importing file.
      */
-    fun buildPackageForSingleFile(scriptFile: java.io.File, scriptContent: String): Pair<FileInfo, java.util.function.BiFunction<String, String, String>> {
+    fun buildPackageForSingleFile(
+        scriptFile: java.io.File,
+        scriptContent: String
+    ): Pair<FileInfo, java.util.function.BiFunction<String, String, String>> {
         if (TestRunFlags.shouldShowScriptLogs()) println("[ISL load] initial file: ${scriptFile.absolutePath}")
         val basePath = scriptFile.parentFile?.toPath()?.normalize() ?: Paths.get(".").toAbsolutePath().normalize()
         val moduleName = scriptFile.name

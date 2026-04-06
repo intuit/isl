@@ -31,6 +31,8 @@ class ParallelForEachCommand(
     statements: IIslCommand
 ) :
     ForEachCommand(token, source, statements) {
+
+    internal val parallelOptions: IIslCommand? get() = options
     override val token: ParallelForEachToken
         get() = super.token as ParallelForEachToken;
 
@@ -65,7 +67,11 @@ class ParallelForEachCommand(
         val waits = source?.mapIndexed { i, it ->
             CoroutineScope(limitedDispatcher + coroutineContext + supervisorJob).async {
                 val localOperationContext = ParallelOperationContext(executionContext.operationContext);
-                val localExecutionContext = ExecutionContext(localOperationContext, executionContext.localContext);
+                val localExecutionContext = ExecutionContext(
+                    localOperationContext,
+                    executionContext.localContext,
+                    executionContext.executionHook
+                );
                 localOperationContext.setVariable(token.iterator, JsonConvert.convert(it));
                 localOperationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 

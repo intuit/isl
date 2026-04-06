@@ -11,8 +11,11 @@ import com.intuit.isl.runtime.TransformCompilationException
 import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.TransformPackage
 import com.intuit.isl.runtime.TransformPackageBuilder
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.test.TestExitException
 import com.intuit.isl.test.TestFailException
+import com.intuit.isl.common.IOperationContext
+import com.intuit.isl.common.TransformVariable
 import com.intuit.isl.test.TestOperationContext
 import com.intuit.isl.test.annotations.ComparisonDiff
 import com.intuit.isl.test.annotations.TestResult
@@ -25,6 +28,17 @@ import kotlin.io.path.nameWithoutExtension
 
 /** Empty = run all tests; non-empty = run only tests whose functionName (or "suiteFile:functionName") matches. */
 typealias FunctionFilter = Set<String>
+
+/** Result of preparing a *.tests.yaml case for the ISL debug adapter (mocks + input applied). */
+data class YamlTestDebugPrepared(
+    val transformPackage: TransformPackage,
+    val moduleName: String,
+    val functionName: String,
+    /** [TestOperationContext] with YAML suite mocks and input applied. */
+    val operationContext: IOperationContext,
+    /** Absolute path to the ISL file (for launch config / breakpoints). */
+    val scriptPath: String
+)
 
 object YamlUnitTestRunner {
 
@@ -41,6 +55,60 @@ object YamlUnitTestRunner {
     fun parseSuite(yamlContent: String): YamlUnitTestSuite = yamlMapper.readValue(yamlContent)
 
     /**
+     * Build package and [TestOperationContext] (mockSource, inline mocks, YAML input) for one suite entry.
+     * Used by the debug adapter so YAML tests debug with the same infrastructure as [runSuite].
+     */
+    fun prepareYamlTestForDebug(
+        yamlPath: Path,
+        testIndex: Int,
+        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit> = emptyList()
+    ): YamlTestDebugPrepared {
+        val basePath = yamlPath.parent
+        val suite = parseSuite(yamlPath.toFile().readText())
+        val setup = suite.setup
+        val islPath = basePath.resolve(setup.islSource).normalize()
+        val islFile = islPath.toFile()
+        require(islFile.exists() && islFile.isFile) {
+            "ISL file not found: $islPath (islSource: ${setup.islSource})"
+        }
+        val entries = suite.entries
+        require(testIndex in entries.indices) {
+            "Test index out of range: $testIndex (suite has ${entries.size} entries)"
+        }
+        val entry = entries[testIndex]
+
+        val islContent = islFile.readText()
+        val effectiveBasePath = islPath.parent
+        val moduleName = islPath.fileName.toString()
+        val fileInfos = mutableListOf(FileInfo(moduleName, islContent))
+        val resolvedPaths = mutableMapOf<String, Path>()
+        resolvedPaths[moduleName] = islPath.toAbsolutePath().normalize()
+        val findExternalModule = IslModuleResolver.createModuleFinder(effectiveBasePath, resolvedPaths)
+        val transformPackage = TransformPackageBuilder().build(fileInfos, findExternalModule)
+
+        val context = buildOperationContextForYamlEntry(
+            transformPackage = transformPackage,
+            moduleName = moduleName,
+            entry = entry,
+            setup = setup,
+            basePath = effectiveBasePath,
+            yamlBasePath = basePath,
+            yamlPath = yamlPath,
+            contextCustomizers = contextCustomizers,
+            verbose = true,
+            printMockSummary = true
+        )
+
+        return YamlTestDebugPrepared(
+            transformPackage = transformPackage,
+            moduleName = moduleName,
+            functionName = entry.functionName,
+            operationContext = context,
+            scriptPath = islPath.toAbsolutePath().normalize().toString()
+        )
+    }
+
+    /**
      * Runs a single *.tests.yaml suite and appends results to [resultContext].
      * [yamlPath] is the path to the .tests.yaml file; [basePath] is the directory containing it (used to resolve islSource, which is relative to the test file). The effective base for the test run is the directory of the resolved ISL file, so paths in logs and @.Load.From are relative to the script under test.
      * When [functionFilter] is non-empty, only test entries whose functionName matches (or "suiteFile:functionName") are run.
@@ -51,7 +119,9 @@ object YamlUnitTestRunner {
         resultContext: TestResultContext,
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
         functionFilter: FunctionFilter = emptySet(),
-        verbose: Boolean = false
+        verbose: Boolean = false,
+        executionHook: IExecutionHook? = null,
+        onTransformPackageBuilt: ((TransformPackage) -> Unit)? = null
     ) {
         val suite = parseSuite(yamlPath.toFile().readText())
         val setup = suite.setup
@@ -95,6 +165,8 @@ object YamlUnitTestRunner {
             return
         }
 
+        onTransformPackageBuilt?.invoke(transformPackage)
+
         val groupName = suite.category ?: yamlPath.nameWithoutExtension
         val suiteFileName = yamlPath.fileName.toString()
 
@@ -128,10 +200,65 @@ object YamlUnitTestRunner {
                 contextCustomizers = contextCustomizers,
                 assertOptions = opts,
                 printMockSummary = verbose && (index == 0),
-                verbose = verbose
+                verbose = verbose,
+                executionHook = executionHook
             )
             resultContext.testResults.add(testResult)
         }
+    }
+
+    private fun buildOperationContextForYamlEntry(
+        transformPackage: TransformPackage,
+        moduleName: String,
+        entry: YamlUnitTestEntry,
+        setup: YamlTestSetup,
+        basePath: Path,
+        yamlBasePath: Path,
+        yamlPath: Path,
+        contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
+        verbose: Boolean,
+        printMockSummary: Boolean
+    ): TestOperationContext {
+        val testFileName = yamlBasePath.relativize(yamlPath).toString().replace("\\", "/")
+        val context = TestOperationContext.create(
+            testResultContext = TestResultContext(),
+            currentFile = moduleName,
+            basePath = basePath,
+            mockFileName = setup.mockSourceDisplayName(),
+            testFileName = testFileName,
+            verboseLogging = verbose,
+            contextCustomizers = contextCustomizers
+        )
+
+        // 1. Load mockSource file(s) in order; paths are relative to the .tests.yaml file (yamlBasePath)
+        for (mockFileEntry in setup.mockSourceFiles()) {
+            val mockPath = yamlBasePath.resolve(mockFileEntry).normalize()
+            val mockFile = mockPath.toFile()
+            if (mockFile.exists() && mockFile.isFile) {
+                val ext = mockFile.extension.lowercase()
+                val root = when (ext) {
+                    "json" -> JsonConvert.mapper.readTree(mockFile)
+                    "yaml", "yml" -> com.fasterxml.jackson.databind.ObjectMapper(YAMLFactory()).readTree(mockFile)
+                    else -> throw IllegalArgumentException("Mock file must be .json, .yaml, .yml; got: $mockFileEntry")
+                }
+                if (root.isObject) MockFunction.applyMocksFromNode(context, root as ObjectNode, mockFileEntry)
+            }
+        }
+        // 2. Apply inline mocks after mockSource (all mocks are additive; params differentiate)
+        setup.mocksAsObject()?.let { MockFunction.applyMocksFromNode(context, it, testFileName) }
+
+        if (printMockSummary) {
+            val names = (context.mockExtensions.mockExtensions.keys +
+                context.mockExtensions.mockAnnotations.keys +
+                context.mockExtensions.mockStatementExtensions.keys).sorted()
+            val n = names.size
+            if (n > 0) println("[ISL Mock] Mocked M $n function(s): ${names.joinToString(", ")}")
+        }
+
+        // 3. Set input variables (param names from function, or from input map keys)
+        val paramNames = getFunctionParamNames(transformPackage, moduleName, entry.functionName)
+        setInputVariables(context, entry.input, paramNames)
+        return context
     }
 
     private fun runOneTest(
@@ -146,54 +273,28 @@ object YamlUnitTestRunner {
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
         assertOptions: AssertOptions = AssertOptions(),
         printMockSummary: Boolean = false,
-        verbose: Boolean = false
+        verbose: Boolean = false,
+        executionHook: IExecutionHook? = null
     ): TestResult {
-        val testFileName = yamlBasePath.relativize(yamlPath).toString().replace("\\", "/")
-        val context = TestOperationContext.create(
-            testResultContext = TestResultContext(),
-            currentFile = moduleName,
+        val context = buildOperationContextForYamlEntry(
+            transformPackage = transformPackage,
+            moduleName = moduleName,
+            entry = entry,
+            setup = setup,
             basePath = basePath,
-            mockFileName = setup.mockSourceDisplayName(),
-            testFileName = testFileName,
-            verboseLogging = verbose,
-            contextCustomizers = contextCustomizers
+            yamlBasePath = yamlBasePath,
+            yamlPath = yamlPath,
+            contextCustomizers = contextCustomizers,
+            verbose = verbose,
+            printMockSummary = printMockSummary
         )
 
         try {
-            // 1. Load mockSource file(s) in order; paths are relative to the .tests.yaml file (yamlBasePath)
-            for (mockFileEntry in setup.mockSourceFiles()) {
-                val mockPath = yamlBasePath.resolve(mockFileEntry).normalize()
-                val mockFile = mockPath.toFile()
-                if (mockFile.exists() && mockFile.isFile) {
-                    val ext = mockFile.extension.lowercase()
-                    val root = when (ext) {
-                        "json" -> JsonConvert.mapper.readTree(mockFile)
-                        "yaml", "yml" -> com.fasterxml.jackson.databind.ObjectMapper(YAMLFactory()).readTree(mockFile)
-                        else -> throw IllegalArgumentException("Mock file must be .json, .yaml, .yml; got: $mockFileEntry")
-                    }
-                    if (root.isObject) MockFunction.applyMocksFromNode(context, root as ObjectNode, mockFileEntry)
-                }
-            }
-            // 2. Apply inline mocks after mockSource (all mocks are additive; params differentiate)
-            setup.mocksAsObject()?.let { MockFunction.applyMocksFromNode(context, it, testFileName) }
-
-            if (printMockSummary) {
-                val names = (context.mockExtensions.mockExtensions.keys +
-                    context.mockExtensions.mockAnnotations.keys +
-                    context.mockExtensions.mockStatementExtensions.keys).sorted()
-                val n = names.size
-                if (n > 0) println("[ISL Mock] Mocked M $n function(s): ${names.joinToString(", ")}")
-            }
-
-            // 3. Set input variables (param names from function, or from input map keys)
-            val paramNames = getFunctionParamNames(transformPackage, moduleName, entry.functionName)
-            setInputVariables(context, entry.input, paramNames)
-
             // 4. Run the function (or capture result from @.Test.Exit / @.Test.Fail)
             if (verbose) println("[ISL Mock] Running ${entry.functionName}")
             val fullName = TransformPackage.toFullFunctionName(moduleName, entry.functionName)
             val result = try {
-                transformPackage.runTransformNew(fullName, context)
+                transformPackage.runTransformNew(fullName, context, executionHook)
             } catch (e: TestFailException) {
                 // Test.Fail — skip comparison, return failure immediately
                 return makeFailResult(yamlPath, entry, groupName, e)
@@ -262,16 +363,22 @@ object YamlUnitTestRunner {
     private fun setInputVariables(context: TestOperationContext, input: Any?, paramNames: List<String>) {
         if (input == null) return
         if (paramNames.size == 1) {
-            val varName = if (paramNames.first().startsWith("$")) paramNames.first() else "$${paramNames.first()}"
-            context.setVariable(varName, JsonConvert.convert(input))
+            val varName = if (paramNames.first().startsWith("$")) paramNames.first() else "$" + paramNames.first()
+            context.setVariable(
+                varName,
+                TransformVariable(JsonConvert.convert(input), readOnly = false, global = true)
+            )
             return
         }
         if (input is Map<*, *>) {
             @Suppress("UNCHECKED_CAST")
             val map = input as Map<String, Any?>
             for ((key, value) in map) {
-                val varName = if (key.startsWith("$")) key else "$$key"
-                context.setVariable(varName, JsonConvert.convert(value))
+                val varName = if (key.startsWith("$")) key else "$" + key
+                context.setVariable(
+                    varName,
+                    TransformVariable(JsonConvert.convert(value), readOnly = false, global = true)
+                )
             }
         }
     }

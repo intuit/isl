@@ -18,7 +18,9 @@ class StatementsBuildCommand(token: IIslToken, val commands: List<IIslCommand>) 
 //        executionContext.operationContext.setVariable(tempVariableName, JsonConvert.convert(commandResult?.value))
 
         for (c in commands) {
+            executionContext.executionHook?.onBeforeExecute(c, executionContext)
             val cr = c.executeAsync(executionContext);
+            executionContext.executionHook?.onAfterExecute(c, executionContext, cr)
             // we need to ignore property assignment as they we don't want them captured
             if (cr.propertyName.isNullOrEmpty() && cr.value != null)
                 commandResult = cr;

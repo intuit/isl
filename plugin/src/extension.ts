@@ -6,7 +6,7 @@ import { IslExecutor } from './executor';
 import { IslCompletionProvider } from './completion';
 import { IslHoverProvider } from './hover';
 import { IslDefinitionProvider } from './definition';
-import { IslCodeLensProvider, runIslFunction, showUsages, testFunction } from './codelens';
+import { IslCodeLensProvider, runIslFunction, showUsages, testFunction, debugIslFunction } from './codelens';
 import { IslSignatureHelpProvider } from './signature';
 import { IslInlayHintsProvider } from './inlayhints';
 import { IslCodeActionProvider, extractVariable, extractFunction, convertToTemplateString, useCoalesceOperator, useMathSum, formatChain, formatObject, renameDuplicateFunction } from './codeactions';
@@ -15,9 +15,12 @@ import { IslExtensionsManager } from './extensions';
 import { initIslLanguage } from './language';
 import { IslTypeManager } from './types';
 import { IslTestController, isTestFile, yamlHasIslTests, addMockToFile, addMockToTestFile } from './testExplorer';
+import { IslYamlTestsCodeLensProvider, debugYamlTestFromCommand } from './yamlTestsCodeLens';
 import { showResultDiffViewer } from './diffViewer';
 import { IslYamlTestsCompletionProvider } from './islYamlTestsCompletion';
 import { IslPasteEditProvider } from './islPasteProvider';
+import { IslCoverageDecorationManager, islCoverageUiEnabled } from './coverageDecorations';
+import { IslDebugAdapterDescriptorFactory, IslDebugConfigurationProvider } from './debugAdapter';
 
 const outputChannelName = 'ISL Language Support';
 
@@ -32,6 +35,8 @@ export function activate(context: vscode.ExtensionContext) {
         { scheme: 'untitled', language: 'isl' }
     ];
 
+    const yamlTestsFileSelector: vscode.DocumentSelector = [{ scheme: 'file', pattern: '**/*.tests.yaml' }];
+
     // Initialize extensions manager with output channel for extension logs
     const extensionsManager = new IslExtensionsManager(outputChannel);
     context.subscriptions.push(extensionsManager);
@@ -42,7 +47,9 @@ export function activate(context: vscode.ExtensionContext) {
     // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl and *.tests.yaml (islTests)
     // Use a dedicated "ISL Tests" output channel for test run results
     const islTestsOutputChannel = vscode.window.createOutputChannel('ISL Tests', 'ansi');
-    const testController = new IslTestController(islTestsOutputChannel, context.extensionPath);
+    const coverageDecorations = new IslCoverageDecorationManager();
+    context.subscriptions.push(coverageDecorations);
+    const testController = new IslTestController(islTestsOutputChannel, context.extensionPath, coverageDecorations);
     context.subscriptions.push({ dispose: () => testController.dispose() });
 
     // Update "Run all Tests in file" button visibility when active editor changes
@@ -188,6 +195,11 @@ export function activate(context: vscode.ExtensionContext) {
         vscode.languages.registerCodeLensProvider(documentSelector, codeLensProvider)
     );
 
+    const yamlTestsCodeLensProvider = new IslYamlTestsCodeLensProvider();
+    context.subscriptions.push(
+        vscode.languages.registerCodeLensProvider(yamlTestsFileSelector, yamlTestsCodeLensProvider)
+    );
+
     // Paste provider: insert clipboard text as-is to avoid VS Code adding indentation when pasting
     // in the middle of a line (e.g. between quotes in $var.message = "").
     context.subscriptions.push(
@@ -200,8 +212,9 @@ export function activate(context: vscode.ExtensionContext) {
             }
         )
     );
-    // Refresh CodeLens when ISL documents change (e.g. after rename, copy-paste) - debounced
+    // Refresh CodeLens when ISL / YAML test documents change (e.g. after rename, copy-paste) - debounced
     let codeLensRefreshTimeout: NodeJS.Timeout | undefined;
+    let yamlTestsCodeLensRefreshTimeout: NodeJS.Timeout | undefined;
     context.subscriptions.push(
         vscode.workspace.onDidChangeTextDocument(event => {
             if (event.document.languageId === 'isl') {
@@ -211,11 +224,18 @@ export function activate(context: vscode.ExtensionContext) {
                     codeLensProvider.refresh();
                 }, 1500);
             }
+            if (event.document.uri.fsPath.endsWith('.tests.yaml')) {
+                if (yamlTestsCodeLensRefreshTimeout) clearTimeout(yamlTestsCodeLensRefreshTimeout);
+                yamlTestsCodeLensRefreshTimeout = setTimeout(() => {
+                    yamlTestsCodeLensRefreshTimeout = undefined;
+                    yamlTestsCodeLensProvider.refresh();
+                }, 1500);
+            }
         })
     );
 
     // Register executor
-    const executor = new IslExecutor(context.extensionPath);
+    const executor = new IslExecutor(context.extensionPath, coverageDecorations);
 
     // ISL terminal profile: shell with lib/ on PATH so user can run "isl" or "isl.bat" / "isl.sh"
     const islLibPath = path.join(context.extensionPath, 'lib');
@@ -269,6 +289,34 @@ export function activate(context: vscode.ExtensionContext) {
             }
         }),
 
+        vscode.commands.registerCommand('isl.clearCoverage', () => {
+            coverageDecorations.clearAll();
+        }),
+
+        vscode.commands.registerCommand('isl.loadCoverageReport', async () => {
+            if (!islCoverageUiEnabled()) {
+                vscode.window.showWarningMessage(
+                    'ISL coverage display is off. Enable **ISL › Coverage: Enabled** (`isl.coverage.enabled`) in settings.'
+                );
+                return;
+            }
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'isl') {
+                vscode.window.showWarningMessage('Open an ISL file as the active editor.');
+                return;
+            }
+            const picked = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { JSON: ['json'] },
+                openLabel: 'Load coverage report'
+            });
+            if (!picked?.[0]) {
+                return;
+            }
+            coverageDecorations.applyReportForDocument(editor.document, picked[0].fsPath);
+            vscode.window.showInformationMessage('ISL coverage applied from file.');
+        }),
+
         vscode.commands.registerCommand('isl.format', async () => {
             const editor = vscode.window.activeTextEditor;
             if (editor && editor.document.languageId === 'isl') {
@@ -290,6 +338,14 @@ export function activate(context: vscode.ExtensionContext) {
 
         vscode.commands.registerCommand('isl.testFunction', async (uri: vscode.Uri, functionName: string, params: string) => {
             await testFunction(uri, functionName, params, context);
+        }),
+
+        vscode.commands.registerCommand('isl.debugFunction', async (uri: vscode.Uri, functionName: string, params: string) => {
+            await debugIslFunction(uri, functionName, params);
+        }),
+
+        vscode.commands.registerCommand('isl.debugYamlTest', async (yamlUriStr: string, testIndex: number) => {
+            await debugYamlTestFromCommand(yamlUriStr, testIndex);
         }),
 
         vscode.commands.registerCommand('isl.runAllTestsInFile', async () => {
@@ -399,6 +455,16 @@ export function activate(context: vscode.ExtensionContext) {
             }
             showResultDiffViewer(testName, expected, actual);
         })
+    );
+
+    // Register ISL Debug Adapter
+    const debugAdapterFactory = new IslDebugAdapterDescriptorFactory(context.extensionPath);
+    context.subscriptions.push(
+        vscode.debug.registerDebugAdapterDescriptorFactory('isl', debugAdapterFactory)
+    );
+    const debugConfigProvider = new IslDebugConfigurationProvider();
+    context.subscriptions.push(
+        vscode.debug.registerDebugConfigurationProvider('isl', debugConfigProvider)
     );
 
     // Enhanced status bar item

@@ -3,7 +3,10 @@ package com.intuit.isl.runtime
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
+import com.intuit.isl.commands.IFunctionDeclarationCommand
 import com.intuit.isl.common.*
+import com.intuit.isl.commands.CoverageStatementIdAssigner
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
@@ -113,12 +116,16 @@ class Transformer(override val module: TransformModule) : ITransformer {
      */
     override suspend fun runTransformAsync(
         functionName: String,
-        operationContext: IOperationContext
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook?
     ): ITransformResult {
         val function = module.getFunction(functionName);
 
         if (function != null) {
-            val context = ExecutionContext(operationContext, null);
+            if (executionHook?.preparesStatementIds == true) {
+                CoverageStatementIdAssigner.assign(module)
+            }
+            val context = ExecutionContext(operationContext, null, executionHook);
 
             // Add Default Variables
             init(context);
@@ -126,11 +133,41 @@ class Transformer(override val module: TransformModule) : ITransformer {
             // Optimize this - we should be able to plug the whole internals
             (operationContext as BaseOperationContext).useModuleFunctions(this.module.functionExtensions);
 
-            val result = function.executeAsync(context);
-            return TransformResult(JsonConvert.convert(result.value));
+            bindEntryPointParametersFromContext(function, operationContext)
+
+            context.executionHook?.onFunctionEnter(function, context)
+            try {
+                val result = function.executeAsync(context);
+                return TransformResult(JsonConvert.convert(result.value));
+            } finally {
+                context.executionHook?.onFunctionExit(function, context)
+            }
         }
 
         throw TransformException("Unknown Function @.${module.name}.$functionName", module.token.position);
+    }
+
+    /**
+     * Entry functions run via [IFunctionDeclarationCommand.executeAsync] (not [IFunctionDeclarationCommand.getRunner]),
+     * so formal parameters are not populated by the call path. The body still resolves `$param` through the
+     * operation context. Hosts usually pre-seed JSON keys as variables; this copies legacy keys stored without
+     * `$` (e.g. `status` → `$status`) so they match the names used in the function body.
+     */
+    private fun bindEntryPointParametersFromContext(
+        function: IFunctionDeclarationCommand,
+        operationContext: IOperationContext
+    ) {
+        for (p in function.token.arguments) {
+            val dollarName = p.name.let { n -> if (n.startsWith("$")) n else "$" + n }
+            if (operationContext.getVariable(dollarName) != null) continue
+            val bare = dollarName.removePrefix("$").lowercase()
+            if (bare.isEmpty()) continue
+            val legacy = operationContext.getVariable(bare) ?: continue
+            operationContext.setVariable(
+                dollarName,
+                TransformVariable(legacy, readOnly = false, global = true)
+            )
+        }
     }
 
     override fun runTransformSync(

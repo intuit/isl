@@ -277,16 +277,18 @@ If the extension doesn't work in Windsurf (commands not found, no Output panel):
 
 To execute ISL transformations:
 - Java Runtime Environment (JRE) 11+
-- The extension bundles an embedded ISL CLI (`plugin/lib/isl-cmd-all.jar`) — no separate install needed
+- The extension bundles an embedded ISL CLI (`plugin/lib/isl-cmd-all.jar`) and debug adapter (`plugin/lib/isl-debug-adapter-all.jar`) — no separate install needed
 
-### Updating the Embedded ISL Runtime
+### Updating the embedded JARs (CLI + debug)
 
-When developing the extension with ISL changes, rebuild and copy the fat JAR:
+When developing the extension with ISL changes, rebuild and copy both fat JARs:
 
 ```bash
-# From the repository root
-./gradlew buildIslRuntimeLocal
+# From the repository root (one command)
+./gradlew buildPluginLibLocal
 ```
+
+Use `buildIslRuntimeLocal` or `buildDebugAdapterLocal` alone if you only changed the CLI or only the debug adapter.
 
 See [lib/README.md](lib/README.md) for details.
 

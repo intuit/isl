@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.NullNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.common.IOperationContext
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.utils.Position
 import kotlinx.coroutines.runBlocking
 import java.util.*
@@ -41,7 +42,11 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
     // DO NOT USE THIS FUNCTION
     // CRITICAL: This is here only for backwards compatiblity with old Connectivity-DSL - this will break any other user of ISL
     // so this build should only be included in ConnectivityDSL, and it will be deprecated soon.
-    fun runTransform(fullFunctionName: String, operationContext: IOperationContext): Any? {
+    fun runTransform(
+        fullFunctionName: String,
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook? = null
+    ): Any? {
         return runBlocking {
             val moduleName = fullFunctionName.substringBeforeLast(":");
             val functionName = fullFunctionName.substringAfterLast(":", "run");
@@ -52,7 +57,7 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
                 throw TransformException("Unknown Module: $moduleName", Position(moduleName, 0, 0));
             }
 
-			val result = module.runTransformAsync(functionName, operationContext);
+			val result = module.runTransformAsync(functionName, operationContext, executionHook);
 
 			when (result.result) {
 				null -> {
@@ -82,7 +87,11 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
         }
     }
 
-	fun runTransformNew(fullFunctionName: String, operationContext: IOperationContext): JsonNode? {
+	fun runTransformNew(
+        fullFunctionName: String,
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook? = null
+    ): JsonNode? {
         return runBlocking {
             val moduleName = fullFunctionName.substringBeforeLast(":");
             val functionName = fullFunctionName.substringAfterLast(":", "run");
@@ -93,7 +102,7 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
                 throw TransformException("Unknown Module: $moduleName", Position(moduleName, 0, 0));
             }
 
-			val result = module.runTransformAsync(functionName, operationContext);
+			val result = module.runTransformAsync(functionName, operationContext, executionHook);
 
 			when (result.result) {
 				null -> {
@@ -113,7 +122,8 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
 
     suspend fun runTransformAsync(
         fullFunctionName: String,
-        operationContext: IOperationContext
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook? = null
     ): ITransformResult {
         val moduleName = fullFunctionName.substringBeforeLast(":");
         val functionName = fullFunctionName.substringAfterLast(":");
@@ -121,6 +131,6 @@ class TransformPackage(modules: TreeMap<String, ITransformer>) {
         val module =
             _modules[moduleName] ?: throw TransformException("Unknown Module: $moduleName", Position(moduleName, 0, 0));
 
-        return module.runTransformAsync(functionName, operationContext);
+        return module.runTransformAsync(functionName, operationContext, executionHook);
     }
 }

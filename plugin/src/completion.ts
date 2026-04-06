@@ -6,6 +6,7 @@ import { getModifiersMap, getFunctionsByNamespace, getServicesMap, getAnnotation
 import { IslTypeManager } from './types';
 import type { SchemaInfo } from './types';
 import { getVariablesDeclaredAboveInCurrentScope } from './variableScope';
+import { findImportUriForModule } from './islImports';
 
 export class IslCompletionProvider implements vscode.CompletionItemProvider {
     
@@ -22,7 +23,14 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
         context: vscode.CompletionContext
     ): Promise<vscode.CompletionItem[] | vscode.CompletionList> {
         const linePrefix = document.lineAt(position).text.substr(0, position.character);
-        
+
+        // Variables after $ must run before typed-object completion: inside `$x : Type = { ... }` the
+        // cursor is still inside `{ }`, so getSchemaForObjectAt returns a schema and we would only
+        // offer property keys — typing `$` then yields no matching properties ("No suggestions").
+        if (linePrefix.match(/\$\w*$/)) {
+            return this.getVariableCompletions(document, position);
+        }
+
         // Type-based object literal completions (root and nested, e.g. billingAddress inside order)
         if (this.typeManager) {
             const schemaAt = await this.typeManager.getSchemaForObjectAt(document, position);
@@ -87,8 +95,6 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
                 }
             }
             return this.getModifierCompletions(document, extensions);
-        } else if (linePrefix.match(/\$\w*$/)) {
-            return this.getVariableCompletions(document, position);
         } else {
             return this.getKeywordCompletions();
         }
@@ -515,7 +521,9 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
             const item = new vscode.CompletionItem('$' + varName, vscode.CompletionItemKind.Variable);
             item.detail = 'Variable (this scope)';
             item.insertText = '$' + varName;
-            item.filterText = varName;
+            // Must include '$' — editor wordPattern treats '$' as part of the word, so filterText "foo"
+            // does not match prefix "$foo" and VS Code filters out every item ("No suggestions").
+            item.filterText = '$' + varName;
             items.push(item);
         }
 
@@ -525,7 +533,7 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
                 const inputItem = new vscode.CompletionItem('$input', vscode.CompletionItemKind.Variable);
                 inputItem.detail = 'Input parameter';
                 inputItem.insertText = '$input';
-                inputItem.filterText = 'input';
+                inputItem.filterText = '$input';
                 items.push(inputItem);
             }
         }
@@ -534,35 +542,10 @@ export class IslCompletionProvider implements vscode.CompletionItemProvider {
     }
 
     /**
-     * Resolve the file path for an imported module (import ModuleName from 'path').
+     * Resolve the file path for an imported module (supports `import A, B from 'path'`).
      */
     private resolveImportPath(document: vscode.TextDocument, moduleName: string): vscode.Uri | null {
-        const text = document.getText();
-        const lines = text.split('\n');
-        const importPattern = new RegExp(`import\\s+${moduleName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s+from\\s+['"]([^'"]+)['"]`);
-        for (let i = 0; i < lines.length; i++) {
-            const match = lines[i].match(importPattern);
-            if (match) {
-                const importPath = match[1];
-                const currentDir = path.dirname(document.uri.fsPath);
-                let resolvedPath: string;
-                if (path.isAbsolute(importPath)) {
-                    resolvedPath = importPath;
-                } else {
-                    resolvedPath = path.resolve(currentDir, importPath);
-                }
-                if (!resolvedPath.endsWith('.isl')) {
-                    const withExtension = resolvedPath + '.isl';
-                    if (fs.existsSync(withExtension)) {
-                        resolvedPath = withExtension;
-                    }
-                }
-                if (fs.existsSync(resolvedPath)) {
-                    return vscode.Uri.file(resolvedPath);
-                }
-            }
-        }
-        return null;
+        return findImportUriForModule(document, moduleName);
     }
 
     /**

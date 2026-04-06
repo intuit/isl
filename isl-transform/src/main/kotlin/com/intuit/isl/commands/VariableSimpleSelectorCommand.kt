@@ -17,6 +17,9 @@ class VariableSimpleSelectorCommand(
     private val expression: IEvaluableConditionCommand?
 ) :
     BaseCommand(token) {
+
+    internal val indexCondition: IEvaluableConditionCommand? get() = expression
+
     override val token: SimpleVariableSelectorValueToken
         get() = super.token as SimpleVariableSelectorValueToken;
 
@@ -77,6 +80,10 @@ class VariablePropertySelectorCommand(
     private val expression: IEvaluableConditionCommand?
 ) :
     BaseCommand(token) {
+
+    internal val propertyPrevious: IIslCommand get() = previousCommand
+    internal val propertyIndexCondition: IEvaluableConditionCommand? get() = expression
+
     override val token: SimplePropertySelectorValueToken
         get() = super.token as SimplePropertySelectorValueToken;
 

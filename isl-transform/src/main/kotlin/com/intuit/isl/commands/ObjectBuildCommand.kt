@@ -29,7 +29,9 @@ class ObjectBuildCommand(
 //        executionContext.operationContext.setVariable(tempVariableName, result);
 
         for (c in commands) {
+            executionContext.executionHook?.onBeforeExecute(c, executionContext)
             val commandResult = c.executeAsync(executionContext);
+            executionContext.executionHook?.onAfterExecute(c, executionContext, commandResult)
 
             if (!commandResult.propertyName.isNullOrEmpty() && commandResult.append != false) {
                 // TBD: There are way too many ways to do this.

@@ -5,6 +5,7 @@ import { IslExtensionsManager, getExtensionFunction, getExtensionModifier } from
 import { validateControlFlowBalance as validateControlFlowBalanceUtil } from './controlFlowMatcher';
 import { getBuiltInModifiersSet, getBuiltInFunctionsSet, getBuiltInNamespacesSet } from './language';
 import { getVariablesDeclaredAboveInCurrentScope, getEnclosingFunctionOrModifierRange } from './variableScope';
+import { parseIslImportLine } from './islImports';
 import type { IslTypeManager } from './types';
 
 export class IslValidator {
@@ -464,12 +465,11 @@ export class IslValidator {
         const lines = text.split('\n');
 
         for (const line of lines) {
-            // Match: import ModuleName from 'file.isl' or import ModuleName from "file.isl"
-            const importMatch = line.match(/import\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+from\s+['"]([^'"]+)['"]/);
-            if (importMatch) {
-                const moduleName = importMatch[1];
-                const filePath = importMatch[2];
-                imports.set(moduleName, filePath);
+            const parsed = parseIslImportLine(line);
+            if (parsed) {
+                for (const moduleName of parsed.names) {
+                    imports.set(moduleName, parsed.importPath);
+                }
             }
         }
 

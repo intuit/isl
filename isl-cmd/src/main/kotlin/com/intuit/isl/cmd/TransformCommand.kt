@@ -7,8 +7,12 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
+import com.intuit.isl.common.TransformVariable
+import com.intuit.isl.commands.CoverageStatementIdAssigner
+import com.intuit.isl.debug.CodeCoverageHook
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
+import com.intuit.isl.runtime.TransformModule
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -73,7 +77,13 @@ class TransformCommand : Runnable {
         description = ["Function name to execute (default: run)"]
     )
     var functionName: String = "run"
-    
+
+    @Option(
+        names = ["--coverage-report"],
+        description = ["Write code coverage (JSON) for editor extensions after a successful run"]
+    )
+    var coverageReportFile: File? = null
+
     override fun run() {
         try {
             // Infer output format from output file extension when not explicitly set
@@ -131,36 +141,83 @@ class TransformCommand : Runnable {
                 }
             }
             
-            // Add input data to variables if provided
-            if (inputData != null) {
-                variables["input"] = inputData
+            // Add input data to variables if provided:
+            // - JSON/YAML root object → bind each top-level key as $key (same as debug adapter / YAML tests)
+            // - array or scalar → legacy single variable $input
+            when (inputData) {
+                is Map<*, *> -> {
+                    @Suppress("UNCHECKED_CAST")
+                    val map = inputData as Map<*, *>
+                    map.forEach { (k, v) ->
+                        variables[k.toString()] = v
+                    }
+                }
+                else -> {
+                    if (inputData != null) {
+                        variables["input"] = inputData
+                    }
+                }
             }
-            
-            // Add $context with input file info when -i was used
+
+            // When -i was used, add inputFileName into $context (merge; do not replace user JSON)
             if (inputFile != null) {
-                variables["context"] = mapOf("inputFileName" to inputFile!!.name)
+                val fileName = inputFile!!.name
+                val ctx = variables["context"]
+                variables["context"] = when (ctx) {
+                    null -> mapOf("inputFileName" to fileName)
+                    is MutableMap<*, *> -> {
+                        @Suppress("UNCHECKED_CAST")
+                        val m = ctx as MutableMap<String, Any?>
+                        m["inputFileName"] = fileName
+                        m
+                    }
+                    is Map<*, *> -> {
+                        val m = LinkedHashMap<String, Any?>()
+                        ctx.forEach { (k, v) -> m[k.toString()] = v }
+                        m["inputFileName"] = fileName
+                        m
+                    }
+                    else -> mapOf("inputFileName" to fileName)
+                }
             }
             
             // Execute transformation using shared module resolution (supports relative imports like ../customer.isl)
             val transformPackage = IslModuleResolver.compileSingleFile(scriptFile, scriptContent)
             val transformer = transformPackage.getModule(scriptFile.name)
                 ?: throw IllegalStateException("Compiled module '${scriptFile.name}' not found in package")
+            val coverageModules: List<TransformModule> =
+                transformPackage.modules.mapNotNull { transformPackage.getModule(it)?.module }
 
             // Create operation context with variables and CLI extensions (e.g. Log)
             val context = OperationContext()
             LogExtensions.registerExtensions(context)
             variables.forEach { (key, value) ->
-                val varName = if (key.startsWith("$")) key else "$$key"
+                val varName = if (key.startsWith("$")) key else "$" + key
                 val varValue = JsonConvert.convert(value)
                 val valuePreview = varValue.toString().let { if (it.length > 10) it.take(10) + "..." else it }
                 println("Setting variable $varName to $valuePreview")
-                context.setVariable(varName, varValue)
+                context.setVariable(varName, TransformVariable(varValue, readOnly = false, global = true))
             }
             
+            val coverageHook = if (coverageReportFile != null) CodeCoverageHook() else null
+            if (coverageHook != null) {
+                for (m in coverageModules) {
+                    CoverageStatementIdAssigner.assign(m)
+                }
+            }
             val result = runBlocking {
-                transformer.runTransformAsync(functionName, context)
+                transformer.runTransformAsync(functionName, context, coverageHook)
             }
-            
+
+            if (coverageReportFile != null && coverageHook != null) {
+                try {
+                    coverageReportFile!!.parentFile?.mkdirs()
+                    CoverageReportJson.write(coverageReportFile!!, scriptFile.name, coverageHook, coverageModules)
+                } catch (e: Exception) {
+                    System.err.println("Warning: Failed to write coverage report: ${e.message}")
+                }
+            }
+
             // Format and output result
             val output = formatOutput(result.result, format, pretty)
             

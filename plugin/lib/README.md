@@ -5,6 +5,7 @@ This directory contains the embedded ISL command-line runtime that allows the ex
 ## Contents
 
 - `isl-cmd-all.jar` - ISL command-line tool with all dependencies (shadow JAR, ~35MB)
+- `isl-debug-adapter-all.jar` - ISL debug adapter (shadow JAR), used by the VS Code debugger
 - `isl.bat` - Windows script to run the JAR from the command line
 - `isl.sh` - Linux/Mac script to run the JAR from the command line
 
@@ -41,13 +42,15 @@ Before publishing package the [latest ISL](https://central.sonatype.com/search?n
 
 ## Building
 
-Build the fat JAR and copy it here using:
+Build **both** embedded JARs (CLI + debug adapter) and copy them here:
 
 ```bash
-./gradlew buildIslRuntimeLocal
+./gradlew buildPluginLibLocal
 ```
 
-This builds the shadow JAR from `isl-cmd` and copies it to `plugin/lib/isl-cmd-all.jar`.
+This runs `buildIslRuntimeLocal` and `buildDebugAdapterLocal`: `isl-cmd-all.jar` and `isl-debug-adapter-all.jar` in `plugin/lib/`.
+
+To build only one: `./gradlew buildIslRuntimeLocal` or `./gradlew buildDebugAdapterLocal`.
 
 To build only the JAR (without copying):
 
