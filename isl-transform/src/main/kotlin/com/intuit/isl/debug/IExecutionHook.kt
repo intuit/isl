@@ -5,21 +5,26 @@ import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
 
 /**
- * Hook injected into the ISL runtime to support debugging.
- * When null on [ExecutionContext], commands execute with zero overhead (a single null check).
- * When present, the hook is called before each statement-level command, allowing the debugger
- * to suspend execution (breakpoints, stepping) without any decorator wrappers.
+ * Hook injected into the ISL runtime for execution observability (debugging, coverage, tracing, etc.).
+ * When null on [ExecutionContext], commands incur only a null check at instrumentation sites.
+ * When present, the hook is invoked around statement-level execution and function boundaries.
  */
-interface IDebugHook {
+interface IExecutionHook {
+
+    /**
+     * When true, [com.intuit.isl.runtime.Transformer] runs [com.intuit.isl.commands.CoverageStatementIdAssigner.assign]
+     * once per [com.intuit.isl.runtime.TransformModule] before execution (no cost on compile-only paths).
+     */
+    val preparesStatementIds: Boolean get() = false
+
     /**
      * Called before a statement-level command executes.
-     * Implementations may suspend the coroutine to pause execution (e.g. at a breakpoint).
+     * Implementations may suspend the coroutine (e.g. debugger breakpoints / stepping).
      */
     suspend fun onBeforeExecute(command: IIslCommand, context: ExecutionContext)
 
     /**
      * Called after a statement-level command executes.
-     * Useful for capturing result values in the Variables panel.
      */
     suspend fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult)
 

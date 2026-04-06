@@ -4,6 +4,8 @@ import * as fs from 'fs';
 import * as os from 'os';
 import * as cp from 'child_process';
 import * as yaml from 'js-yaml';
+import type { IslCoverageDecorationManager } from './coverageDecorations';
+import { islCoverageUiEnabled } from './coverageDecorations';
 
 /** Test file pattern: tests folder anywhere in workspace; applies to files from that folder down (e.g. tests/, src/tests/, a/b/tests/) */
 const TEST_FILE_GLOB = '**/tests/**/*.isl';
@@ -1021,13 +1023,19 @@ export class IslTestController {
     private readonly watchers: vscode.FileSystemWatcher[] = [];
     private readonly outputChannel: vscode.OutputChannel;
     private readonly extensionPath: string;
+    private readonly coverageDecorations: IslCoverageDecorationManager | undefined;
     private readonly assertionDiagnostics: vscode.DiagnosticCollection;
     private documentChangeTimeouts = new Map<string, NodeJS.Timeout>();
     private runProfileHandler!: (request: vscode.TestRunRequest, token: vscode.CancellationToken) => Promise<void>;
 
-    constructor(outputChannel: vscode.OutputChannel, extensionPath: string) {
+    constructor(
+        outputChannel: vscode.OutputChannel,
+        extensionPath: string,
+        coverageDecorations?: IslCoverageDecorationManager
+    ) {
         this.outputChannel = outputChannel;
         this.extensionPath = extensionPath;
+        this.coverageDecorations = coverageDecorations;
         this.assertionDiagnostics = vscode.languages.createDiagnosticCollection(YAML_TEST_DIAGNOSTIC_SOURCE);
         this.controller = vscode.tests.createTestController('isl-tests', 'ISL Tests');
 
@@ -1282,7 +1290,14 @@ export class IslTestController {
             ? filePaths[0]
             : this.getCommonParent(filePaths) ?? workspaceFolder.uri.fsPath;
 
-        const outputFile = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'isl-test-')), 'results.json');
+        const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'isl-test-'));
+        const outputFile = path.join(tmpDir, 'results.json');
+        const coverageCfg = vscode.workspace.getConfiguration('isl.coverage');
+        const wantCoverage =
+            !!this.coverageDecorations &&
+            islCoverageUiEnabled() &&
+            coverageCfg.get<boolean>('showAfterTests', true);
+        const coverageFile = wantCoverage ? path.join(tmpDir, 'coverage.json') : undefined;
         const env = { ...process.env };
         const config = vscode.workspace.getConfiguration('isl.execution');
         const javaHome = config.get<string>('javaHome', '');
@@ -1313,9 +1328,10 @@ export class IslTestController {
         run.appendOutput(`Path: ${runPath}\r\n`);
         run.appendOutput(`Mode: ${isFile ? 'single file' : 'directory'}\r\n`);
         run.appendOutput(`Tests to run: ${testsToRun.map(t => t.id.split('#')[1] ?? t.label).join(', ')}\r\n`);
+        const covPart = coverageFile ? ` --coverage-report "${coverageFile}"` : '';
         const cmdLine = functionFilters.length > 0
-            ? `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose ${functionFilters.map(f => `-f "${f}"`).join(' ')}`
-            : `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose`;
+            ? `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose${covPart} ${functionFilters.map(f => `-f "${f}"`).join(' ')}`
+            : `java -jar isl-cmd-all.jar test "${runPath}" -o "${outputFile}" --verbose${covPart}`;
         run.appendOutput(`Command: ${cmdLine}\r\n`);
         run.appendOutput(`\r\n`);
 
@@ -1330,7 +1346,8 @@ export class IslTestController {
                 functionFilters,
                 env,
                 (chunk) => run.appendOutput(colorizeIslOutput(chunk)),
-                workspaceFolder.uri.fsPath
+                workspaceFolder.uri.fsPath,
+                coverageFile
             );
             execStdout = execResult.stdout;
             execStderr = execResult.stderr;
@@ -1349,6 +1366,9 @@ export class IslTestController {
         try {
             const raw = fs.readFileSync(outputFile, 'utf-8');
             results = JSON.parse(raw) as IslTestResultJson;
+            if (coverageFile && fs.existsSync(coverageFile)) {
+                this.coverageDecorations!.applyReportToOpenIslDocuments(coverageFile);
+            }
         } catch {
             run.appendOutput('Failed to parse test results JSON.\r\n');
             // Always show runner output so user can see what isl-cmd actually printed
@@ -1375,7 +1395,10 @@ export class IslTestController {
             return;
         } finally {
             try { fs.unlinkSync(outputFile); } catch { /* ignore */ }
-            try { fs.rmdirSync(path.dirname(outputFile)); } catch { /* ignore */ }
+            if (coverageFile) {
+                try { fs.unlinkSync(coverageFile); } catch { /* ignore */ }
+            }
+            try { fs.rmdirSync(tmpDir); } catch { /* ignore */ }
         }
 
         run.appendOutput(`--- Parsed results: ${results.results.length} test(s) ---\r\n`);
@@ -1660,10 +1683,14 @@ export class IslTestController {
         functionFilters: string[],
         env: NodeJS.ProcessEnv,
         onOutput: (chunk: string, isStderr: boolean) => void,
-        pathPrefixToStrip?: string
+        pathPrefixToStrip?: string,
+        coverageReportFile?: string
     ): Promise<{ stdout: string; stderr: string }> {
         return new Promise((resolve, reject) => {
             const args = ['-jar', jarPath, 'test', runPath, '-o', outputFile, '--verbose'];
+            if (coverageReportFile) {
+                args.push('--coverage-report', coverageReportFile);
+            }
             for (const f of functionFilters) {
                 args.push('-f', f);
             }

@@ -99,7 +99,7 @@ abstract class BaseTransformTest {
             val toPrettyString = moduleToken.toPrettyString(0);
 
             runLoop(1, "build") {
-                ExecutionBuilder("test", moduleToken, null, null).build()
+                ExecutionBuilder("test", moduleToken, null).build()
             }
 
             println();println();

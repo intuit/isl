@@ -131,6 +131,13 @@ tasks.register<Copy>("buildDebugAdapterLocal") {
     rename { "isl-debug-adapter-all.jar" }
 }
 
+/** One-shot build: CLI + debug adapter JARs into plugin/lib (fully functional extension). */
+tasks.register("buildPluginLibLocal") {
+    group = "build"
+    description = "Build isl-cmd and isl-debug-adapter fat JARs and copy both to plugin/lib"
+    dependsOn("buildIslRuntimeLocal", "buildDebugAdapterLocal")
+}
+
 tasks.register("publishToMavenCentral") {
     group = "publishing"
     description = "Publish all modules to Maven Central"

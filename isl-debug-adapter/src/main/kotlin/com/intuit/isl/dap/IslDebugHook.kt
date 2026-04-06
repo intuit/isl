@@ -4,7 +4,7 @@ import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.FunctionDeclarationCommand
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
-import com.intuit.isl.debug.IDebugHook
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.parser.tokens.FunctionDeclarationToken
 import com.intuit.isl.utils.Position
 import kotlinx.coroutines.CancellableContinuation
@@ -34,12 +34,12 @@ data class CallFrame(
 )
 
 /**
- * ISL debug hook that suspends execution at breakpoints / stepping boundaries
- * and notifies VS Code via DAP.
+ * [IExecutionHook] for the DAP debugger: suspends at breakpoints / stepping boundaries
+ * and notifies the client via DAP.
  */
 class IslDebugHook(
     private val adapter: DapAdapter
-) : IDebugHook {
+) : IExecutionHook {
 
     @Volatile
     var steppingMode: SteppingMode = SteppingMode.STEP_IN

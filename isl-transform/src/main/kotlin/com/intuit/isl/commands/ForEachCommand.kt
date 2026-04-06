@@ -11,6 +11,8 @@ import com.intuit.isl.utils.IIslIterable
 
 open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, val statements: IIslCommand) :
     BaseCommand(token) {
+
+    internal val foreachSource: IIslCommand get() = source
     override val token: ForEachToken
         get() = super.token as ForEachToken;
 
@@ -33,9 +35,9 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
             executionContext.operationContext.setVariable(token.iterator, JsonConvert.convert(it));
             executionContext.operationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 
-            executionContext.debugHook?.onBeforeExecute(statements, executionContext)
+            executionContext.executionHook?.onBeforeExecute(statements, executionContext)
             val itValue = statements.executeAsync(executionContext);
-            executionContext.debugHook?.onAfterExecute(statements, executionContext, itValue)
+            executionContext.executionHook?.onAfterExecute(statements, executionContext, itValue)
 
             if(itValue.validResult == false)
                 return@forEachIndexed; // ignore

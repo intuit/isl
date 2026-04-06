@@ -19,6 +19,7 @@ import { IslYamlTestsCodeLensProvider, debugYamlTestFromCommand } from './yamlTe
 import { showResultDiffViewer } from './diffViewer';
 import { IslYamlTestsCompletionProvider } from './islYamlTestsCompletion';
 import { IslPasteEditProvider } from './islPasteProvider';
+import { IslCoverageDecorationManager, islCoverageUiEnabled } from './coverageDecorations';
 import { IslDebugAdapterDescriptorFactory, IslDebugConfigurationProvider } from './debugAdapter';
 
 const outputChannelName = 'ISL Language Support';
@@ -46,7 +47,9 @@ export function activate(context: vscode.ExtensionContext) {
     // ISL Test Explorer - discovers @test/@setup in tests/**/*.isl and *.tests.yaml (islTests)
     // Use a dedicated "ISL Tests" output channel for test run results
     const islTestsOutputChannel = vscode.window.createOutputChannel('ISL Tests', 'ansi');
-    const testController = new IslTestController(islTestsOutputChannel, context.extensionPath);
+    const coverageDecorations = new IslCoverageDecorationManager();
+    context.subscriptions.push(coverageDecorations);
+    const testController = new IslTestController(islTestsOutputChannel, context.extensionPath, coverageDecorations);
     context.subscriptions.push({ dispose: () => testController.dispose() });
 
     // Update "Run all Tests in file" button visibility when active editor changes
@@ -232,7 +235,7 @@ export function activate(context: vscode.ExtensionContext) {
     );
 
     // Register executor
-    const executor = new IslExecutor(context.extensionPath);
+    const executor = new IslExecutor(context.extensionPath, coverageDecorations);
 
     // ISL terminal profile: shell with lib/ on PATH so user can run "isl" or "isl.bat" / "isl.sh"
     const islLibPath = path.join(context.extensionPath, 'lib');
@@ -284,6 +287,34 @@ export function activate(context: vscode.ExtensionContext) {
             if (editor && editor.document.languageId === 'isl') {
                 await executor.compile(editor.document);
             }
+        }),
+
+        vscode.commands.registerCommand('isl.clearCoverage', () => {
+            coverageDecorations.clearAll();
+        }),
+
+        vscode.commands.registerCommand('isl.loadCoverageReport', async () => {
+            if (!islCoverageUiEnabled()) {
+                vscode.window.showWarningMessage(
+                    'ISL coverage display is off. Enable **ISL › Coverage: Enabled** (`isl.coverage.enabled`) in settings.'
+                );
+                return;
+            }
+            const editor = vscode.window.activeTextEditor;
+            if (!editor || editor.document.languageId !== 'isl') {
+                vscode.window.showWarningMessage('Open an ISL file as the active editor.');
+                return;
+            }
+            const picked = await vscode.window.showOpenDialog({
+                canSelectMany: false,
+                filters: { JSON: ['json'] },
+                openLabel: 'Load coverage report'
+            });
+            if (!picked?.[0]) {
+                return;
+            }
+            coverageDecorations.applyReportForDocument(editor.document, picked[0].fsPath);
+            vscode.window.showInformationMessage('ISL coverage applied from file.');
         }),
 
         vscode.commands.registerCommand('isl.format', async () => {

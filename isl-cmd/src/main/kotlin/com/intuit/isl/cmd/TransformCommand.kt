@@ -8,8 +8,11 @@ import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.fasterxml.jackson.module.kotlin.readValue
 import com.intuit.isl.common.OperationContext
 import com.intuit.isl.common.TransformVariable
+import com.intuit.isl.commands.CoverageStatementIdAssigner
+import com.intuit.isl.debug.CodeCoverageHook
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
+import com.intuit.isl.runtime.TransformModule
 import kotlinx.coroutines.runBlocking
 import picocli.CommandLine.Command
 import picocli.CommandLine.Option
@@ -74,7 +77,13 @@ class TransformCommand : Runnable {
         description = ["Function name to execute (default: run)"]
     )
     var functionName: String = "run"
-    
+
+    @Option(
+        names = ["--coverage-report"],
+        description = ["Write code coverage (JSON) for editor extensions after a successful run"]
+    )
+    var coverageReportFile: File? = null
+
     override fun run() {
         try {
             // Infer output format from output file extension when not explicitly set
@@ -176,6 +185,8 @@ class TransformCommand : Runnable {
             val transformPackage = IslModuleResolver.compileSingleFile(scriptFile, scriptContent)
             val transformer = transformPackage.getModule(scriptFile.name)
                 ?: throw IllegalStateException("Compiled module '${scriptFile.name}' not found in package")
+            val coverageModules: List<TransformModule> =
+                transformPackage.modules.mapNotNull { transformPackage.getModule(it)?.module }
 
             // Create operation context with variables and CLI extensions (e.g. Log)
             val context = OperationContext()
@@ -188,10 +199,25 @@ class TransformCommand : Runnable {
                 context.setVariable(varName, TransformVariable(varValue, readOnly = false, global = true))
             }
             
-            val result = runBlocking {
-                transformer.runTransformAsync(functionName, context)
+            val coverageHook = if (coverageReportFile != null) CodeCoverageHook() else null
+            if (coverageHook != null) {
+                for (m in coverageModules) {
+                    CoverageStatementIdAssigner.assign(m)
+                }
             }
-            
+            val result = runBlocking {
+                transformer.runTransformAsync(functionName, context, coverageHook)
+            }
+
+            if (coverageReportFile != null && coverageHook != null) {
+                try {
+                    coverageReportFile!!.parentFile?.mkdirs()
+                    CoverageReportJson.write(coverageReportFile!!, scriptFile.name, coverageHook, coverageModules)
+                } catch (e: Exception) {
+                    System.err.println("Warning: Failed to write coverage report: ${e.message}")
+                }
+            }
+
             // Format and output result
             val output = formatOutput(result.result, format, pretty)
             

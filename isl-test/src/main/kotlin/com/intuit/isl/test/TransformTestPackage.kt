@@ -1,6 +1,7 @@
 package com.intuit.isl.test
 
 import com.intuit.isl.common.IOperationContext
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.test.annotations.SetupAnnotation
 import com.intuit.isl.test.annotations.TestAnnotation
 import com.intuit.isl.test.annotations.TestResultContext
@@ -12,7 +13,8 @@ import java.nio.file.Path
 class TransformTestPackage(
     private val transformPackage: TransformPackage,
     private val basePath: Path? = null,
-    private val contextCustomizers: List<(IOperationContext) -> Unit> = emptyList()
+    private val contextCustomizers: List<(IOperationContext) -> Unit> = emptyList(),
+    private val executionHook: IExecutionHook? = null
 ) {
     private val testFiles = mutableMapOf<String, TransformTestFile>()
 
@@ -36,6 +38,10 @@ class TransformTestPackage(
             }
         }
     }
+
+    /** Compiled modules (main + imports) for coverage branch analysis after tests. */
+    fun allTransformModules(): List<TransformModule> =
+        transformPackage.modules.mapNotNull { transformPackage.getModule(it)?.module }
 
     fun runAllTests(testResultContext: TestResultContext? = null, verbose: Boolean = false) : TestResultContext {
         return runFilteredTests(testResultContext, { _, _ -> true }, verbose)
@@ -77,9 +83,9 @@ class TransformTestPackage(
         // Run setup function if it exists
         if (setupFunc != null) {
             val fullSetupFunctionName = TransformPackage.toFullFunctionName(testFile, setupFunc)
-            transformPackage.runTransform(fullSetupFunctionName, context)
+            transformPackage.runTransform(fullSetupFunctionName, context, executionHook)
         }
-        transformPackage.runTransform(fullFunctionName, context)
+        transformPackage.runTransform(fullFunctionName, context, executionHook)
     }
 
     private fun verifyIfModuleIsTestFile(

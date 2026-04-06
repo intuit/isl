@@ -3,7 +3,9 @@ package com.intuit.isl.cmd
 import com.fasterxml.jackson.databind.SerializationFeature
 import com.fasterxml.jackson.module.kotlin.jacksonObjectMapper
 import com.intuit.isl.runtime.FileInfo
+import com.intuit.isl.runtime.TransformModule
 import com.intuit.isl.runtime.TransformCompilationException
+import com.intuit.isl.debug.CodeCoverageHook
 import com.intuit.isl.test.TransformTestPackageBuilder
 import com.intuit.isl.test.annotations.TestResult
 import com.intuit.isl.test.annotations.TestResultContext
@@ -71,12 +73,19 @@ class TestCommand : Runnable {
     )
     var reportFile: File? = null
 
+    @Option(
+        names = ["--coverage-report"],
+        description = ["After tests finish, write aggregated ISL execution coverage (JSON) for editor extensions (same format as transform --coverage-report)"]
+    )
+    var coverageReportFile: File? = null
+
     private fun logCommandLineParams() {
         val pathStr = path?.let { it.absolutePath } ?: "(default: current directory)"
         val globStr = globPattern ?: "(default: **/*.isl)"
         val outputStr = outputFile?.path ?: "(none)"
         val functionStr = if (functions.isEmpty()) "(all)" else functions.map { it.trim() }.filter { it.isNotEmpty() }.joinToString(", ")
         val reportStr = reportFile?.path ?: "(none)"
+        val coverageStr = coverageReportFile?.path ?: "(none)"
         println("[ISL Test] Command line:")
         println("  path     : $pathStr")
         println("  glob     : $globStr")
@@ -84,6 +93,7 @@ class TestCommand : Runnable {
         println("  function : $functionStr")
         println("  verbose  : $verbose")
         println("  report   : $reportStr")
+        println("  coverage : $coverageStr")
     }
 
     override fun run() {
@@ -113,6 +123,8 @@ class TestCommand : Runnable {
                 { ctx -> TestExtensions.registerExtensions(ctx) }
             )
             val functionFilter = functions.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
+            val coverageHook = if (coverageReportFile != null) CodeCoverageHook() else null
+            val branchAnalysisModules = LinkedHashMap<String, TransformModule>()
 
             if (testFiles.isNotEmpty()) {
                 if (verbose) println("[ISL Loading] Found ${testFiles.size} ISL test file(s)")
@@ -127,8 +139,14 @@ class TestCommand : Runnable {
                         fileInfos,
                         findExternalModule as java.util.function.BiFunction<String, String, String>,
                         searchBase,
-                        contextCustomizers
+                        contextCustomizers,
+                        coverageHook
                     )
+                    if (coverageReportFile != null) {
+                        for (m in testPackage.allTransformModules()) {
+                            branchAnalysisModules[m.name.lowercase()] = m
+                        }
+                    }
                     if (functionFilter.isEmpty()) {
                         testPackage.runAllTests(result, verbose)
                     } else {
@@ -155,7 +173,24 @@ class TestCommand : Runnable {
                 if (verbose) println("[ISL Loading] Found ${yamlSuites.size} YAML test suite(s)")
                 for (yamlPath in yamlSuites) {
                     val suiteBase = if (yamlPath.toFile().isFile) yamlPath.parent else yamlPath
-                    YamlUnitTestRunner.runSuite(yamlPath, suiteBase, result, contextCustomizers, functionFilter, verbose)
+                    YamlUnitTestRunner.runSuite(
+                        yamlPath,
+                        suiteBase,
+                        result,
+                        contextCustomizers,
+                        functionFilter,
+                        verbose,
+                        coverageHook,
+                        onTransformPackageBuilt = { pkg ->
+                            if (coverageReportFile != null) {
+                                for (n in pkg.modules) {
+                                    pkg.getModule(n)?.module?.let { mod ->
+                                        branchAnalysisModules[mod.name.lowercase()] = mod
+                                    }
+                                }
+                            }
+                        }
+                    )
                 }
             }
 
@@ -167,6 +202,20 @@ class TestCommand : Runnable {
             reportResults(result, verbose)
             outputFile?.let { writeResultsToJson(result, it) }
             reportFile?.let { writeReportMarkdown(result, it) }
+            if (coverageReportFile != null && coverageHook != null) {
+                try {
+                    coverageReportFile!!.parentFile?.mkdirs()
+                    CoverageReportJson.write(
+                        coverageReportFile!!,
+                        "",
+                        coverageHook,
+                        modules = emptyList(),
+                        modulesForBranchAnalysis = branchAnalysisModules.values.toList()
+                    )
+                } catch (e: Exception) {
+                    System.err.println(red("[ISL Error] Failed to write coverage report: ${e.message}"))
+                }
+            }
             val failedCount = result.testResults.count { !it.success }
             if (failedCount > 0) {
                 exitProcess(1)

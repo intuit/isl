@@ -123,6 +123,31 @@
           "default": "",
           "description": "Path to Java home directory (if not in PATH)"
         },
+        "isl.coverage.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show execution coverage in ISL editors (statement highlights; gutter is green only when every coverable statement on the line ran, for transform reports with a full catalog). Turn off to hide all coverage decorations."
+        },
+        "isl.coverage.showAfterRun": {
+          "type": "boolean",
+          "default": true,
+          "description": "After ISL: Run Transformation (with JSON input), apply coverage when the CLI writes a report (requires embedded or matching external CLI). Requires isl.coverage.enabled."
+        },
+        "isl.coverage.showAfterTests": {
+          "type": "boolean",
+          "default": true,
+          "description": "After ISL Test Explorer runs, apply coverage from isl test --coverage-report. Requires isl.coverage.enabled."
+        },
+        "isl.coverage.showStatementRegions": {
+          "type": "boolean",
+          "default": false,
+          "description": "Deprecated: statement hit highlights are always shown. This setting is ignored."
+        },
+        "isl.coverage.clearWhenDocumentEdited": {
+          "type": "boolean",
+          "default": false,
+          "description": "When true, remove coverage highlights a few seconds after you stop typing (report line numbers may no longer match the file). When false (default), keep highlights until the next run, test, or **ISL: Clear Coverage**."
+        },
         "isl.extensions.source": {
           "type": "string",
           "default": "",
@@ -170,6 +195,14 @@
         "command": "isl.compile",
         "title": "ISL: Compile (Validate) File",
         "icon": "$(run-all)"
+      },
+      {
+        "command": "isl.clearCoverage",
+        "title": "ISL: Clear Coverage Highlights"
+      },
+      {
+        "command": "isl.loadCoverageReport",
+        "title": "ISL: Load Coverage Report from File…"
       },
       {
         "command": "isl.runAllTestsInFile",
@@ -221,6 +254,16 @@
           "when": "resourceLangId == isl",
           "command": "isl.runWithInput",
           "group": "isl@3"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.loadCoverageReport",
+          "group": "isl@4"
+        },
+        {
+          "when": "resourceLangId == isl",
+          "command": "isl.clearCoverage",
+          "group": "isl@5"
         }
       ],
       "commandPalette": [
@@ -242,6 +285,14 @@
         },
         {
           "command": "isl.compile",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.clearCoverage",
+          "when": "resourceLangId == isl"
+        },
+        {
+          "command": "isl.loadCoverageReport",
           "when": "resourceLangId == isl"
         },
         {

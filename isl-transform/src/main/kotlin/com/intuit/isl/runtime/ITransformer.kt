@@ -3,6 +3,7 @@ package com.intuit.isl.runtime
 import com.fasterxml.jackson.databind.JsonNode
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.common.LocalOperationContext
+import com.intuit.isl.debug.IExecutionHook
 
 interface ITransformer {
     val module: TransformModule
@@ -17,7 +18,8 @@ interface ITransformer {
      */
     suspend fun runTransformAsync(
         functionName: String = "run",
-        operationContext: IOperationContext
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook? = null
     ): ITransformResult;
 
     /**

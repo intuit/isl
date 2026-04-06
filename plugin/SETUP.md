@@ -105,8 +105,8 @@ plugin/
 ### Building & Packaging
 
 ```bash
-# Update embedded ISL CLI (when ISL runtime changes)
-./gradlew buildIslRuntimeLocal   # from repo root
+# Update embedded JARs: CLI + debug adapter (when ISL or DAP changes)
+./gradlew buildPluginLibLocal   # from repo root
 
 # Compile
 npm run compile

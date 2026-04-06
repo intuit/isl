@@ -11,6 +11,7 @@ import com.intuit.isl.runtime.TransformCompilationException
 import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.TransformPackage
 import com.intuit.isl.runtime.TransformPackageBuilder
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.test.TestExitException
 import com.intuit.isl.test.TestFailException
 import com.intuit.isl.common.IOperationContext
@@ -118,7 +119,9 @@ object YamlUnitTestRunner {
         resultContext: TestResultContext,
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
         functionFilter: FunctionFilter = emptySet(),
-        verbose: Boolean = false
+        verbose: Boolean = false,
+        executionHook: IExecutionHook? = null,
+        onTransformPackageBuilt: ((TransformPackage) -> Unit)? = null
     ) {
         val suite = parseSuite(yamlPath.toFile().readText())
         val setup = suite.setup
@@ -162,6 +165,8 @@ object YamlUnitTestRunner {
             return
         }
 
+        onTransformPackageBuilt?.invoke(transformPackage)
+
         val groupName = suite.category ?: yamlPath.nameWithoutExtension
         val suiteFileName = yamlPath.fileName.toString()
 
@@ -195,7 +200,8 @@ object YamlUnitTestRunner {
                 contextCustomizers = contextCustomizers,
                 assertOptions = opts,
                 printMockSummary = verbose && (index == 0),
-                verbose = verbose
+                verbose = verbose,
+                executionHook = executionHook
             )
             resultContext.testResults.add(testResult)
         }
@@ -267,7 +273,8 @@ object YamlUnitTestRunner {
         contextCustomizers: List<(com.intuit.isl.common.IOperationContext) -> Unit>,
         assertOptions: AssertOptions = AssertOptions(),
         printMockSummary: Boolean = false,
-        verbose: Boolean = false
+        verbose: Boolean = false,
+        executionHook: IExecutionHook? = null
     ): TestResult {
         val context = buildOperationContextForYamlEntry(
             transformPackage = transformPackage,
@@ -287,7 +294,7 @@ object YamlUnitTestRunner {
             if (verbose) println("[ISL Mock] Running ${entry.functionName}")
             val fullName = TransformPackage.toFullFunctionName(moduleName, entry.functionName)
             val result = try {
-                transformPackage.runTransformNew(fullName, context)
+                transformPackage.runTransformNew(fullName, context, executionHook)
             } catch (e: TestFailException) {
                 // Test.Fail — skip comparison, return failure immediately
                 return makeFailResult(yamlPath, entry, groupName, e)

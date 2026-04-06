@@ -1,9 +1,9 @@
 package com.intuit.isl.common
 
-import com.intuit.isl.debug.IDebugHook
+import com.intuit.isl.debug.IExecutionHook
 
 data class ExecutionContext(
     val operationContext: IOperationContext,
     val localContext: Any?,
-    val debugHook: IDebugHook? = null
+    val executionHook: IExecutionHook? = null
 )

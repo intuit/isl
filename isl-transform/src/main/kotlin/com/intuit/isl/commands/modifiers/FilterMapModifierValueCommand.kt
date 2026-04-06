@@ -20,8 +20,12 @@ class FilterMapModifierValueCommand(
     private val filterExpression: IEvaluableConditionCommand,
     private val mapArgument: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val filterMapSource: IIslCommand get() = value
+    internal val filterMapPredicate: IEvaluableConditionCommand get() = filterExpression
+    internal val filterMapMapArgument: IIslCommand get() = mapArgument
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val sourceCollection = value.executeAsync(executionContext).value
 

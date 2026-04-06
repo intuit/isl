@@ -14,8 +14,11 @@ class MapModifierValueCommand(
     private val previousValue: IIslCommand,
     private val argument: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val mapPreviousValue: IIslCommand get() = previousValue
+    internal val mapArgument: IIslCommand get() = argument
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val sourceCollection = previousValue.executeAsync(executionContext).value
 

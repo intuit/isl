@@ -75,14 +75,14 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
                 childContext.setVariable(name.name, JsonConvert.convert(value));
             }
 
-            val childExecutionContext = ExecutionContext(childContext, functionContext.executionContext.localContext, functionContext.executionContext.debugHook);
+            val childExecutionContext = ExecutionContext(childContext, functionContext.executionContext.localContext, functionContext.executionContext.executionHook);
 
-            childExecutionContext.debugHook?.onFunctionEnter(this, childExecutionContext)
+            childExecutionContext.executionHook?.onFunctionEnter(this, childExecutionContext)
             try {
                 val result = executeAsync(childExecutionContext);
                 return@declaration result.value;
             } finally {
-                childExecutionContext.debugHook?.onFunctionExit(this, childExecutionContext)
+                childExecutionContext.executionHook?.onFunctionExit(this, childExecutionContext)
             }
         }
         return sameModuleRunner;
@@ -122,6 +122,8 @@ class FunctionReturnCommandHandler(token: FunctionDeclarationToken, val statemen
  * Note, a function can have multiple return statements - first hit is the lucky winner.
  */
 class FunctionReturnCommand(token: FunctionReturnToken, private val returnValue: IIslCommand) : BaseCommand(token) {
+
+    internal val returnExpression: IIslCommand get() = returnValue
     var useReturnValue: Boolean = false;
 
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {

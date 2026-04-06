@@ -7,7 +7,12 @@ class ConditionToken(
     val expression: IIslToken,
     val trueResult: IIslToken,
     val falseResult: IIslToken?,
-    position: Position
+    position: Position,
+    /**
+     * 1-based source line of `endif` when the grammar included it (same coordinate system as [Position.line]).
+     * Used so coverage treats the closing keyword as executed with the construct and omits it from branch-partial lines.
+     */
+    val endifSourceLine: Int? = null
 ) : BaseToken(position, null, "if") {
     override fun toString(): String {
         return "[if] $expression\n" +

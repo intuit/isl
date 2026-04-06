@@ -15,8 +15,11 @@ class FilterModifierValueCommand(
     private val value: IIslCommand,
     private val expression: IEvaluableConditionCommand
 ) : BaseCommand(token) {
+
+    internal val filterSource: IIslCommand get() = value
+    internal val filterExpression: IEvaluableConditionCommand get() = expression
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val sourceCollection = value.executeAsync(executionContext).value
 

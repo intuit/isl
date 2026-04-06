@@ -38,7 +38,7 @@ class PotentialGenericConditionalModifierCommand(
 //        println(">>>>>>>>>>>>>>>>>>> got confused by ${name}")
 //    }
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val standardModifier = executionContext.operationContext.getExtension("modifier.${modifierName}")
         val result =
@@ -91,7 +91,7 @@ class GenericConditionalModifierCommand(
     }
 
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val extension =
             executionContext.operationContext.getConditionalExtension("modifier.$modifierName")

@@ -25,10 +25,7 @@ import java.util.*
 class ExecutionBuilder(
     private val moduleName: String,
     private val rootToken: ModuleImplementationToken,
-    private val buildDecorator: ICommandVisitor<IIslCommand>? = null,
     private val moduleFinder: ((name: String) -> ITransformer?)? = null,
-
-    /* Custom Binded Operation Context for Hardwiring of function calls */
     private val operationContext: IOperationContext? = null
 ) : IIslTokenVisitor<IIslCommand> {
 
@@ -108,24 +105,10 @@ class ExecutionBuilder(
         }
     }
 
-    // Decorating at build time seems to be the easiest approach - even if we need a visitor for most commands
-    // We could do it reflectively (introspection) but that can be tricky for loops or conditions
-    // where ordering of operations matter
-    private fun decorate(command: IIslCommand, vararg children: IIslCommand?): IIslCommand {
-        val result = if (buildDecorator != null) command.visit(buildDecorator) else command;
-        children.forEach {
-            it?.parent = result;
-        }
-        return result;
+    private fun withParent(command: IIslCommand, vararg children: IIslCommand?): IIslCommand {
+        children.forEach { it?.parent = command }
+        return command
     }
-
-    //    private fun decorateNull(command: IXCommand?, vararg children: IXCommand) : IXCommand? {
-//        val result = if (buildDecorator != null)  command?.visit(buildDecorator) else command;
-//        children.forEach {
-//            it.parent = result;
-//        }
-//        return result;
-//    }
     override fun visit(token: AssignPropertyToken): IIslCommand {
         val value = token.value.visit(this);
 
@@ -134,14 +117,14 @@ class ExecutionBuilder(
         // prop1: { prop2: { prop3: value } } }
         // this means we need to unwrap and bundle multiple lines together into a single object
         // one of the many optimizations we can nicely do
-        return decorate(AssignPropertyCommand(token, value), value);
+        return withParent(AssignPropertyCommand(token, value), value);
     }
 
     override fun visit(token: AssignDynamicPropertyToken): IIslCommand {
         val name = token.name.visit(this);
         val value = token.value.visit(this);
 
-        return decorate(AssignDynamicPropertyCommand(token, name, value), value);
+        return withParent(AssignDynamicPropertyCommand(token, name, value), value);
     }
 
     override fun visit(token: AssignVariableToken): IIslCommand {
@@ -154,7 +137,7 @@ class ExecutionBuilder(
         }
 
         val value = token.value.visit(this);
-        return decorate(AssignVariableCommand(token, value), value);
+        return withParent(AssignVariableCommand(token, value), value);
     }
 
     private fun tryBuildSelfSpreadOptimization(token: AssignVariableToken): IIslCommand? {
@@ -163,21 +146,21 @@ class ExecutionBuilder(
                 val first = valueToken.statements.firstOrNull() ?: return null;
                 if (!isSelfSpread(first, token.name)) return null;
                 val remainingCommands = valueToken.statements.drop(1).map { it.visit(this) };
-                val seededBuild = decorate(
+                val seededBuild = withParent(
                     ObjectBuildCommand(valueToken, remainingCommands.toMutableList(), token.name),
                     *remainingCommands.toTypedArray()
                 );
-                decorate(AssignVariableCommand(token, seededBuild), seededBuild);
+                withParent(AssignVariableCommand(token, seededBuild), seededBuild);
             }
             is DeclareArrayToken -> {
                 val first = valueToken.values.firstOrNull() ?: return null;
                 if (!isSelfSpread(first, token.name)) return null;
                 val remainingCommands = valueToken.values.drop(1).map { it.visit(this) };
-                val seededBuild = decorate(
+                val seededBuild = withParent(
                     ArrayCommand(valueToken, ArrayList(remainingCommands), token.name),
                     *remainingCommands.toTypedArray()
                 );
-                decorate(AssignVariableCommand(token, seededBuild), seededBuild);
+                withParent(AssignVariableCommand(token, seededBuild), seededBuild);
             }
             else -> null;
         }
@@ -216,12 +199,12 @@ class ExecutionBuilder(
                     token.statements.position
                 );
             }
-            decorate(HardwiredFunctionCallCommand(token, arguments, existingMethod));
+            withParent(HardwiredFunctionCallCommand(token, arguments, existingMethod));
         } else {
             if (statements != null)
-                decorate(StatementFunctionCallCommand(token, arguments, statements));
+                withParent(StatementFunctionCallCommand(token, arguments, statements));
             else {
-                decorate(FunctionCallCommand(token, arguments));
+                withParent(FunctionCallCommand(token, arguments));
             }
         }
     }
@@ -230,7 +213,7 @@ class ExecutionBuilder(
 //        val statements = when (token.statements) {
 //            is StatementsToken -> {
 //                val commands = token.statements.map { it.visit(this) };
-//                decorate(
+//                withParent(
 //                    StatementsBuildCommand(StatementsToken(token.statements, token.position), commands),
 //                    children = commands.toTypedArray()
 //                );
@@ -239,7 +222,7 @@ class ExecutionBuilder(
 //            else -> token.statements.visit(this);
 //        }
 //
-//        return decorate(WithLockCommand(token, statements));
+//        return withParent(WithLockCommand(token, statements));
 //    }
 
     override fun visit(token: ParallelForEachToken): IIslCommand {
@@ -250,7 +233,7 @@ class ExecutionBuilder(
         val statements = when (token.statements) {
             is StatementsToken -> {
                 val commands = token.statements.map { it.visit(this) };
-                decorate(
+                withParent(
                     StatementsBuildCommand(StatementsToken(token.statements, token.position), commands),
                     children = commands.toTypedArray()
                 );
@@ -259,7 +242,7 @@ class ExecutionBuilder(
             else -> token.statements.visit(this);
         }
 
-        return decorate(ParallelForEachCommand(token, options, source, statements));
+        return withParent(ParallelForEachCommand(token, options, source, statements));
     }
 
     override fun visit(token: ForEachToken): IIslCommand {
@@ -269,7 +252,7 @@ class ExecutionBuilder(
         val statements = when (token.statements) {
             is StatementsToken -> {
                 val commands = token.statements.map { it.visit(this) };
-                decorate(
+                withParent(
                     StatementsBuildCommand(StatementsToken(token.statements, token.position), commands),
                     children = commands.toTypedArray()
                 );
@@ -278,11 +261,11 @@ class ExecutionBuilder(
             else -> token.statements.visit(this);
         }
 
-        return decorate(ForEachCommand(token, source, statements));
+        return withParent(ForEachCommand(token, source, statements));
     }
 
     override fun visit(token: LiteralValueToken): IIslCommand {
-        return decorate(LiteralValueCommand(token));
+        return withParent(LiteralValueCommand(token));
     }
 
     override fun visit(token: ModifierValueToken): IIslCommand {
@@ -295,7 +278,7 @@ class ExecutionBuilder(
                 filterToken.condition.visit(this) as IEvaluableConditionCommand,
                 token.argument.visit(this)
             )
-            return decorate(fused, baseValue)
+            return withParent(fused, baseValue)
         }
 
         val previousValue = token.previousToken.visit(this);
@@ -374,7 +357,7 @@ class ExecutionBuilder(
             modifierCommand = buildModifierCommand(token, previousValue, arguments)
         }
 
-        return decorate(modifierCommand, previousValue);
+        return withParent(modifierCommand, previousValue);
     }
 
     /**
@@ -469,35 +452,35 @@ class ExecutionBuilder(
 
     override fun visit(token: VariableSelectorValueToken): IIslCommand {
         if (token.path.isNullOrBlank())
-            return decorate(VariableSelectorValueCommand(token));
+            return withParent(VariableSelectorValueCommand(token));
         else {
             val parts = parseSimpleJsonPath("$." + token.path);
             return if (parts != null) {
                 if (parts.size == 1)
-                    decorate(FastSingleVariableWithPathSelectorValueCommand(token));
+                    withParent(FastSingleVariableWithPathSelectorValueCommand(token));
                 else
-                    decorate(FastVariableWithPathSelectorValueCommand(token, parts))
+                    withParent(FastVariableWithPathSelectorValueCommand(token, parts))
             } else
-                decorate(VariableWithPathSelectorValueCommand(token));
+                withParent(VariableWithPathSelectorValueCommand(token));
         }
     }
 
     override fun visit(token: SimpleVariableSelectorValueToken): IIslCommand {
         val condition = token.conditionSelector?.visit(this) as IEvaluableConditionCommand?;
-        return decorate(VariableSimpleSelectorCommand(token, condition));
+        return withParent(VariableSimpleSelectorCommand(token, condition));
     }
 
     override fun visit(token: SimplePropertySelectorValueToken): IIslCommand {
         val previous = token.previousToken.visit(this);
         val condition = token.conditionSelector?.visit(this) as IEvaluableConditionCommand?;
-        return decorate(VariablePropertySelectorCommand(token, previous, condition));
+        return withParent(VariablePropertySelectorCommand(token, previous, condition));
     }
 
     override fun visit(token: StatementsToken): IIslCommand {
         val commands = token.map { it.visit(this) };
         val built = ObjectBuildCommand(DeclareObjectToken(token, token.position), commands.toMutableList());
         val folded = ObjectBuildConstantFolder.tryFold(built);
-        return decorate(
+        return withParent(
             folded,
             children = commands.toTypedArray()
         );
@@ -507,7 +490,7 @@ class ExecutionBuilder(
         val commands = token.statements.map { it.visit(this) };
         val built = ObjectBuildCommand(token, commands.toMutableList());
         val folded = ObjectBuildConstantFolder.tryFold(built);
-        return decorate(
+        return withParent(
             folded,
             children = commands.toTypedArray()
         );
@@ -523,7 +506,7 @@ class ExecutionBuilder(
         val trueResult = token.trueResult.visit(this);
         val falseResult = token.falseResult?.visit(this);
 
-        return decorate(
+        return withParent(
             ConditionCommand(token, condition, trueResult, falseResult),
             condition as IIslCommand,
             trueResult,
@@ -573,7 +556,7 @@ class ExecutionBuilder(
         token.values.forEach {
             resultValues.add(it.visit(this));
         }
-        return decorate(ArrayCommand(token, resultValues));
+        return withParent(ArrayCommand(token, resultValues));
     }
 
     override fun visit(token: StringInterpolateToken): IIslCommand {
@@ -581,14 +564,14 @@ class ExecutionBuilder(
         token.forEach {
             resultValues.add(it.visit(this));
         }
-        return decorate(InterpolateCommand(token, resultValues));
+        return withParent(InterpolateCommand(token, resultValues));
     }
 
     override fun visit(token: MathExpressionToken): IIslCommand {
         val left = token.left.visit(this);
         val right = token.right.visit(this);
 
-        return decorate(MathExpressionCommand(token, left, right, token.operation));
+        return withParent(MathExpressionCommand(token, left, right, token.operation));
     }
 
     // Functions & Modules
@@ -639,12 +622,12 @@ class ExecutionBuilder(
         // Return the first annotation command
         statements = visitAnnotationDeclarationToken(token.annotations, statements, token);
 
-        return decorate(FunctionDeclarationCommand(token, statements));
+        return withParent(FunctionDeclarationCommand(token, statements));
     }
 
     override fun visit(token: FunctionReturnToken): IIslCommand {
         val value = token.value.visit(this);
-        return decorate(FunctionReturnCommand(token, value));
+        return withParent(FunctionReturnCommand(token, value));
     }
 
     private val imports = TreeMap<String, ITransformer>(String.CASE_INSENSITIVE_ORDER);
@@ -779,7 +762,7 @@ class ExecutionBuilder(
         val statements = when (token.statements) {
             is StatementsToken -> {
                 val commands = token.statements.map { it.visit(this) };
-                decorate(
+                withParent(
                     StatementsBuildCommand(StatementsToken(token.statements, token.position), commands),
                     children = commands.toTypedArray()
                 );
@@ -788,6 +771,6 @@ class ExecutionBuilder(
             else -> token.statements.visit(this);
         }
 
-        return decorate(WhileCommand(token, expression, limit, statements));
+        return withParent(WhileCommand(token, expression, limit, statements));
     }
 }

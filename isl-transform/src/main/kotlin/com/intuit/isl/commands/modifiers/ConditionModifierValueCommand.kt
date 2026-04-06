@@ -16,7 +16,7 @@ class ConditionModifierValueCommand(
     val trueModifier: IIslCommand
 ) : BaseCommand(token) {
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val sourceValue = value.executeAsync(executionContext)
 

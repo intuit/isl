@@ -25,7 +25,6 @@ interface IJsonVisitor {
 class IslJsBuilder(
     private val moduleName: String,
     private val rootToken: ModuleImplementationToken,
-    // private val buildDecorator: ICommandVisitor<JsonNode>? = null,
     private val jsonVisitor: IJsonVisitor? = null,
     private val moduleFinder: ((name: String) -> ITransformer?)? = null,
 ) : IIslTokenVisitor<JsonNode> {
@@ -34,58 +33,10 @@ class IslJsBuilder(
         return module;
     }
 
-//    fun buildExpression(token: IIslToken): JsonNode {
-//        when (token) {
-//            is StringInterpolateToken -> {
-//                val expression = visit(token);
-//                return expression;
-//            }
-//
-//            is VariableSelectorValueToken -> {
-//                val expression = visit(token);
-//                return expression;
-//            }
-//
-//            is SimpleVariableSelectorValueToken -> {
-//                val expression = visit(token);
-//                return expression;
-//            }
-//
-//            is SimplePropertySelectorValueToken -> {
-//                val expression = visit(token);
-//                return expression;
-//            }
-//
-//            else -> throw TransformCompilationException(
-//                "Could not understand expression. Unknown token type.",
-//                Position("expresion.isl", 0, 0)
-//            );
-//        }
-//    }
-//
-//    // Decorating at build time seems to be the easiest approach - even if we need a visitor for most commands
-//    // We could do it reflectively (introspection) but that can be tricky for loops or conditions
-//    // where ordering of operations matter
-//    private fun decorate(command: JsonNode, vararg children: JsonNode?): JsonNode {
-////        val result = if (buildDecorator != null) command.visit(buildDecorator) else command;
-////        children.forEach {
-////            it?.parent = result;
-////        }
-//        return command;
-//    }
-
     private fun visit(token: IIslToken, json: JsonNode): JsonNode {
         jsonVisitor?.visited(token, json);
         return json;
     }
-
-    //    private fun decorateNull(command: IXCommand?, vararg children: IXCommand) : IXCommand? {
-//        val result = if (buildDecorator != null)  command?.visit(buildDecorator) else command;
-//        children.forEach {
-//            it.parent = result;
-//        }
-//        return result;
-//    }
 
     private fun notSupported(token: IIslToken): JsonNode {
         throw TransformCompilationException(

@@ -5,7 +5,8 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.IFunctionDeclarationCommand
 import com.intuit.isl.common.*
-import com.intuit.isl.debug.IDebugHook
+import com.intuit.isl.commands.CoverageStatementIdAssigner
+import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
@@ -115,20 +116,16 @@ class Transformer(override val module: TransformModule) : ITransformer {
      */
     override suspend fun runTransformAsync(
         functionName: String,
-        operationContext: IOperationContext
-    ): ITransformResult {
-        return runTransformAsync(functionName, operationContext, null)
-    }
-
-    suspend fun runTransformAsync(
-        functionName: String,
         operationContext: IOperationContext,
-        debugHook: IDebugHook?
+        executionHook: IExecutionHook?
     ): ITransformResult {
         val function = module.getFunction(functionName);
 
         if (function != null) {
-            val context = ExecutionContext(operationContext, null, debugHook);
+            if (executionHook?.preparesStatementIds == true) {
+                CoverageStatementIdAssigner.assign(module)
+            }
+            val context = ExecutionContext(operationContext, null, executionHook);
 
             // Add Default Variables
             init(context);
@@ -138,12 +135,12 @@ class Transformer(override val module: TransformModule) : ITransformer {
 
             bindEntryPointParametersFromContext(function, operationContext)
 
-            context.debugHook?.onFunctionEnter(function, context)
+            context.executionHook?.onFunctionEnter(function, context)
             try {
                 val result = function.executeAsync(context);
                 return TransformResult(JsonConvert.convert(result.value));
             } finally {
-                context.debugHook?.onFunctionExit(function, context)
+                context.executionHook?.onFunctionExit(function, context)
             }
         }
 

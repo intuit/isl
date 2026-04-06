@@ -14,8 +14,11 @@ class ReduceModifierValueCommand(
     private val value: IIslCommand,
     private val argument: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val reduceSource: IIslCommand get() = value
+    internal val reduceArgument: IIslCommand get() = argument
     override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val hook = executionContext.debugHook
+        val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val sourceCollection = value.executeAsync(executionContext).value
 

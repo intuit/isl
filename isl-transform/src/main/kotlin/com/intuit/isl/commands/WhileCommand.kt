@@ -14,6 +14,9 @@ class WhileCommand(
     private val maxLoops: IIslCommand?,
     val statements: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val whileCondition: IEvaluableConditionCommand get() = expression
+    internal val whileMaxLoops: IIslCommand? get() = maxLoops
     companion object {
         const val MAX_LOOPS = 5000;
         const val DEFAULT_LOOPS = 50;

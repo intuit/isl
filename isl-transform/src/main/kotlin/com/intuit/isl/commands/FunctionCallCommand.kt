@@ -15,6 +15,8 @@ import com.intuit.isl.utils.Const
  */
 open class FunctionCallCommand(token: FunctionCallToken, protected val arguments: List<IIslCommand>) :
     BaseCommand(token) {
+
+    internal val callArguments: List<IIslCommand> get() = arguments
     override val token: FunctionCallToken
         get() = super.token as FunctionCallToken;
 
@@ -90,6 +92,9 @@ open class StatementFunctionCallCommand(
     protected val arguments: List<IIslCommand>,
     protected val statements: IIslCommand
 ) : BaseCommand(token) {
+
+    internal val statementArguments: List<IIslCommand> get() = arguments
+    internal val statementBody: IIslCommand get() = statements
     override val token: FunctionCallToken
         get() = super.token as FunctionCallToken;
 
