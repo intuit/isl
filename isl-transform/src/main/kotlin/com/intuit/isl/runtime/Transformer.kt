@@ -10,7 +10,11 @@ import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.utils.JsonConvert
 import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.withContext
+import java.util.concurrent.Executors
 import java.util.jar.Manifest
+import kotlin.coroutines.coroutineContext
 
 class Transformer(override val module: TransformModule) : ITransformer {
     val token: IIslToken
@@ -20,6 +24,10 @@ class Transformer(override val module: TransformModule) : ITransformer {
         get() = islInfo["version"].textValue();
 
     companion object {
+        // Virtual thread dispatcher for the internal ISL engine
+        private val vtDispatcher = Executors.newVirtualThreadPerTaskExecutor()
+            .asCoroutineDispatcher()
+        
         private val islInfo: ObjectNode = initIslInfo();
 
         private fun initIslInfo(): ObjectNode {
@@ -119,32 +127,13 @@ class Transformer(override val module: TransformModule) : ITransformer {
         operationContext: IOperationContext,
         executionHook: IExecutionHook?
     ): ITransformResult {
-        val function = module.getFunction(functionName);
-
-        if (function != null) {
-            if (executionHook?.preparesStatementIds == true) {
-                CoverageStatementIdAssigner.assign(module)
-            }
-            val context = ExecutionContext(operationContext, null, executionHook);
-
-            // Add Default Variables
-            init(context);
-
-            // Optimize this - we should be able to plug the whole internals
-            (operationContext as BaseOperationContext).useModuleFunctions(this.module.functionExtensions);
-
-            bindEntryPointParametersFromContext(function, operationContext)
-
-            context.executionHook?.onFunctionEnter(function, context)
-            try {
-                val result = function.executeAsync(context);
-                return TransformResult(JsonConvert.convert(result.value));
-            } finally {
-                context.executionHook?.onFunctionExit(function, context)
-            }
+        // Capture the original coroutine context to preserve cancellation, logging context, etc.
+        val originalContext = coroutineContext
+        
+        // Bridge: coroutine world → virtual thread world
+        return withContext(vtDispatcher) {
+            executeInternal(functionName, operationContext, executionHook, originalContext)
         }
-
-        throw TransformException("Unknown Function @.${module.name}.$functionName", module.token.position);
     }
 
     /**
@@ -170,23 +159,60 @@ class Transformer(override val module: TransformModule) : ITransformer {
         }
     }
 
+    /**
+     * Internal execution method - runs on virtual threads, no suspend.
+     * This is the real engine that executes ISL transformations.
+     */
+    private fun executeInternal(
+        functionName: String,
+        operationContext: IOperationContext,
+        executionHook: IExecutionHook?,
+        capturedContext: kotlin.coroutines.CoroutineContext
+    ): ITransformResult {
+        val function = module.getFunction(functionName)
+            ?: throw TransformException("Unknown Function @.${module.name}.$functionName", module.token.position)
+
+        if (executionHook?.preparesStatementIds == true) {
+            CoverageStatementIdAssigner.assign(module)
+        }
+        
+        // Store the captured context in ExecutionContext for use in bridges
+        val context = ExecutionContext(operationContext, null, executionHook, capturedContext)
+
+        // Add Default Variables
+        init(context)
+
+        // Optimize this - we should be able to plug the whole internals
+        (operationContext as BaseOperationContext).useModuleFunctions(this.module.functionExtensions)
+
+        bindEntryPointParametersFromContext(function, operationContext)
+
+        context.executionHook?.onFunctionEnter(function, context)
+        try {
+            val result = function.execute(context)
+            return TransformResult(JsonConvert.convert(result.value))
+        } finally {
+            context.executionHook?.onFunctionExit(function, context)
+        }
+    }
+
     override fun runTransformSync(
         functionName: String,
         operationContext: IOperationContext
     ): JsonNode? {
-        val result = runBlocking {
-            runTransformAsync(functionName, operationContext);
-        }
-        return result.result;
+        // Already blocking — run directly on a virtual thread
+        // Note: If caller is already on a VT, this just runs inline
+        val result = executeInternal(functionName, operationContext, null, kotlin.coroutines.EmptyCoroutineContext)
+        return result.result
     }
 
     /**
      * Return a proxy to an internal function that can be called from an external module
+     * All internal functions are sync
      */
     fun crossModuleExecuteFunction(
         functionName: String
-    ): AsyncContextAwareExtensionMethod? {
-        val function = module.getFunctionRunner(functionName);
-        return function;
+    ): ContextAwareExtensionMethod? {
+        return module.getFunctionRunner(functionName);
     }
 }

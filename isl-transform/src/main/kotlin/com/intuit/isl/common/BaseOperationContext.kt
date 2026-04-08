@@ -17,17 +17,18 @@ open class BaseOperationContext : IOperationContext {
     // `extensions` are the publicly registered set of extensions and modifiers that were done from code
     // generally by the host of the engine
     // these are carried across as we create child contexts or call functions either in the same module or other modules
-    protected val extensions: HashMap<String, AsyncContextAwareExtensionMethod>;
+    // NOW SYNC: All extensions are stored as sync. Async host extensions are wrapped during registration.
+    protected val extensions: HashMap<String, ContextAwareExtensionMethod>;
     protected val annotations: HashMap<String, AsyncExtensionAnnotation>;
-    protected val statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>;
+    protected val statementExtensions: HashMap<String, StatementsExtensionMethod>;
     protected val conditionalExtensions: HashMap<String, ConditionalExtension>;
 
     // internal extensions are the ones that are registered through code (e.g automatically via @.This or dynamically via import statements)
-    // These are not carried in child contexts
-    protected var internalExtensions: HashMap<String, AsyncContextAwareExtensionMethod>;
+    // These are not carried in child contexts - they are sync-only internal module functions
+    protected var internalExtensions: HashMap<String, ContextAwareExtensionMethod>;
     
     // Performance optimization: Cache extension lookups to avoid repeated HashMap traversals
-    private val extensionCache = ConcurrentHashMap<String, AsyncContextAwareExtensionMethod?>()
+    private val extensionCache = ConcurrentHashMap<String, ContextAwareExtensionMethod?>()
 
 //    override val interceptor: ICommandInterceptor?;
 
@@ -42,11 +43,11 @@ open class BaseOperationContext : IOperationContext {
     }
 
     constructor(
-        extensions: HashMap<String, AsyncContextAwareExtensionMethod>,
+        extensions: HashMap<String, ContextAwareExtensionMethod>,
         annotations: HashMap<String, AsyncExtensionAnnotation>,
-        statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>,
+        statementExtensions: HashMap<String, StatementsExtensionMethod>,
 
-        internalExtensions: HashMap<String, AsyncContextAwareExtensionMethod>,
+        internalExtensions: HashMap<String, ContextAwareExtensionMethod>,
         conditionalExtensions: HashMap<String, ConditionalExtension>,
 //        interceptor: ICommandInterceptor?
     ) {
@@ -64,11 +65,11 @@ open class BaseOperationContext : IOperationContext {
      * Same module child context is used when calling from function to function in the same module
      * We keep the same extensions and internalExtensions but drop in new variables
      */
-    internal open fun createFunctionChildContext(newInternals: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
+    internal open fun createFunctionChildContext(newInternals: HashMap<String, ContextAwareExtensionMethod>): IOperationContext {
         return clone(newInternals);
     }
 
-    open fun clone(newInternals: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
+    open fun clone(newInternals: HashMap<String, ContextAwareExtensionMethod>): IOperationContext {
         // we also want to copy across all global variables
         val newContext = BaseOperationContext(
             this.extensions,
@@ -85,7 +86,7 @@ open class BaseOperationContext : IOperationContext {
         return newContext;
     }
 
-    fun useModuleFunctions(functionExtensions: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
+    fun useModuleFunctions(functionExtensions: HashMap<String, ContextAwareExtensionMethod>): IOperationContext {
         this.internalExtensions = functionExtensions;
         // Clear cache when internal extensions change since cached lookups may now be invalid
         extensionCache.clear()
@@ -107,7 +108,15 @@ open class BaseOperationContext : IOperationContext {
         fullName: String,
         callback: AsyncContextAwareExtensionMethod
     ): BaseOperationContext {
-        extensions[fullName.lowercase()] = callback;
+        // Wrap async host extension to sync using SuspendBridge
+        // This is the SINGLE point where we bridge async->sync
+        extensions[fullName.lowercase()] = { context ->
+            SuspendBridge.callSuspend(context.executionContext.coroutineContext) {
+                callback(context)
+            }
+        };
+        // Clear cache when extensions change
+        extensionCache.clear()
         return this;
     }
 
@@ -121,7 +130,7 @@ open class BaseOperationContext : IOperationContext {
 
     override fun registerStatementMethod(
         fullName: String,
-        callback: AsyncStatementsExtensionMethod
+        callback: StatementsExtensionMethod
     ): BaseOperationContext {
         statementExtensions[fullName.lowercase()] = callback;
         return this;
@@ -131,21 +140,28 @@ open class BaseOperationContext : IOperationContext {
      * Returns an extension method based on its full name (Case Insensitive)
      * Performance: Uses cache to avoid repeated HashMap traversals
      * Note: Only caches non-null results to allow dynamic extension registration
+     * 
+     * All extensions are now sync - async host extensions are wrapped during registration.
      */
-    override fun getExtension(name: String): AsyncContextAwareExtensionMethod? {
+    override fun getExtension(name: String): ContextAwareExtensionMethod? {
         // Check cache first
         val cached = extensionCache[name]
         if (cached != null) return cached
         
-        // Lookup in extension maps
-        val result = internalExtensions[name] ?: extensions[name] ?: RootOperationContext.getExtension(name)
-        
-        // Only cache non-null results to allow for dynamic extension registration
-        if (result != null) {
-            extensionCache[name] = result
+        // Check internal (sync) extensions first
+        val internalExt = internalExtensions[name]
+        if (internalExt != null) {
+            extensionCache[name] = internalExt
+            return internalExt
         }
         
-        return result
+        // Check external (sync-wrapped) extensions
+        val externalExt = extensions[name] ?: RootOperationContext.getExtension(name)
+        if (externalExt != null) {
+            extensionCache[name] = externalExt
+        }
+        
+        return externalExt
     }
 
     override fun getConditionalExtension(name: String): ConditionalExtension? {
@@ -158,7 +174,7 @@ open class BaseOperationContext : IOperationContext {
         return annotations[annotationName] ?: RootOperationContext.getAnnotations(annotationName);
     }
 
-    override fun getStatementExtension(name: String): AsyncStatementsExtensionMethod? {
+    override fun getStatementExtension(name: String): StatementsExtensionMethod? {
         // Performance optimization: assume name is already lowercase
         return statementExtensions[name] ?: RootOperationContext.getStatementExtension(name);
     }

@@ -21,7 +21,7 @@ import java.time.Instant
  * ./docs/dsl/pagination.md
  */
 object DatePagination {
-    suspend fun executeAsync(
+    fun execute(
         context: FunctionExecuteContext,
         statementsExtensionMethod: StatementExecution
     ): Any? {

@@ -3,6 +3,7 @@ package com.intuit.isl.runtime
 import com.intuit.isl.commands.FunctionDeclarationCommand
 import com.intuit.isl.commands.IFunctionDeclarationCommand
 import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.parser.tokens.FunctionType
 import com.intuit.isl.parser.tokens.ModuleImplementationToken
 
@@ -17,7 +18,7 @@ class TransformModule(
     val token: ModuleImplementationToken
 ) {
     private val _functions = HashMap<String, IFunctionDeclarationCommand>();
-    private val _functionExtensions = HashMap<String, AsyncContextAwareExtensionMethod>();
+    private val _functionExtensions = HashMap<String, ContextAwareExtensionMethod>();
 
     val functions
         get() = _functions.values as Collection<IFunctionDeclarationCommand>;
@@ -48,7 +49,7 @@ class TransformModule(
         return this._functions[name.lowercase()];
     }
 
-    fun getFunctionRunner(name: String): AsyncContextAwareExtensionMethod? {
+    fun getFunctionRunner(name: String): ContextAwareExtensionMethod? {
         return this.functionExtensions[name];
     }
 }

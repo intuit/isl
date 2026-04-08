@@ -16,8 +16,8 @@ class AssignVariableCommand(token: AssignVariableToken, val value: IIslCommand) 
     override val token: AssignVariableToken
         get() = super.token as AssignVariableToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val result = value.executeAsync(executionContext);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val result = value.execute(executionContext);
 
         val node = TypedObjectNode.tryTypedObject(
             token.islType,

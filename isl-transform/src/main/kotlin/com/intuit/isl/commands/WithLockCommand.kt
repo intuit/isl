@@ -28,9 +28,9 @@
 //
 //    private val mutex = Mutex()
 //
-//    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+//    override fun execute(executionContext: ExecutionContext): CommandResult {
 //        mutex.withLock {
-//            val statementsRes = statements.executeAsync(executionContext)
+//            val statementsRes = statements.execute(executionContext)
 //            return statementsRes;
 //        }
 //    }

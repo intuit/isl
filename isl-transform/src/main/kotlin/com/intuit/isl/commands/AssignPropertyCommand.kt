@@ -17,9 +17,9 @@ class AssignPropertyCommand(token: AssignPropertyToken, val value: IIslCommand) 
     override val token: AssignPropertyToken
         get() = super.token as AssignPropertyToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // description: 123
-        val result = value.executeAsync(executionContext);   // 123
+        val result = value.execute(executionContext);   // 123
 
         if (token.islType != null) {
             val objectValue = result.value as? ObjectNode?;
@@ -42,10 +42,10 @@ class AssignDynamicPropertyCommand(token: AssignDynamicPropertyToken, val name: 
     override val token: AssignDynamicPropertyToken
         get() = super.token as AssignDynamicPropertyToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // `$dynamicname`: 123
-        val name = name.executeAsync(executionContext);
-        val result = value.executeAsync(executionContext);   // 123
+        val name = name.execute(executionContext);
+        val result = value.execute(executionContext);   // 123
         return CommandResult(result.value, ConvertUtils.tryToString(name.value), result.append); // description -> "123"
     }
 

@@ -24,7 +24,7 @@ class VariableSimpleSelectorCommand(
         get() = super.token as SimpleVariableSelectorValueToken;
 
     companion object {
-        suspend fun resolvePart(
+        fun resolvePart(
             variable: JsonNode?,
             executionContext: ExecutionContext,
             indexSelector: Int?,
@@ -47,7 +47,7 @@ class VariableSimpleSelectorCommand(
                         if (variable is ArrayNode) {
                             val result = variable.filter {
                                 executionContext.operationContext.setVariable("\$", JsonConvert.convert(it));
-                                return@filter conditionSelector.evaluateConditionAsync(executionContext);
+                                return@filter conditionSelector.evaluateCondition(executionContext);
                             }
 
                             return CommandResult(result);
@@ -62,7 +62,7 @@ class VariableSimpleSelectorCommand(
     }
 
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val variable = executionContext.operationContext.getVariable(token.name);
 
         return resolvePart(variable, executionContext, token.indexSelector, expression);
@@ -87,8 +87,8 @@ class VariablePropertySelectorCommand(
     override val token: SimplePropertySelectorValueToken
         get() = super.token as SimplePropertySelectorValueToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val variable = previousCommand.executeAsync(executionContext).value;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val variable = previousCommand.execute(executionContext).value;
 
         if (variable is ObjectNode) {
             // read the child property

@@ -49,7 +49,7 @@
 //                // { instruction: 'if' }
 //                val arg = annotation.arguments.first() as ObjectBuildCommand;
 //                // execute it so we get a nice ObjectNode out of it
-//                val params = arg.executeAsync(ExecutionContext(OperationContext(), null)).value as ObjectNode;
+//                val params = arg.execute(ExecutionContext(OperationContext(), null)).value as ObjectNode;
 //
 //                // { instruction: 'if' }
 //                tests.add(

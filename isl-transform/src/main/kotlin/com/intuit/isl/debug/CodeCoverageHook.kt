@@ -45,7 +45,7 @@ class CodeCoverageHook : IExecutionHook {
             normalizeCoverageFile(file) + '\u0000' + statementId
     }
 
-    override suspend fun onBeforeExecute(command: IIslCommand, context: ExecutionContext) {
+    override fun onBeforeExecute(command: IIslCommand, context: ExecutionContext) {
         val pos = command.token.position
         recordCoverageLines(command, pos)
         val bc = command as? BaseCommand
@@ -63,7 +63,7 @@ class CodeCoverageHook : IExecutionHook {
         hitsByStatementKey.computeIfAbsent(key) { LongAdder() }.increment()
     }
 
-    override suspend fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult) {}
+    override fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult) {}
 
     override fun onFunctionEnter(command: IIslCommand, context: ExecutionContext) {}
 

@@ -6,7 +6,6 @@ import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
-import kotlinx.coroutines.delay
 import kotlin.random.Random
 
 object RetryModifiers {
@@ -17,9 +16,10 @@ object RetryModifiers {
     }
 
     // | retry.when( $ condition, { retryCount: 3, backOff: 2 } )
-    private suspend fun retryWhen(command: IConditionalCommand, context: ExecutionContext): Any? {
+    // Now sync - uses Thread.sleep on virtual threads instead of coroutine delay
+    private fun retryWhen(command: IConditionalCommand, context: ExecutionContext): Any? {
         val options = command.arguments.getOrNull(0)
-            ?.executeAsync(context)
+            ?.execute(context)
             ?.value as? ObjectNode;
 
         val retryCount = (ConvertUtils.tryParseInt(options?.get("retryCount")) ?: 3);
@@ -37,15 +37,15 @@ object RetryModifiers {
             i++
 
             try {
-                val result = command.value.executeAsync(context);
+                val result = command.value.execute(context);
                 lastResult = result;
                 val value = JsonConvert.convert(result.value);
 
                 context.operationContext.setVariable("$", value);
-                if (command.expression.evaluateConditionAsync(context)) {
+                if (command.expression.evaluateCondition(context)) {
                     context.operationContext.removeVariable("$");
                     if (delayTime > 0)
-                        delay(delayTime)
+                        Thread.sleep(delayTime) // Use Thread.sleep on virtual threads
                     if(backOff) // next time go slower
                         delayTime *= 2;
                     continue;   // try again

@@ -3,6 +3,7 @@ package com.intuit.isl.commands
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.BaseOperationContext
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.LocalOperationContext
@@ -21,7 +22,7 @@ interface IFunctionDeclarationCommand : IIslCommand {
     override val token: FunctionDeclarationToken;
     val statements: IIslCommand;
 
-    fun getRunner(): AsyncContextAwareExtensionMethod;
+    fun getRunner(): ContextAwareExtensionMethod;
 }
 
 class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val statements: IIslCommand) : BaseCommand(token),
@@ -35,17 +36,17 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
     override val token: FunctionDeclarationToken
         get() = super.token as FunctionDeclarationToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // execute annotations or function
-        return statements.executeAsync(executionContext);
+        return statements.execute(executionContext);
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {
         return visitor.visit(this);
     }
 
-    override fun getRunner(): AsyncContextAwareExtensionMethod {
-        val sameModuleRunner: AsyncContextAwareExtensionMethod = declaration@{ functionContext ->
+    override fun getRunner(): ContextAwareExtensionMethod {
+        val sameModuleRunner: ContextAwareExtensionMethod = declaration@{ functionContext ->
             // we are called from outside (e.g. from another function instead of from the main runtime
             // this means we need to create a true-callstack and the isolation that comes with that
             // clone the context, by keeping only the registered functions
@@ -79,7 +80,7 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
 
             childExecutionContext.executionHook?.onFunctionEnter(this, childExecutionContext)
             try {
-                val result = executeAsync(childExecutionContext);
+                val result = execute(childExecutionContext);
                 return@declaration result.value;
             } finally {
                 childExecutionContext.executionHook?.onFunctionExit(this, childExecutionContext)
@@ -90,10 +91,10 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
 }
 
 class FunctionReturnCommandHandler(token: FunctionDeclarationToken, val statements: IIslCommand) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val result = try {
             // Execute statements
-            statements.executeAsync(executionContext)
+            statements.execute(executionContext)
         } catch (e: FunctionReturnCommand.FunctionReturnException) {
             // function returned
             CommandResult(e.returnValue);
@@ -126,7 +127,7 @@ class FunctionReturnCommand(token: FunctionReturnToken, private val returnValue:
     internal val returnExpression: IIslCommand get() = returnValue
     var useReturnValue: Boolean = false;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // Now, there are 100 ways to skin a cat.
         // Normally we should have some pro-active return statement that jumps over all other instructions
         // but that's rather hard in a graph command - so we'll cheat for now (and optimize later) by using
@@ -139,7 +140,7 @@ class FunctionReturnCommand(token: FunctionReturnToken, private val returnValue:
         // I'm walking back on my prev statement - we should evaluate the result value here!
         // that means that if we DO (in the future) support some sort of finally or try/catch
         // we can evaluate and capture the result before we evaluate the try/catch
-        val returnedValue = returnValue.executeAsync(executionContext);
+        val returnedValue = returnValue.execute(executionContext);
 
         // we need to get out the null returns as an exception to avoid it being caught in a property name build null check
         if (useReturnValue && returnedValue.value != null)
@@ -172,8 +173,8 @@ class RecursiveFunctionDeclarationCommand(
     override val statements: IIslCommand
         get() = compiledFunctions[name]!!.statements;
 
-    private var recursiveRunner: AsyncContextAwareExtensionMethod? = null;
-    override fun getRunner(): AsyncContextAwareExtensionMethod {
+    private var recursiveRunner: ContextAwareExtensionMethod? = null;
+    override fun getRunner(): ContextAwareExtensionMethod {
         return declaration@{ functionContext ->
             // find the real runner of the real function
             recursiveRunner = recursiveRunner ?: compiledFunctions[name]!!.getRunner();
@@ -181,7 +182,7 @@ class RecursiveFunctionDeclarationCommand(
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         TODO("Not yet implemented")
     }
 

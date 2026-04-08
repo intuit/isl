@@ -18,7 +18,7 @@ import java.time.Instant
 open class VariableSelectorValueCommand(token: VariableSelectorValueToken) : BaseCommand(token) {
     val variableName = token.variableName
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val variable = executionContext.operationContext.getVariable(variableName)
 
         return CommandResult(variable)
@@ -50,7 +50,7 @@ class VariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) : 
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val variable = executionContext.operationContext.getVariable(variableName)
 
         if (variable != null) {
@@ -88,7 +88,7 @@ class VariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) : 
  */
 class FastVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken, val pathParts: Array<String>) :
     VariableSelectorValueCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         var variable = executionContext.operationContext.getVariable(variableName)
 
         for (pathPart in pathParts) {
@@ -104,7 +104,7 @@ class FastVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken
 class FastSingleVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) :
     VariableSelectorValueCommand(token) {
     private val path = token.path;
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         var variable = executionContext.operationContext.getVariable(variableName)
 
         variable = variable?.get(path);

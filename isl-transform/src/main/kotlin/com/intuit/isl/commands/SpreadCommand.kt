@@ -7,8 +7,8 @@ import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.parser.tokens.IIslToken
 
 class SpreadCommand(token: IIslToken, val variable: IIslCommand): BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val value = variable.executeAsync(executionContext).value;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val value = variable.execute(executionContext).value;
 
         if(value is ObjectNode) {
             val clone = value.deepCopy();

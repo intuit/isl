@@ -31,12 +31,12 @@ class LocalOperationContext(
 
     override fun registerStatementMethod(
         fullName: String,
-        callback: AsyncStatementsExtensionMethod
+        callback: StatementsExtensionMethod
     ): IOperationContext {
         throw NotImplementedError("Not supported");
     }
 
-    override fun getExtension(name: String): AsyncContextAwareExtensionMethod? {
+    override fun getExtension(name: String): ContextAwareExtensionMethod? {
         return context.getExtension(name);
     }
 
@@ -48,7 +48,7 @@ class LocalOperationContext(
         return context.getAnnotation(annotationName);
     }
 
-    override fun getStatementExtension(name: String): AsyncStatementsExtensionMethod? {
+    override fun getStatementExtension(name: String): StatementsExtensionMethod? {
         return context.getStatementExtension(name);
     }
 

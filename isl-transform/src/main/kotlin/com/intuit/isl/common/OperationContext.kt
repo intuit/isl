@@ -2,7 +2,6 @@ package com.intuit.isl.common
 
 import com.intuit.isl.utils.Const
 import com.intuit.isl.utils.ConvertUtils
-import kotlinx.coroutines.runBlocking
 
 /**
  * Context specific to one operation.
@@ -14,13 +13,14 @@ open class OperationContext : BaseOperationContext {
 
     /**
      * Register an extension method in format `Service.MethodName`.
-     * Java style :)
+     * Java style - directly stores as sync callback (no wrapping needed)
      */
     fun registerJavaExtension(
         fullName: String,
         callback: java.util.function.Function<FunctionExecuteContext, Any?>
     ): OperationContext {
         val lower = fullName.lowercase();
+        // Store directly as sync - no suspend wrapping needed
         extensions[lower] = { context ->
             try {
                 val cleanParams = context.parameters.map {
@@ -36,15 +36,9 @@ open class OperationContext : BaseOperationContext {
                         cleanParams
                     );
 
-                runBlocking {
-                    return@runBlocking callback.apply(newContext);
-                }
+                // Direct call - no bridge needed
+                callback.apply(newContext)
             } catch (e: Exception) {
-//                context.executionContext.operationContext.interceptor?.onIssue(
-//                    context.command,
-//                    context.executionContext,
-//                    "Failed to run {}: {}", arrayOf(fullName, e)
-//                )
                 throw e;
             }
         };
@@ -60,9 +54,8 @@ open class OperationContext : BaseOperationContext {
         callback: java.util.function.Function<AnnotationExecuteContext, Any?>
     ): OperationContext {
         annotations[annotationName.lowercase()] = { context ->
-            runBlocking {
-                return@runBlocking callback.apply(context);
-            }
+            // Bridge is no longer needed - will be handled by AnnotationCommand
+            callback.apply(context)
         };
         return this;
     }
@@ -70,8 +63,11 @@ open class OperationContext : BaseOperationContext {
     fun registerFallbackFunctionHandler(
         callback: AsyncContextAwareExtensionMethod
     ): OperationContext {
+        // Wrap async fallback handler to sync
         extensions[Const.FallbackMethodName] = { context ->
-            callback(context);
+            SuspendBridge.callSuspend(context.executionContext.coroutineContext) {
+                callback(context)
+            }
         };
         return this;
     }
@@ -81,8 +77,11 @@ open class OperationContext : BaseOperationContext {
         callback: AsyncContextAwareExtensionMethod
     ): OperationContext {
         if (!extensions.containsKey(fullName.lowercase())) {
+            // Wrap async extension to sync
             extensions[fullName.lowercase()] = { context ->
-                callback(context);
+                SuspendBridge.callSuspend(context.executionContext.coroutineContext) {
+                    callback(context)
+                }
             }
         }
 

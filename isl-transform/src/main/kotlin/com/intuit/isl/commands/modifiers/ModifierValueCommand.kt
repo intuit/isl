@@ -27,7 +27,7 @@ open class ModifierValueCommand(
 
     companion object{
         @JvmStatic
-        protected suspend fun internalRunModifier(
+        protected fun internalRunModifier(
             command: ModifierValueCommand,
             executionContext: ExecutionContext,
             prevValue: CommandResult,
@@ -37,12 +37,15 @@ open class ModifierValueCommand(
             val args = mutableListOf(prevValue.value);
             if (command.modifierSelector != null)
                 args.add(command.modifierSelector);
-            arguments.mapTo(args) { it.executeAsync(executionContext).value };
+            arguments.mapTo(args) { it.execute(executionContext).value };
 
             val functionContext = FunctionExecuteContext(command.token.name, command, executionContext, args.toTypedArray());
 
             val result = FunctionCallCommand.safeRunFunction(command.token.name, command) {
-                modifier(functionContext);
+                // Bridge to suspend modifier
+                com.intuit.isl.common.SuspendBridge.callSuspend(executionContext.coroutineContext) {
+                    modifier(functionContext)
+                }
             }
 
             return CommandResult(result);
@@ -61,16 +64,16 @@ open class ModifierValueCommand(
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val prevValue = value.executeAsync(executionContext)
-        val result = internalExecuteAsync(prevValue, executionContext)
+        val prevValue = value.execute(executionContext)
+        val result = internalExecute(prevValue, executionContext)
         hook?.onAfterExecute(this, executionContext, result)
         return result
     }
 
-    protected open suspend fun internalExecuteAsync(
+    protected open fun internalExecute(
         prevValue: CommandResult,
         executionContext: ExecutionContext
     ): CommandResult {
@@ -99,7 +102,7 @@ class HardwiredModifierValueCommand(
      */
     val precompiledModifierJsonPath: JsonPath? = null
 ) : ModifierValueCommand(token, realModifierName, value, arguments) {
-    override suspend fun internalExecuteAsync(
+    override fun internalExecute(
         prevValue: CommandResult,
         executionContext: ExecutionContext
     ): CommandResult {

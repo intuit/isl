@@ -9,7 +9,7 @@ class LiteralValueCommand(token: LiteralValueToken) : BaseCommand(token) {
     override val token: LiteralValueToken
         get() = super.token as LiteralValueToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         return CommandResult(token.value);
     }
 

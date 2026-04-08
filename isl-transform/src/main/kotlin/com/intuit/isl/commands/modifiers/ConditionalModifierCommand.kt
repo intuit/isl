@@ -37,13 +37,13 @@ class PotentialGenericConditionalModifierCommand(
 //    init {
 //        println(">>>>>>>>>>>>>>>>>>> got confused by ${name}")
 //    }
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val standardModifier = executionContext.operationContext.getExtension("modifier.${modifierName}")
         val result =
             if (standardModifier != null) {
-                val prevValue = value.executeAsync(executionContext)
+                val prevValue = value.execute(executionContext)
                 internalRunModifier(this, executionContext, prevValue, super.modifierArguments, standardModifier)
             } else {
                 val extension =
@@ -52,6 +52,7 @@ class PotentialGenericConditionalModifierCommand(
                 if (extension == null) {
                     CommandResult("Unknown Extension: ${name}")
                 } else {
+                    // Direct sync call - conditional extensions are now sync-only
                     CommandResult(extension.invoke(this, executionContext))
                 }
             }
@@ -90,7 +91,7 @@ class GenericConditionalModifierCommand(
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
         val extension =
@@ -100,6 +101,7 @@ class GenericConditionalModifierCommand(
             if (extension == null) {
                 CommandResult("Unknown Extension: ${name}")
             } else {
+                // Direct sync call - conditional extensions are now sync-only
                 CommandResult(extension.invoke(this, executionContext))
             }
         hook?.onAfterExecute(this, executionContext, result)

@@ -6,8 +6,6 @@ import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.OperationContext
 import com.intuit.isl.runtime.Transformer
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import org.junit.jupiter.api.TestInstance
 import org.junit.jupiter.params.ParameterizedTest
 import org.junit.jupiter.params.provider.Arguments
@@ -55,19 +53,22 @@ class ForLoopTest2 : YamlTransformTest("forloop") {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        val mutex = Mutex();
+        val lock = java.util.concurrent.locks.ReentrantLock();
         val threadIds = mutableMapOf<String, Int>();
 
         // to ISL we want to return 1, 2, 3, .. as consistent values not the read thread id
         context.registerExtensionMethod("Thread.Id") {
-            return@registerExtensionMethod mutex.withLock {
+            lock.lock()
+            try {
                 val id = Thread.currentThread().name;
                 if (threadIds.containsKey(id)) {
-                    return@withLock threadIds[id];
+                    return@registerExtensionMethod threadIds[id];
                 }
                 val newId = threadIds.count() + 1;
                 threadIds[id] = newId;
-                return@withLock newId;
+                return@registerExtensionMethod newId;
+            } finally {
+                lock.unlock()
             }
         }
 

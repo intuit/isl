@@ -16,8 +16,8 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
     override val token: ForEachToken
         get() = super.token as ForEachToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceCollection = source.executeAsync(executionContext).value;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val sourceCollection = source.execute(executionContext).value;
 
         val source = when (sourceCollection) {
             is IIslIterable -> sourceCollection.getInnerIterator();
@@ -36,7 +36,7 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
             executionContext.operationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
 
             executionContext.executionHook?.onBeforeExecute(statements, executionContext)
-            val itValue = statements.executeAsync(executionContext);
+            val itValue = statements.execute(executionContext);
             executionContext.executionHook?.onAfterExecute(statements, executionContext, itValue)
 
             if(itValue.validResult == false)

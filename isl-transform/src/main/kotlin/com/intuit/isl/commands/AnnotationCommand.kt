@@ -3,6 +3,7 @@ package com.intuit.isl.commands
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.common.AnnotationExecuteContext
+import com.intuit.isl.common.SuspendBridge
 import com.intuit.isl.parser.tokens.AnnotationDeclarationToken
 import com.intuit.isl.parser.tokens.FunctionDeclarationToken
 import com.intuit.isl.runtime.TransformException
@@ -19,10 +20,10 @@ class AnnotationCommand(
     override val token: AnnotationDeclarationToken
         get() = super.token as AnnotationDeclarationToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val annotationCallback = executionContext.operationContext.getAnnotation(token.annotationName);
         val args =
-            arguments.map { ConvertUtils.extractFromNode(it.executeAsync(executionContext).value) }.toTypedArray();
+            arguments.map { ConvertUtils.extractFromNode(it.execute(executionContext).value) }.toTypedArray();
 
         if (annotationCallback == null) {
             val error = "Unknown Annotation: ${token.annotationName}";
@@ -37,7 +38,10 @@ class AnnotationCommand(
         );
 
         val result = safeRunAnnotation(token.annotationName, executionContext, this) {
-            annotationCallback.invoke(annotationContext)
+            // Bridge to suspend annotation callback
+            SuspendBridge.callSuspend(executionContext.coroutineContext) {
+                annotationCallback.invoke(annotationContext)
+            }
         };
         return CommandResult(result);
     }
@@ -47,11 +51,11 @@ class AnnotationCommand(
     }
 
     companion object {
-        suspend fun safeRunAnnotation(
+        fun safeRunAnnotation(
             name: String,
             context: ExecutionContext,
             command: IIslCommand,
-            func: suspend () -> Any?
+            func: () -> Any?
         ): Any? {
             try {
                 return func();

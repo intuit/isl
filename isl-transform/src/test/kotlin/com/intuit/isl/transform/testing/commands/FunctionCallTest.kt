@@ -120,7 +120,7 @@ class FunctionCallTest : YamlTransformTest("functions") {
         }
 
 
-        suspend fun testStatementFunction(
+        fun testStatementFunction(
             context: FunctionExecuteContext,
             statementsExtensionMethod: StatementExecution
         ): Any? {

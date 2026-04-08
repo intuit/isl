@@ -17,10 +17,10 @@ class ReduceModifierValueCommand(
 
     internal val reduceSource: IIslCommand get() = value
     internal val reduceArgument: IIslCommand get() = argument
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val sourceCollection = value.executeAsync(executionContext).value
+        val sourceCollection = value.execute(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
@@ -33,7 +33,7 @@ class ReduceModifierValueCommand(
         source?.forEach { it ->
             executionContext.operationContext.setVariable("\$it", JsonConvert.convert(it))
             executionContext.operationContext.setVariable("\$acc", JsonConvert.convert(acc))
-            acc = argument.executeAsync(executionContext).value
+            acc = argument.execute(executionContext).value
         }
         executionContext.operationContext.resetVariable("\$it", oldIt)
         executionContext.operationContext.resetVariable("\$acc", oldAcc)

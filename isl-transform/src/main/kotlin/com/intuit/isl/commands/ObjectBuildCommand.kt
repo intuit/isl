@@ -15,7 +15,7 @@ class ObjectBuildCommand(
     var commands: MutableList<IIslCommand>,
     val seedVariableName: String? = null
 ) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // When seeded, load the existing variable value directly and mutate it in place,
         // avoiding both the deepCopy and the shallow-copy that a spread would otherwise require.
         val result = if (seedVariableName != null)
@@ -30,7 +30,7 @@ class ObjectBuildCommand(
 
         for (c in commands) {
             executionContext.executionHook?.onBeforeExecute(c, executionContext)
-            val commandResult = c.executeAsync(executionContext);
+            val commandResult = c.execute(executionContext);
             executionContext.executionHook?.onAfterExecute(c, executionContext, commandResult)
 
             if (!commandResult.propertyName.isNullOrEmpty() && commandResult.append != false) {

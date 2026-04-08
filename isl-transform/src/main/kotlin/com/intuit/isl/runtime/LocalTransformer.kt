@@ -29,7 +29,7 @@ class LocalTransformer(val module: TransformModule) : ILocalTransformer {
             // Add Default Variables
             operationContext.setVariable("\$isl", Transformer.getIslInfo());
 
-            val result = function.executeAsync(context);
+            val result = function.execute(context);
             return TransformResult(JsonConvert.convert(result.value));
         }
 

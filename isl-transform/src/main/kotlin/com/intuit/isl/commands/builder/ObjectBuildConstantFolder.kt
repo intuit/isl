@@ -13,7 +13,6 @@ import com.intuit.isl.commands.ObjectBuildCommand
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.OperationContext
-import kotlinx.coroutines.runBlocking
 
 /**
  * Replaces [ObjectBuildCommand] with [ConstantObjectBuildCommand] when the object consists only of
@@ -25,11 +24,10 @@ object ObjectBuildConstantFolder {
     fun tryFold(cmd: ObjectBuildCommand): IIslCommand {
         if (!isConstantObjectBuild(cmd)) return cmd
         return try {
-            val prototype = runBlocking {
-                val ctx = ExecutionContext(OperationContext(), null)
-                val r = cmd.executeAsync(ctx)
-                r.value
-            }
+            // No longer need runBlocking - execute is now sync
+            val ctx = ExecutionContext(OperationContext(), null)
+            val r = cmd.execute(ctx)
+            val prototype = r.value
             when (prototype) {
                 is ObjectNode -> ConstantObjectBuildCommand(cmd.token, prototype)
                 else -> cmd

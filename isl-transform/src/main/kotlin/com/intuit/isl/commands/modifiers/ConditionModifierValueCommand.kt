@@ -15,18 +15,18 @@ class ConditionModifierValueCommand(
     val expression: IEvaluableConditionCommand,
     val trueModifier: IIslCommand
 ) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val sourceValue = value.executeAsync(executionContext)
+        val sourceValue = value.execute(executionContext)
 
         val oldValue = executionContext.operationContext.getVariable("\$mval")
         val result = try {
             val converted = JsonConvert.convert(sourceValue.value)
             executionContext.operationContext.setVariable("\$mval", converted)
             executionContext.operationContext.setVariable("\$", converted)
-            if (expression.evaluateConditionAsync(executionContext)) {
-                trueModifier.executeAsync(executionContext)
+            if (expression.evaluateCondition(executionContext)) {
+                trueModifier.execute(executionContext)
             } else {
                 sourceValue
             }

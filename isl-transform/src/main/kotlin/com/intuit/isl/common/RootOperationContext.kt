@@ -17,8 +17,8 @@ import com.intuit.isl.commands.modifiers.TypesModifierExtensions
  * List of all the root ISL Operations
  */
 object RootOperationContext {
-    private val extensions: HashMap<String, AsyncContextAwareExtensionMethod>;
-    private val statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>;
+    private val extensions: HashMap<String, ContextAwareExtensionMethod>;
+    private val statementExtensions: HashMap<String, StatementsExtensionMethod>;
     private val annotations: HashMap<String, AsyncExtensionAnnotation>;
     private val conditionalExtensions: HashMap<String, ConditionalExtension>;
 
@@ -37,10 +37,10 @@ object RootOperationContext {
         RetryModifiers.registerRetry(defaultContext);
         RegexModifierExtensions.registerDefaultExtensions(defaultContext);
 
-        // Custom Pagination Extensions
-        defaultContext.registerStatementMethod("Pagination.Page", PagePagination::executeAsync);
-        defaultContext.registerStatementMethod("Pagination.Cursor", CursorPagination::executeAsync);
-        defaultContext.registerStatementMethod("Pagination.Date", DatePagination::executeAsync);
+        // Custom Pagination Extensions (now sync)
+        defaultContext.registerStatementMethod("Pagination.Page", PagePagination::execute);
+        defaultContext.registerStatementMethod("Pagination.Cursor", CursorPagination::execute);
+        defaultContext.registerStatementMethod("Pagination.Date", DatePagination::execute);
 
         extensions = defaultContext.extensionsList();
         annotations = defaultContext.annotationsList();
@@ -48,10 +48,10 @@ object RootOperationContext {
         conditionalExtensions = defaultContext.conditionalExtensionsList();
     }
 
-    fun getExtension(name: String): AsyncContextAwareExtensionMethod? {
+    fun getExtension(name: String): ContextAwareExtensionMethod? {
         return extensions[name];
     }
-    fun getStatementExtension(name: String): AsyncStatementsExtensionMethod? {
+    fun getStatementExtension(name: String): StatementsExtensionMethod? {
         return statementExtensions[name];
     }
     fun getAnnotations(name: String): AsyncExtensionAnnotation? {
@@ -62,14 +62,14 @@ object RootOperationContext {
     }
 
     private class RootOperationContextRegistry : BaseOperationContext() {
-        fun extensionsList(): HashMap<String, AsyncContextAwareExtensionMethod> {
+        fun extensionsList(): HashMap<String, ContextAwareExtensionMethod> {
             return super.extensions;
         }
         fun conditionalExtensionsList(): HashMap<String, ConditionalExtension> {
             return super.conditionalExtensions;
         }
 
-        fun statementExtensionsList(): HashMap<String, AsyncStatementsExtensionMethod> {
+        fun statementExtensionsList(): HashMap<String, StatementsExtensionMethod> {
             return super.statementExtensions;
         }
 

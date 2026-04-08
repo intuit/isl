@@ -23,13 +23,13 @@ class HashDispatchSwitchCommand(
         defaultArm?.let(action)
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val leftResult = value.executeAsync(executionContext)
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val leftResult = value.execute(executionContext)
         val key = ConvertUtils.tryToString(leftResult.value)
         if (key != null) {
-            armsByKey[key]?.let { return it.executeAsync(executionContext) }
+            armsByKey[key]?.let { return it.execute(executionContext) }
         }
-        defaultArm?.let { return it.executeAsync(executionContext) }
+        defaultArm?.let { return it.execute(executionContext) }
         return CommandResult(null)
     }
 

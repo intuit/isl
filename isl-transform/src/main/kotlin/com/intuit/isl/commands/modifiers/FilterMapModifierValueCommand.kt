@@ -24,10 +24,10 @@ class FilterMapModifierValueCommand(
     internal val filterMapSource: IIslCommand get() = value
     internal val filterMapPredicate: IEvaluableConditionCommand get() = filterExpression
     internal val filterMapMapArgument: IIslCommand get() = mapArgument
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val sourceCollection = value.executeAsync(executionContext).value
+        val sourceCollection = value.execute(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
@@ -41,8 +41,8 @@ class FilterMapModifierValueCommand(
         source?.forEach { it ->
             executionContext.operationContext.setVariable("\$fit", JsonConvert.convert(it))
             executionContext.operationContext.setVariable("\$", JsonConvert.convert(it))
-            if (filterExpression.evaluateConditionAsync(executionContext)) {
-                resultArray.add(JsonConvert.convert(mapArgument.executeAsync(executionContext).value))
+            if (filterExpression.evaluateCondition(executionContext)) {
+                resultArray.add(JsonConvert.convert(mapArgument.execute(executionContext).value))
             }
         }
 

@@ -13,7 +13,7 @@ class ArrayCommand(
     val seedVariableName: String? = null
 ) : BaseCommand(token) {
     internal val elementCommands: List<IIslCommand> get() = values
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // When seeded, load the existing variable value directly and mutate it in place,
         // avoiding both the deepCopy and the shallow-copy that a spread would otherwise require.
         val result = if (seedVariableName != null)
@@ -23,7 +23,7 @@ class ArrayCommand(
             JsonNodeFactory.instance.arrayNode(values.size);
 
         for (v in values) {
-            val realValue = v.executeAsync(executionContext);
+            val realValue = v.execute(executionContext);
             if (realValue.append == true && realValue.value is ArrayNode) {
                 val appendArray = realValue.value as ArrayNode;
                 appendArray.forEach {

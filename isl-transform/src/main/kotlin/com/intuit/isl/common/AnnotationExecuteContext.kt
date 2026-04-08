@@ -2,7 +2,6 @@ package com.intuit.isl.common
 
 import com.intuit.isl.commands.AnnotationCommand
 import com.intuit.isl.commands.IIslCommand
-import kotlinx.coroutines.runBlocking
 
 data class AnnotationExecuteContext(
     val command: AnnotationCommand,
@@ -25,16 +24,19 @@ data class AnnotationExecuteContext(
     val functionName: String
         get() = command.function.functionName;
 
-    suspend fun runNextCommand(): Any? {
-        return nextCommand.executeAsync(executionContext).value;
+    /**
+     * Run next command - now sync since all commands are sync
+     */
+    fun runNextCommand(): Any? {
+        return nextCommand.execute(executionContext).value;
     }
 
     /**
-     * Run next command inline from Java :)
+     * Run next command inline from Java - same as runNextCommand now
+     * @deprecated Use runNextCommand() instead - both are sync now
      */
+    @Deprecated("Use runNextCommand() instead - both are sync now", ReplaceWith("runNextCommand()"))
     fun runNextCommandSync(): Any? {
-        return runBlocking {
-            nextCommand.executeAsync(executionContext).value;
-        }
+        return nextCommand.execute(executionContext).value;
     }
 }

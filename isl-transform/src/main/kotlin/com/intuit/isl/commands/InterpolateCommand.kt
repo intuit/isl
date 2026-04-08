@@ -10,11 +10,11 @@ import java.lang.StringBuilder
 class InterpolateCommand(token: IIslToken, private val values: ArrayList<IIslCommand>) : BaseCommand(token) {
 
     internal val interpolationParts: List<IIslCommand> get() = values
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val sb = StringBuilder();
 
         for(v in values) {
-            val realValue = v.executeAsync(executionContext);
+            val realValue = v.execute(executionContext);
 
             // value could be a TextNode or another JsonNode!
             when(val value = realValue.value) {

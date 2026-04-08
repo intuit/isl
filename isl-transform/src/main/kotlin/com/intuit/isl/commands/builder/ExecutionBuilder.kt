@@ -701,7 +701,7 @@ class ExecutionBuilder(
         throw NotImplementedError();
     }
 
-    private fun findMethod(methodName: String): AsyncContextAwareExtensionMethod? {
+    private fun findMethod(methodName: String): ContextAwareExtensionMethod? {
         // some methods we can hardwire them - especially if they are coming from known imports
         val lower = methodName.lowercase();
         val fromModule = lower.substringBefore(":");
@@ -710,7 +710,7 @@ class ExecutionBuilder(
         // This import - hardwire or fail
         if (fromModule == "this") {
             val otherFunction = compileFunction(functionName);
-            return otherFunction.getRunner();
+            return otherFunction.getRunner(); // Already sync
         } else if (fromModule == "modifier") {
             // might be a local modifier
             val localModifier = rootToken.functions.find {
@@ -722,7 +722,7 @@ class ExecutionBuilder(
             if (localModifier != null) {
                 // we found a local modifier - compile it
                 val modifier = compileFunction(functionName);
-                return modifier.getRunner();
+                return modifier.getRunner(); // Already sync
             }
         }
 
@@ -732,17 +732,17 @@ class ExecutionBuilder(
         if (import != null) {
             val importedFunction = (import as Transformer).crossModuleExecuteFunction(functionName)
                 ?: throw TransformCompilationException("Module $moduleName Could not find $functionName in imported module $fromModule");
-            return importedFunction;
+            return importedFunction; // Now returns sync
         }
 
         val existingExtension = RootOperationContext.getExtension("$fromModule.$functionName");
         if (existingExtension != null) {
-            return existingExtension;
+            return existingExtension; // Already sync
         }
 
         val hostExtension = operationContext?.getExtension("$fromModule.$functionName");
         if (hostExtension != null) {
-            return hostExtension;
+            return hostExtension; // Already sync
         }
 
         // How cool would be to be able to import some declaration files? like the .d.ts for TypeScript, so we can guarantee the methods exist?

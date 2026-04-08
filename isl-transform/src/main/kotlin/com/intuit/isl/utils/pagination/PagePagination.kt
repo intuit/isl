@@ -15,7 +15,7 @@ import com.intuit.isl.utils.JsonConvert
  * ./docs/dsl/pagination.md
  */
 object PagePagination{
-    suspend fun executeAsync(
+    fun execute(
         context: FunctionExecuteContext,
         statementsExtensionMethod: StatementExecution
     ): Any? {
