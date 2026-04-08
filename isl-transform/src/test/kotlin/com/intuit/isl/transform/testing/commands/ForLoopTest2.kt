@@ -53,18 +53,17 @@ class ForLoopTest2 : YamlTransformTest("forloop") {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        val lock = java.util.concurrent.locks.ReentrantLock();
-        val threadIds = mutableMapOf<String, Int>();
+        val lock = java.util.concurrent.locks.ReentrantLock()
+        val threadIds = mutableMapOf<Long, Int>()
 
-        // to ISL we want to return 1, 2, 3, .. as consistent values not the read thread id
+        // Map JVM threadId -> 1,2,3,... for stable small ids. Virtual threads share an empty
+        // Thread.name, so we must not key on name or parallel runs collapse to a single id.
         context.registerSyncExtensionMethod("Thread.Id") threadId@{
             lock.lock()
             try {
-                val id = Thread.currentThread().name
-                if (threadIds.containsKey(id)) {
-                    return@threadId threadIds[id]
-                }
-                val newId = threadIds.count() + 1
+                val id = Thread.currentThread().threadId()
+                threadIds[id]?.let { return@threadId it }
+                val newId = threadIds.size + 1
                 threadIds[id] = newId
                 return@threadId newId
             } finally {
