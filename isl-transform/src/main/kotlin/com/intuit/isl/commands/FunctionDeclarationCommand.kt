@@ -2,11 +2,11 @@ package com.intuit.isl.commands
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.builder.ICommandVisitor
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
 import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.BaseOperationContext
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.LocalOperationContext
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.FunctionDeclarationToken
 import com.intuit.isl.parser.tokens.FunctionReturnToken
 import com.intuit.isl.runtime.TransformException
@@ -73,7 +73,8 @@ class FunctionDeclarationCommand(token: FunctionDeclarationToken, override val s
             for (i in 0..maxArguments) {
                 val name = token.arguments[i];
                 val value = functionContext.parameters[i];
-                childContext.setVariable(name.name, JsonConvert.convert(value));
+                val paramKey = name.name.let { n -> (if (n.startsWith("$")) n else "$" + n).lowercase() }
+                childContext.setVariableCanonical(paramKey, JsonConvert.convert(value));
             }
 
             val childExecutionContext = ExecutionContext(childContext, functionContext.executionContext.localContext, functionContext.executionContext.executionHook);

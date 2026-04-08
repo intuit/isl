@@ -57,16 +57,16 @@ class ForLoopTest2 : YamlTransformTest("forloop") {
         val threadIds = mutableMapOf<String, Int>();
 
         // to ISL we want to return 1, 2, 3, .. as consistent values not the read thread id
-        context.registerExtensionMethod("Thread.Id") {
+        context.registerSyncExtensionMethod("Thread.Id") threadId@{
             lock.lock()
             try {
-                val id = Thread.currentThread().name;
+                val id = Thread.currentThread().name
                 if (threadIds.containsKey(id)) {
-                    return@registerExtensionMethod threadIds[id];
+                    return@threadId threadIds[id]
                 }
-                val newId = threadIds.count() + 1;
-                threadIds[id] = newId;
-                return@registerExtensionMethod newId;
+                val newId = threadIds.count() + 1
+                threadIds[id] = newId
+                return@threadId newId
             } finally {
                 lock.unlock()
             }

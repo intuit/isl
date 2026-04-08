@@ -2,7 +2,6 @@ package com.intuit.isl.runtime
 
 import com.intuit.isl.commands.FunctionDeclarationCommand
 import com.intuit.isl.commands.IFunctionDeclarationCommand
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
 import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.parser.tokens.FunctionType
 import com.intuit.isl.parser.tokens.ModuleImplementationToken

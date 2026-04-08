@@ -5,7 +5,7 @@ import com.intuit.isl.common.*
 import com.intuit.isl.test.mocks.MockContext
 
 class TestOperationMockExtensions {
-    val mockExtensions = HashMap<String, MockContext<AsyncContextAwareExtensionMethod>>()
+    val mockExtensions = HashMap<String, MockContext<ContextAwareExtensionMethod>>()
     val mockAnnotations = HashMap<String, MockContext<AsyncExtensionAnnotation>>()
-    val mockStatementExtensions = HashMap<String, MockContext<AsyncStatementsExtensionMethod>>()
+    val mockStatementExtensions = HashMap<String, MockContext<StatementsExtensionMethod>>()
 }

@@ -1736,7 +1736,7 @@ class ModifiersTest : BaseTransformTest() {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Modifier.mask", this::mask)
+        context.registerSyncExtensionMethod("Modifier.mask", this::mask)
 
         super.onRegisterExtensions(context)
     }

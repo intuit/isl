@@ -40,8 +40,8 @@ class ConditionalModifiersTest : YamlTransformTest("conditional-modifiers") {
 
     override fun onRegisterExtensions(context: OperationContext) {
 
-        context.registerExtensionMethod("modifier.simple", ::simpleModifier)
-        context.registerExtensionMethod("modifier.wild.*", ::wildModifier)
+        context.registerSyncExtensionMethod("modifier.simple", ::simpleModifier)
+        context.registerSyncExtensionMethod("modifier.wild.*", ::wildModifier)
         context.registerConditionalExtensionMethod("modifier.test", ::testModifier)
         context.registerConditionalExtensionMethod("modifier.do.*", ::doWhenModifier)
 

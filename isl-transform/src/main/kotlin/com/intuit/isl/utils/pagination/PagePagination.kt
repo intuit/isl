@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.node.BooleanNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.StatementExecution
+import com.intuit.isl.common.getVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.FunctionCallToken
 import com.intuit.isl.parser.tokens.VariableSelectorValueToken
 import com.intuit.isl.runtime.TransformException
@@ -25,6 +27,7 @@ object PagePagination{
         val variableName =
             (functionCallToken?.arguments?.first() as? VariableSelectorValueToken)?.variableName
             ?: throw TransformException("Unknown format for variable for ${context.functionName}", context.command.token.position);
+        val variableKey = variableName.lowercase()
 
         val parameters = context.secondParameter as ObjectNode?;
         val startIndex = ConvertUtils.tryParseLong(parameters?.get("startIndex")) ?: 0;
@@ -44,11 +47,11 @@ object PagePagination{
                 "toOffset" to ((page+1) * pageSize),
                 "hasMorePages" to false
             ));
-            context.executionContext.operationContext.setVariable(variableName, pageVariable);
+            context.executionContext.operationContext.setVariableCanonical(variableKey, pageVariable);
 
             statementsExtensionMethod(context.executionContext).value;
 
-            val pageVal = context.executionContext.operationContext.getVariable(variableName);
+            val pageVal = context.executionContext.operationContext.getVariableCanonical(variableKey);
             if( (pageVal?.get("hasMorePages") as? BooleanNode)?.booleanValue() == true){
                 // continue
             } else {

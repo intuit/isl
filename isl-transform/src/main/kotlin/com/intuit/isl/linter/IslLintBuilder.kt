@@ -116,7 +116,7 @@
 //        val issues = mutableListOf<LintIssue>()
 //
 //        init {
-//            context.registerExtensionMethod("Log.Info", builder::logInfo);
+//            context.registerSyncExtensionMethod("Log.Info", builder::logInfo);
 //            context.registerAnnotation("lint", builder::linterAnnotation)
 //        }
 //

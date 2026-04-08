@@ -17,19 +17,19 @@ import kotlin.test.assertEquals
 @Suppress("unused")
 class FunctionCallTest : YamlTransformTest("functions") {
     companion object {
-        suspend fun methodNull(context: FunctionExecuteContext): Any? {
+        fun methodNull(context: FunctionExecuteContext): Any? {
             return null
         }
 
-        suspend fun method0(context: FunctionExecuteContext): Any? {
+        fun method0(context: FunctionExecuteContext): Any? {
             return "method0";
         }
 
-        suspend fun method1(context: FunctionExecuteContext): Any? {
+        fun method1(context: FunctionExecuteContext): Any? {
             return "method1 ${context.firstParameter ?: "<was null>"}";
         }
 
-        suspend fun processBatch(context: FunctionExecuteContext): Any? {
+        fun processBatch(context: FunctionExecuteContext): Any? {
             return "processBatch ${context.firstParameter}";
         }
 
@@ -185,7 +185,7 @@ class FunctionCallTest : YamlTransformTest("functions") {
         "forLoopFunctionStatementCallFixture"
     )
     fun runFixtures(script: String, expectedResult: String, map: Map<String, Any?>? = null) {
-        val extensions = mapOf<String, AsyncContextAwareExtensionMethod>(
+        val extensions = mapOf<String, ContextAwareExtensionMethod>(
             "test.methodNull" to Companion::methodNull,
             "test.method0" to Companion::method0,
             "test.method1" to Companion::method1,
@@ -199,13 +199,13 @@ class FunctionCallTest : YamlTransformTest("functions") {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("test.paramMethod0", Companion::paramMethod0);
-        context.registerExtensionMethod("test.paramMethod1", Companion::paramMethod1);
-        context.registerExtensionMethod("test.paramMethod2", Companion::paramMethod2);
+        context.registerSyncExtensionMethod("test.paramMethod0", Companion::paramMethod0);
+        context.registerSyncExtensionMethod("test.paramMethod1", Companion::paramMethod1);
+        context.registerSyncExtensionMethod("test.paramMethod2", Companion::paramMethod2);
 
-        context.registerExtensionMethod("test.name.save", Companion::save);
+        context.registerSyncExtensionMethod("test.name.save", Companion::save);
 
-        context.registerExtensionMethod("Acquire.ProcessBatch") { context ->
+        context.registerSyncExtensionMethod("Acquire.ProcessBatch") { context ->
             println("Acquire ${context.parameters}");
         };
 

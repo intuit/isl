@@ -164,8 +164,8 @@ If you think this is wrong please <a href="https://support.intuit.com">contact o
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Config.Get", ExpressionRunTest::configGet);
-        context.registerExtensionMethod("Config.GetUrl", ExpressionRunTest::configGetUrl);
+        context.registerSyncExtensionMethod("Config.Get", ExpressionRunTest::configGet);
+        context.registerSyncExtensionMethod("Config.GetUrl", ExpressionRunTest::configGetUrl);
 
         super.onRegisterExtensions(context)
     }

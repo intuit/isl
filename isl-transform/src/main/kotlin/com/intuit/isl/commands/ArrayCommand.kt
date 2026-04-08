@@ -3,6 +3,7 @@ package com.intuit.isl.commands
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getVariableCanonical
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.IIslToken
@@ -17,7 +18,7 @@ class ArrayCommand(
         // When seeded, load the existing variable value directly and mutate it in place,
         // avoiding both the deepCopy and the shallow-copy that a spread would otherwise require.
         val result = if (seedVariableName != null)
-            executionContext.operationContext.getVariable(seedVariableName) as? ArrayNode
+            executionContext.operationContext.getVariableCanonical(seedVariableName) as? ArrayNode
                 ?: JsonNodeFactory.instance.arrayNode(values.size)
         else
             JsonNodeFactory.instance.arrayNode(values.size);

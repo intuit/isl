@@ -16,7 +16,7 @@ class SwitchCaseCommand(token: IIslToken, val value: IIslCommand, val cases: Arr
                     return result.second!!;
             }
 
-        return CommandResult(null);
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

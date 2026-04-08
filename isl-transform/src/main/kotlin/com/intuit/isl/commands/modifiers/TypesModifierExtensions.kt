@@ -10,7 +10,7 @@ import com.intuit.isl.utils.InstantNode
 @Suppress("MoveVariableDeclarationIntoWhen")
 object TypesModifierExtensions {
     fun registerDefaultExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Modifier.typeof", TypesModifierExtensions::typeofInfo);
+        context.registerSyncExtensionMethod("Modifier.typeof", TypesModifierExtensions::typeofInfo);
     }
 
     private fun typeofInfo(context: FunctionExecuteContext): Any? {

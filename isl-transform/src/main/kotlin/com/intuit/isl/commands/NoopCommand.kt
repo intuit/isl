@@ -8,7 +8,7 @@ import com.intuit.isl.utils.Position
 
 class NoopCommand(token: NoopToken): BaseCommand(token) {
     override fun execute(executionContext: ExecutionContext): CommandResult {
-        return CommandResult(null);
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

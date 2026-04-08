@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.ParallelOperationContext
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.ParallelForEachToken
 import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.Transformer
@@ -72,8 +73,8 @@ class ParallelForEachCommand(
                             executionContext.executionHook,
                             executionContext.coroutineContext
                         )
-                        localOperationContext.setVariable(token.iterator, JsonConvert.convert(it))
-                        localOperationContext.setVariable(token.iterator + "index", JsonConvert.convert(i))
+                        localOperationContext.setVariableCanonical(foreachIteratorKey, JsonConvert.convert(it))
+                        localOperationContext.setVariableCanonical(foreachIteratorIndexKey, JsonConvert.convert(i))
 
                         val itValue = statements.execute(localExecutionContext)
                         results[i] = itValue

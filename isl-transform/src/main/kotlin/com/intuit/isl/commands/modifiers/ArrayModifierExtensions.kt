@@ -32,28 +32,28 @@ object ArrayModifierExtensions {
 
     fun registerExtensions(context: IOperationContext) {
         // Array modifiers
-        context.registerExtensionMethod("Modifier.isEmpty", ArrayModifierExtensions::isArrayEmpty)
-        context.registerExtensionMethod("Modifier.isNotEmpty", ArrayModifierExtensions::isArrayNotEmpty)
-        context.registerExtensionMethod("Modifier.push", ArrayModifierExtensions::push)
-        context.registerExtensionMethod("Modifier.pop", ArrayModifierExtensions::pop)
-        context.registerExtensionMethod("Modifier.at", ArrayModifierExtensions::at)
-        context.registerExtensionMethod("Modifier.reverse", ArrayModifierExtensions::reverse)
-        context.registerExtensionMethod("Modifier.pushItems", ArrayModifierExtensions::pushItems)
-        context.registerExtensionMethod("Array.range", ArrayModifierExtensions::range)
-        context.registerExtensionMethod("Modifier.unique", ArrayModifierExtensions::unique)
-        context.registerExtensionMethod("Array.unique", ArrayModifierExtensions::unique)
-        context.registerExtensionMethod("Modifier.slice", ArrayModifierExtensions::slice)
-        context.registerExtensionMethod("Array.slice", ArrayModifierExtensions::slice)
+        context.registerSyncExtensionMethod("Modifier.isEmpty", ArrayModifierExtensions::isArrayEmpty)
+        context.registerSyncExtensionMethod("Modifier.isNotEmpty", ArrayModifierExtensions::isArrayNotEmpty)
+        context.registerSyncExtensionMethod("Modifier.push", ArrayModifierExtensions::push)
+        context.registerSyncExtensionMethod("Modifier.pop", ArrayModifierExtensions::pop)
+        context.registerSyncExtensionMethod("Modifier.at", ArrayModifierExtensions::at)
+        context.registerSyncExtensionMethod("Modifier.reverse", ArrayModifierExtensions::reverse)
+        context.registerSyncExtensionMethod("Modifier.pushItems", ArrayModifierExtensions::pushItems)
+        context.registerSyncExtensionMethod("Array.range", ArrayModifierExtensions::range)
+        context.registerSyncExtensionMethod("Modifier.unique", ArrayModifierExtensions::unique)
+        context.registerSyncExtensionMethod("Array.unique", ArrayModifierExtensions::unique)
+        context.registerSyncExtensionMethod("Modifier.slice", ArrayModifierExtensions::slice)
+        context.registerSyncExtensionMethod("Array.slice", ArrayModifierExtensions::slice)
 
         // New modifiers
-        context.registerExtensionMethod("Modifier.first", ArrayModifierExtensions::first)
-        context.registerExtensionMethod("Modifier.last", ArrayModifierExtensions::last)
-        context.registerExtensionMethod("Modifier.take", ArrayModifierExtensions::take)
-        context.registerExtensionMethod("Modifier.drop", ArrayModifierExtensions::drop)
-        context.registerExtensionMethod("Modifier.indexOf", ArrayModifierExtensions::indexOf)
-        context.registerExtensionMethod("Modifier.lastIndexOf", ArrayModifierExtensions::lastIndexOf)
-        context.registerExtensionMethod("Modifier.chunk", ArrayModifierExtensions::chunk)
-        context.registerExtensionMethod("Modifier.group.*", ArrayModifierExtensions::group)
+        context.registerSyncExtensionMethod("Modifier.first", ArrayModifierExtensions::first)
+        context.registerSyncExtensionMethod("Modifier.last", ArrayModifierExtensions::last)
+        context.registerSyncExtensionMethod("Modifier.take", ArrayModifierExtensions::take)
+        context.registerSyncExtensionMethod("Modifier.drop", ArrayModifierExtensions::drop)
+        context.registerSyncExtensionMethod("Modifier.indexOf", ArrayModifierExtensions::indexOf)
+        context.registerSyncExtensionMethod("Modifier.lastIndexOf", ArrayModifierExtensions::lastIndexOf)
+        context.registerSyncExtensionMethod("Modifier.chunk", ArrayModifierExtensions::chunk)
+        context.registerSyncExtensionMethod("Modifier.group.*", ArrayModifierExtensions::group)
     }
 
     private fun isArrayEmpty(context: FunctionExecuteContext): Any {

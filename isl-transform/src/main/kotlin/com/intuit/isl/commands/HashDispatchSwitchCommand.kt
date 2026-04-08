@@ -30,7 +30,7 @@ class HashDispatchSwitchCommand(
             armsByKey[key]?.let { return it.execute(executionContext) }
         }
         defaultArm?.let { return it.execute(executionContext) }
-        return CommandResult(null)
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

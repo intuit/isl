@@ -101,9 +101,9 @@ class Transformer(override val module: TransformModule) : ITransformer {
         }
 
         internal fun init(context: ExecutionContext) {
-            if (context.operationContext.getVariable("\$isl") == null) {
+            if (context.operationContext.getVariableCanonical("\$isl") == null) {
                 val version = TransformVariable(getIslInfo(), true, true);
-                context.operationContext.setVariable("\$isl", version);
+                context.operationContext.setTransformVariableCanonical("\$isl", version);
             }
         }
 
@@ -148,7 +148,7 @@ class Transformer(override val module: TransformModule) : ITransformer {
     ) {
         for (p in function.token.arguments) {
             val dollarName = p.name.let { n -> if (n.startsWith("$")) n else "$" + n }
-            if (operationContext.getVariable(dollarName) != null) continue
+            if (operationContext.getVariableCanonical(dollarName.lowercase()) != null) continue
             val bare = dollarName.removePrefix("$").lowercase()
             if (bare.isEmpty()) continue
             val legacy = operationContext.getVariable(bare) ?: continue

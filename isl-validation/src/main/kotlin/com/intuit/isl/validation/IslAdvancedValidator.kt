@@ -77,10 +77,10 @@ class IslAdvancedValidation(
         val validationMessages = HashSet<ValidationMessage>();
 
         val context = OperationContext()
-            .registerExtensionMethod("Validation.Error") {
-                val code = ConvertUtils.Companion.tryToString(it.firstParameter)
-                val message = ConvertUtils.Companion.tryToString(it.secondParameter);
-                val expected = ConvertUtils.Companion.tryToString(it.thirdParameter);
+            .registerSyncExtensionMethod("Validation.Error") err@{ ctx ->
+                val code = ConvertUtils.tryToString(ctx.firstParameter)
+                val message = ConvertUtils.tryToString(ctx.secondParameter)
+                val expected = ConvertUtils.tryToString(ctx.thirdParameter)
                 validationMessages.add(ValidationMessage.builder()
                     .type("advanced")
                     .code(code)
@@ -91,7 +91,7 @@ class IslAdvancedValidation(
                     //.property()
                     .build()
                 )
-                return@registerExtensionMethod "";
+                return@err ""
             }
             .setVariable("\$field", node)
             .setVariable("\$entity", entity);

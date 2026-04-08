@@ -439,11 +439,11 @@ class SignatureTest : BaseTransformTest() {
 	// supply key in the context to run the test?
 
 	override fun onRegisterExtensions(context: OperationContext) {
-		context.registerExtensionMethod("Test.loadPKCS12SigningKeyAsIslKeyStore", SignatureTest::loadPKCS12SigningKeyFromFileAsIslSecurityKeyStore);
-		context.registerExtensionMethod("Test.loadPKCS12SigningKeyAsString", SignatureTest::loadPKCS12SigningKeyFromFileAsString);
-		context.registerExtensionMethod("Test.loadPKCS12SigningKeyFromFileAsPrivateKey", SignatureTest::loadPKCS12SigningKeyFromFileAsPrivateKey);
-		context.registerExtensionMethod("Test.loadPKCS12SigningKeyAsIslKey", SignatureTest::loadPKCS12SigningKeyAsIslKey);
-		context.registerExtensionMethod("Test.loadPKCS12SigningKeyAsKeyStore", SignatureTest::loadPKCS12SigningKeyAsKeyStore);
+		context.registerSyncExtensionMethod("Test.loadPKCS12SigningKeyAsIslKeyStore", SignatureTest::loadPKCS12SigningKeyFromFileAsIslSecurityKeyStore);
+		context.registerSyncExtensionMethod("Test.loadPKCS12SigningKeyAsString", SignatureTest::loadPKCS12SigningKeyFromFileAsString);
+		context.registerSyncExtensionMethod("Test.loadPKCS12SigningKeyFromFileAsPrivateKey", SignatureTest::loadPKCS12SigningKeyFromFileAsPrivateKey);
+		context.registerSyncExtensionMethod("Test.loadPKCS12SigningKeyAsIslKey", SignatureTest::loadPKCS12SigningKeyAsIslKey);
+		context.registerSyncExtensionMethod("Test.loadPKCS12SigningKeyAsKeyStore", SignatureTest::loadPKCS12SigningKeyAsKeyStore);
 		super.onRegisterExtensions(context)
 	}
 }

@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.IOperationContext
+import com.intuit.isl.common.removeVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import kotlin.random.Random
@@ -41,9 +43,9 @@ object RetryModifiers {
                 lastResult = result;
                 val value = JsonConvert.convert(result.value);
 
-                context.operationContext.setVariable("$", value);
+                context.operationContext.setVariableCanonical("\$", value);
                 if (command.expression.evaluateCondition(context)) {
-                    context.operationContext.removeVariable("$");
+                    context.operationContext.removeVariableCanonical("\$");
                     if (delayTime > 0)
                         Thread.sleep(delayTime) // Use Thread.sleep on virtual threads
                     if(backOff) // next time go slower
@@ -53,7 +55,7 @@ object RetryModifiers {
                     return result.value;
                 }
             } finally {
-                context.operationContext.removeVariable("$");
+                context.operationContext.removeVariableCanonical("\$");
             }
         } while (i <= retryCount);
 

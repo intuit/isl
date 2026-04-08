@@ -24,7 +24,17 @@ typealias StatementsExtensionMethod = (context: FunctionExecuteContext, executeS
 typealias ConditionalExtension = (command: IConditionalCommand, context: ExecutionContext)-> Any?;
 
 interface IOperationContext {
+    /**
+     * Register a host extension that may suspend. It is wrapped with SuspendBridge at registration
+     * so the runtime always invokes sync [ContextAwareExtensionMethod].
+     */
     fun registerExtensionMethod(fullName: String, callback: AsyncContextAwareExtensionMethod): IOperationContext;
+
+    /**
+     * Register a sync-only extension (built-ins, modifiers, internal functions). No SuspendBridge at registration.
+     * Named separately from [registerExtensionMethod] to avoid overload ambiguity with plain lambdas.
+     */
+    fun registerSyncExtensionMethod(fullName: String, callback: ContextAwareExtensionMethod): IOperationContext;
 
     fun registerConditionalExtensionMethod(fullName: String, extension: ConditionalExtension): IOperationContext;
 
@@ -49,10 +59,13 @@ interface IOperationContext {
     fun getStatementExtension(name: String): StatementsExtensionMethod?;
 
     /**
-     * Add @param name Variable. Name will be visible as `$$name` in the transform code.
+     * Add @param name Variable. Name will be visible as `$name` in the transform code.
+     * Names are matched case-insensitively (normalized to lowercase for storage).
+     * The engine uses pre-lowercased keys on hot paths; hosts should not rely on that.
      */
     fun setVariable(name: String, node: JsonNode, setIsModified: Boolean? = null): IOperationContext;
     fun setVariable(name: String, variable: TransformVariable): IOperationContext;
+    /** Case-insensitive lookup; external callers may pass any casing. */
     fun getVariable(name: String): JsonNode?;
     fun getTransformVariable(name: String): TransformVariable?;
     fun removeVariable(name: String);

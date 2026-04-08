@@ -3,6 +3,8 @@ package com.intuit.isl.commands
 import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.removeVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.ForEachToken
@@ -13,6 +15,9 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
     BaseCommand(token) {
 
     internal val foreachSource: IIslCommand get() = source
+    protected val foreachIteratorKey: String = token.iterator.lowercase()
+    protected val foreachIteratorIndexKey: String = (token.iterator + "index").lowercase()
+
     override val token: ForEachToken
         get() = super.token as ForEachToken;
 
@@ -32,8 +37,8 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
         var result: ArrayNode? = null;
 
         source?.forEachIndexed { i, it ->
-            executionContext.operationContext.setVariable(token.iterator, JsonConvert.convert(it));
-            executionContext.operationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
+            executionContext.operationContext.setVariableCanonical(foreachIteratorKey, JsonConvert.convert(it));
+            executionContext.operationContext.setVariableCanonical(foreachIteratorIndexKey, JsonConvert.convert(i));
 
             executionContext.executionHook?.onBeforeExecute(statements, executionContext)
             val itValue = statements.execute(executionContext);
@@ -50,8 +55,8 @@ open class ForEachCommand(token: ForEachToken, private val source: IIslCommand, 
         }
 
         // cleanup
-        executionContext.operationContext.removeVariable(token.iterator);
-        executionContext.operationContext.removeVariable(token.iterator + "index");
+        executionContext.operationContext.removeVariableCanonical(foreachIteratorKey);
+        executionContext.operationContext.removeVariableCanonical(foreachIteratorIndexKey);
 
         return CommandResult(result ?: JsonNodeFactory.instance.arrayNode(), null, true);
     }

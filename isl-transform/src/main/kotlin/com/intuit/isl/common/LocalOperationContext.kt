@@ -18,6 +18,13 @@ class LocalOperationContext(
         throw NotImplementedError("Not supported");
     }
 
+    override fun registerSyncExtensionMethod(
+        fullName: String,
+        callback: ContextAwareExtensionMethod
+    ): IOperationContext {
+        throw NotImplementedError("Not supported")
+    }
+
     override fun registerConditionalExtensionMethod(
         fullName: String,
         extension: ConditionalExtension
@@ -53,44 +60,26 @@ class LocalOperationContext(
     }
 
     override fun setVariable(name: String, node: JsonNode, setIsModified: Boolean?): IOperationContext {
-        // @ is used for now for some internal variables just to keep track of internal stuff
         assert(name.startsWith("$"));
-
-        val lname = name.lowercase();
-        // if variable exists and it's readonly then don't set
-        val existing = variables[lname];
-        if(existing?.readOnly == true)
-            throw Exception("Could not set readonly variable=${name}.")
-
-        variables[lname] = TransformVariable(node);
-
+        setVariableCanonical(name.lowercase(), node, setIsModified);
         return this;
     }
     override fun setVariable(name: String, variable: TransformVariable): IOperationContext {
-        // @ is used for now for some internal variables just to keep track of internal stuff
         assert(name.startsWith("$"));
-        val lname = name.lowercase();
-        // if variable exists and it's readonly then don't set
-        val existing = variables[lname];
-        if(existing?.readOnly == true)
-            throw Exception("Could not set readonly variable=${name}.")
-
-        variables[lname] = variable;
-
+        setTransformVariableCanonical(name.lowercase(), variable);
         return this;
     }
 
 
     override fun getVariable(name: String): JsonNode? {
-        val variable = variables[name.lowercase()];
-        return variable?.value;
+        return getVariableCanonical(name.lowercase());
     }
 
     override fun getTransformVariable(name: String): TransformVariable? {
-        return variables[name.lowercase()];
+        return getTransformVariableCanonical(name.lowercase());
     }
     override fun removeVariable(name: String) {
-        variables.remove(name.lowercase());
+        removeVariableCanonical(name.lowercase());
     }
 
 //    override val interceptor: ICommandInterceptor?

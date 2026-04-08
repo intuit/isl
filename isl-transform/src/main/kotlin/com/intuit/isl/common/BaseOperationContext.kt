@@ -81,7 +81,7 @@ open class BaseOperationContext : IOperationContext {
         );
 
         this.variables.filter { it.value.global }
-            .forEach { newContext.setVariable(it.key, it.value) }
+            .forEach { newContext.setTransformVariableCanonical(it.key, it.value) }
 
         return newContext;
     }
@@ -118,6 +118,15 @@ open class BaseOperationContext : IOperationContext {
         // Clear cache when extensions change
         extensionCache.clear()
         return this;
+    }
+
+    override fun registerSyncExtensionMethod(
+        fullName: String,
+        callback: ContextAwareExtensionMethod
+    ): BaseOperationContext {
+        extensions[fullName.lowercase()] = callback
+        extensionCache.clear()
+        return this
     }
 
     override fun registerConditionalExtensionMethod(
@@ -184,43 +193,27 @@ open class BaseOperationContext : IOperationContext {
      * Name needs to start with a single `$`
      */
     override fun setVariable(name: String, node: JsonNode, setIsModified: Boolean?): BaseOperationContext {
-        // @ is used for now for some internal variables just to keep track of internal stuff
         assert(name.startsWith("$"));
-
-        val lname = name.lowercase();
-        // if variable exists and it's readonly then don't set
-        val existing = variables[lname];
-        if (existing?.readOnly == true)
-            throw Exception("Could not set readonly variable=${name}.")
-
-        variables[lname] = TransformVariable(node);
-
+        setVariableCanonical(name.lowercase(), node, setIsModified);
         return this;
     }
 
     override fun setVariable(name: String, variable: TransformVariable): BaseOperationContext {
-        // @ is used for now for some internal variables just to keep track of internal stuff
         assert(name.startsWith("$"));
-        val lname = name.lowercase();
-        // if variable exists and it's readonly then don't set
-        val existing = variables[lname];
-        if (existing?.readOnly == true)
-            throw Exception("Could not set readonly variable=${name}.")
-        variables[lname] = variable;
-
+        setTransformVariableCanonical(name.lowercase(), variable);
         return this;
     }
 
     override fun getVariable(name: String): JsonNode? {
-        return variables[name.lowercase()]?.value;
+        return getVariableCanonical(name.lowercase());
     }
 
     override fun getTransformVariable(name: String): TransformVariable? {
-        return variables[name.lowercase()];
+        return getTransformVariableCanonical(name.lowercase());
     }
 
     override fun removeVariable(name: String) {
-        variables.remove(name.lowercase());
+        removeVariableCanonical(name.lowercase());
     }
 }
 

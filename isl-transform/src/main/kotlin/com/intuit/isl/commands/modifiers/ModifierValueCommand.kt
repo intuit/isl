@@ -7,7 +7,7 @@ import com.intuit.isl.commands.BaseCommand
 import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.FunctionCallCommand
 import com.intuit.isl.commands.IIslCommand
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.parser.tokens.ModifierValueToken
 import com.jayway.jsonpath.JsonPath
 
@@ -32,7 +32,7 @@ open class ModifierValueCommand(
             executionContext: ExecutionContext,
             prevValue: CommandResult,
             arguments: List<IIslCommand>,
-            modifier: AsyncContextAwareExtensionMethod
+            modifier: ContextAwareExtensionMethod
         ): CommandResult {
             val args = mutableListOf(prevValue.value);
             if (command.modifierSelector != null)
@@ -42,10 +42,7 @@ open class ModifierValueCommand(
             val functionContext = FunctionExecuteContext(command.token.name, command, executionContext, args.toTypedArray());
 
             val result = FunctionCallCommand.safeRunFunction(command.token.name, command) {
-                // Bridge to suspend modifier
-                com.intuit.isl.common.SuspendBridge.callSuspend(executionContext.coroutineContext) {
-                    modifier(functionContext)
-                }
+                modifier(functionContext)
             }
 
             return CommandResult(result);
@@ -95,7 +92,7 @@ open class ModifierValueCommand(
 
 class HardwiredModifierValueCommand(
     token: ModifierValueToken, realModifierName: String, value: IIslCommand, arguments: List<IIslCommand>,
-    private val callback: AsyncContextAwareExtensionMethod,
+    private val callback: ContextAwareExtensionMethod,
     /**
      * When the first modifier argument is a static JSON Path (`$.field` or `"$.field"`),
      * [com.intuit.isl.commands.builder.ExecutionBuilder] compiles it once at build time.

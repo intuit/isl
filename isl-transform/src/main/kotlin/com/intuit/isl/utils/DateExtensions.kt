@@ -22,8 +22,8 @@ import java.util.concurrent.ConcurrentHashMap
 
 object DateExtensions {
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Date.Now", DateExtensions::now);
-        context.registerExtensionMethod("Modifier.date.*", DateExtensions::date);
+        context.registerSyncExtensionMethod("Date.Now", DateExtensions::now);
+        context.registerSyncExtensionMethod("Modifier.date.*", DateExtensions::date);
     }
 
     fun now(context: FunctionExecuteContext?): Any {

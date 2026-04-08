@@ -2,6 +2,8 @@ package com.intuit.isl.commands
 
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getTransformVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.AssignVariableToken
@@ -26,7 +28,7 @@ class AssignVariableCommand(token: AssignVariableToken, val value: IIslCommand) 
 
         try {
             if (token.topPropertyName != null) {
-                val existingVariable = executionContext.operationContext.getTransformVariable(token.name);
+                val existingVariable = executionContext.operationContext.getTransformVariableCanonical(token.name);
                 if (existingVariable?.readOnly == true) {
                     throw TransformException(
                         "Could not set property=${token.topPropertyName} in readonly variable=${token.name}.",
@@ -36,14 +38,14 @@ class AssignVariableCommand(token: AssignVariableToken, val value: IIslCommand) 
 
                 val variableToModify = existingVariable?.value ?: TypedJsonNodeFactory.instance.typedObjectNode(token.islType);
                 val newValue = JsonConvert.merge(variableToModify, node) as ObjectNode;
-                executionContext.operationContext.setVariable(token.name, newValue);
+                executionContext.operationContext.setVariableCanonical(token.name, newValue);
             } else {
                 // TODO: we should really try to modify whatever variable we already have so we can build complex objects
                 // (maybe some append command?)
                 // we need to traverse the tree in order to do this properly
-                executionContext.operationContext.setVariable(token.name, node);
+                executionContext.operationContext.setVariableCanonical(token.name, node);
             }
-            return CommandResult(null, null);
+            return CommandResult.NULL
         }catch (e: TransformException){
             throw e;
         }catch (e: Exception){

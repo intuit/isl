@@ -5,6 +5,8 @@ import com.intuit.isl.commands.BaseCommand
 import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.removeVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.MapModifierValueToken
 import com.intuit.isl.utils.JsonConvert
@@ -31,10 +33,10 @@ class MapModifierValueCommand(
         val array = JsonNodeFactory.instance.arrayNode(defaultSize)
 
         source?.forEach { it ->
-            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it))
+            executionContext.operationContext.setVariableCanonical("\$", JsonConvert.convert(it))
             array.add(JsonConvert.convert(argument.execute(executionContext).value))
         }
-        executionContext.operationContext.removeVariable("\$")
+        executionContext.operationContext.removeVariableCanonical("\$")
 
         val result = CommandResult(array)
         hook?.onAfterExecute(this, executionContext, result)

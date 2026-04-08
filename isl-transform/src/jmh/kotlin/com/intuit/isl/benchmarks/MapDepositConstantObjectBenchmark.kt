@@ -8,7 +8,6 @@ import com.intuit.isl.runtime.ITransformer
 import com.intuit.isl.runtime.TransformCompiler
 import com.intuit.isl.types.TypedJsonNodeFactory
 import com.intuit.isl.utils.ConvertUtils
-import kotlinx.coroutines.runBlocking
 import org.openjdk.jmh.annotations.Benchmark
 import org.openjdk.jmh.annotations.BenchmarkMode
 import org.openjdk.jmh.annotations.Fork
@@ -46,7 +45,7 @@ open class MapDepositConstantObjectBenchmark {
     fun setup() {
         transformer = TransformCompiler().compileIsl("mapDepositBench", ISL_SCRIPT)
         operationContext = OperationContext()
-        operationContext.registerExtensionMethod("modifier.getmappedvalue", ::getMappedValueStub)
+        operationContext.registerSyncExtensionMethod("modifier.getmappedvalue", ::getMappedValueStub)
 
         prototype = TypedJsonNodeFactory.instance.typedObjectNode(null)
         for ((k, v) in MAP_ENTRIES) {
@@ -57,10 +56,7 @@ open class MapDepositConstantObjectBenchmark {
     /** Current engine: compile-time tree, runtime builds the object + pipe + stub modifier each invocation. */
     @Benchmark
     fun islFullPipeline(bh: Blackhole) {
-        runBlocking {
-            val r = transformer.runTransformAsync("run", operationContext)
-            bh.consume(r.result)
-        }
+        bh.consume(transformer.runTransformSync("run", operationContext))
     }
 
     /**
@@ -153,7 +149,7 @@ private fun lookupDepositMap(map: ObjectNode, key: String): JsonNode? {
     return map.get("*")
 }
 
-private suspend fun getMappedValueStub(c: FunctionExecuteContext): Any? {
+private fun getMappedValueStub(c: FunctionExecuteContext): Any? {
     val map = c.firstParameter as? ObjectNode ?: return null
     val key = ConvertUtils.tryToString(c.parameters.getOrNull(2)) ?: return null
     return lookupDepositMap(map, key)

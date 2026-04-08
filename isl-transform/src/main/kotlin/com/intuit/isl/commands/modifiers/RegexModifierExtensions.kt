@@ -41,7 +41,7 @@ object RegexModifierExtensions {
     }
 
     fun registerDefaultExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Modifier.regex.*", RegexModifierExtensions::regex);
+        context.registerSyncExtensionMethod("Modifier.regex.*", RegexModifierExtensions::regex);
     }
 
     // We need a cache here because the Pattern.compile does not cache so it's very expensive to create on every use

@@ -48,10 +48,10 @@ object ConversionModifierExtensions {
     
     fun registerExtensions(context: IOperationContext) {
         // Conversion modifiers
-        context.registerExtensionMethod("Modifier.to.*", ConversionModifierExtensions::convertTo)
-        context.registerExtensionMethod("Modifier.hex.*", ConversionModifierExtensions::convertFromHex)
-        context.registerExtensionMethod("Modifier.join.*", ConversionModifierExtensions::joinString)
-        context.registerExtensionMethod("Modifier.email.*", ConversionModifierExtensions::email)
+        context.registerSyncExtensionMethod("Modifier.to.*", ConversionModifierExtensions::convertTo)
+        context.registerSyncExtensionMethod("Modifier.hex.*", ConversionModifierExtensions::convertFromHex)
+        context.registerSyncExtensionMethod("Modifier.join.*", ConversionModifierExtensions::joinString)
+        context.registerSyncExtensionMethod("Modifier.email.*", ConversionModifierExtensions::email)
     }
     
     private fun convertTo(context: FunctionExecuteContext): Any? {

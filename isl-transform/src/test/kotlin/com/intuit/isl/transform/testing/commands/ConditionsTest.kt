@@ -134,8 +134,8 @@ class ConditionsTest : YamlTransformTest("conditions") {
 
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Call.Api", ::callApi);
-        context.registerExtensionMethod("Config.Get", ::configGet);
+        context.registerSyncExtensionMethod("Call.Api", ::callApi);
+        context.registerSyncExtensionMethod("Config.Get", ::configGet);
     }
 }
 

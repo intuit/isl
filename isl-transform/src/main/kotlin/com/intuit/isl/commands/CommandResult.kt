@@ -15,4 +15,18 @@ data class CommandResult(
                 return null;
             return originalValue;
         }
+
+    companion object {
+        /** Plain null value; default property/append/valid flags (e.g. no-op, missing path). */
+        val NULL = CommandResult(null)
+
+        /**
+         * Object-build condition with no else: skip appending the property ([ConditionCommand]).
+         * Distinct from [NULL_NOT_VALID] (uses `append = false`, not `validResult`).
+         */
+        val NULL_APPEND_FALSE = CommandResult(null, null, false)
+
+        /** Statement block ended with no captured result ([StatementsBuildCommand]). */
+        val NULL_NOT_VALID = CommandResult(null, validResult = false)
+    }
 }

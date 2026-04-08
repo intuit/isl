@@ -23,9 +23,9 @@ import java.util.zip.Deflater
 object ZipExtensions {
 
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Zip.Start", ZipExtensions::start)
-        context.registerExtensionMethod("Modifier.zip.*", ZipExtensions::handleZip)
-        context.registerExtensionMethod("Modifier.unzip", ZipExtensions::unzip)
+        context.registerSyncExtensionMethod("Zip.Start", ZipExtensions::start)
+        context.registerSyncExtensionMethod("Modifier.zip.*", ZipExtensions::handleZip)
+        context.registerSyncExtensionMethod("Modifier.unzip", ZipExtensions::unzip)
     }
 
     @Suppress("UNUSED_PARAMETER")

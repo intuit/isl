@@ -27,7 +27,7 @@ class StatementsBuildCommand(token: IIslToken, val commands: List<IIslCommand>) 
             //executionContext.operationContext.setVariable(tempVariableName, JsonConvert.convert(commandResult?.value))
         }
 
-        return commandResult ?: CommandResult(null, validResult = false);
+        return commandResult ?: CommandResult.NULL_NOT_VALID
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

@@ -26,7 +26,7 @@ class ConditionCommand(
         } else {
             if (falseResult == null) {
                 // there is no else branch! don't attempt to append the property at all!
-                return CommandResult(null, null, false);
+                return CommandResult.NULL_APPEND_FALSE
             } else {
                 hookBranchForCoverage(executionContext, falseResult)
                 val result = falseResult.execute(executionContext)

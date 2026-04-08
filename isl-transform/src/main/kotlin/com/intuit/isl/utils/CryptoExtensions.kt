@@ -19,7 +19,7 @@ import javax.crypto.spec.SecretKeySpec
 
 object CryptoExtensions {
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Modifier.Crypto.*", CryptoExtensions::crypto)
+        context.registerSyncExtensionMethod("Modifier.Crypto.*", CryptoExtensions::crypto)
     }
 
     private fun crypto(context: FunctionExecuteContext): Any? {

@@ -442,6 +442,6 @@ class DeclareObjectTest : YamlTransformTest("transform") {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Headers.Get", ExpressionRunTest::configGet);
+        context.registerSyncExtensionMethod("Headers.Get", ExpressionRunTest::configGet);
     }
 }

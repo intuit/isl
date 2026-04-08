@@ -43,7 +43,7 @@ object XmlModifierExtensions {
     }
 
     fun registerDefaultExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Modifier.xml.*", XmlModifierExtensions::xml);
+        context.registerSyncExtensionMethod("Modifier.xml.*", XmlModifierExtensions::xml);
     }
 
     private fun xml(context: FunctionExecuteContext): Any? {
