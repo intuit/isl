@@ -8,6 +8,8 @@ import com.intuit.isl.common.ExecutionContext
  * Hook injected into the ISL runtime for execution observability (debugging, coverage, tracing, etc.).
  * When null on [ExecutionContext], commands incur only a null check at instrumentation sites.
  * When present, the hook is invoked around statement-level execution and function boundaries.
+ * 
+ * All methods are now non-suspend since the ISL engine runs synchronously on virtual threads.
  */
 interface IExecutionHook {
 
@@ -19,14 +21,14 @@ interface IExecutionHook {
 
     /**
      * Called before a statement-level command executes.
-     * Implementations may suspend the coroutine (e.g. debugger breakpoints / stepping).
+     * Implementations should not block for long periods.
      */
-    suspend fun onBeforeExecute(command: IIslCommand, context: ExecutionContext)
+    fun onBeforeExecute(command: IIslCommand, context: ExecutionContext)
 
     /**
      * Called after a statement-level command executes.
      */
-    suspend fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult)
+    fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult)
 
     /**
      * Called when entering a function body (push call frame).

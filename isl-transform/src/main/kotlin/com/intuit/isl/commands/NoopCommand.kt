@@ -7,8 +7,8 @@ import com.intuit.isl.parser.tokens.BaseToken
 import com.intuit.isl.utils.Position
 
 class NoopCommand(token: NoopToken): BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        return CommandResult(null);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

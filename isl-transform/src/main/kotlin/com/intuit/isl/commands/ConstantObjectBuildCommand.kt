@@ -15,7 +15,7 @@ class ConstantObjectBuildCommand(
     private val prototypeTemplate: ObjectNode
 ) : BaseCommand(token) {
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         return CommandResult(prototypeTemplate.deepCopy())
     }
 

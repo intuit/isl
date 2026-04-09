@@ -6,7 +6,7 @@ import com.intuit.isl.parser.tokens.IIslToken
 
 
 interface IEvaluableConditionCommand {
-    suspend fun evaluateConditionAsync(context: ExecutionContext): Boolean;
+    fun evaluateCondition(context: ExecutionContext): Boolean;
 }
 
 class ConditionExpressionCommand(
@@ -16,18 +16,18 @@ class ConditionExpressionCommand(
     val right: IEvaluableConditionCommand
 ) : BaseCommand(token), IEvaluableConditionCommand {
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val result = evaluateConditionAsync(executionContext);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val result = evaluateCondition(executionContext);
         return CommandResult(result);
     }
 
-    override suspend fun evaluateConditionAsync(context: ExecutionContext): Boolean {
-        val leftValue = left.evaluateConditionAsync(context);
+    override fun evaluateCondition(context: ExecutionContext): Boolean {
+        val leftValue = left.evaluateCondition(context);
 
         if (condition == "or" && leftValue)
             return true;    // short evaluation
 
-        val rightValue = right.evaluateConditionAsync(context);
+        val rightValue = right.evaluateCondition(context);
         if (condition == "or")
             return rightValue;
 
@@ -44,16 +44,16 @@ class ConditionExpressionCommand(
  */
 class SimpleConditionCommand(token: IIslToken, val left: IIslCommand, val condition: String, val right: IIslCommand?) :
     BaseCommand(token), IEvaluableConditionCommand {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val result = evaluateConditionAsync(executionContext);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val result = evaluateCondition(executionContext);
         return CommandResult(result);
     }
 
-    override suspend fun evaluateConditionAsync(context: ExecutionContext): Boolean {
-        val leftResult = left.executeAsync(context);
+    override fun evaluateCondition(context: ExecutionContext): Boolean {
+        val leftResult = left.execute(context);
         val leftValue = leftResult.value;
 
-        val rightValue = right?.executeAsync(context)?.value;
+        val rightValue = right?.execute(context)?.value;
 
         return ConditionEvaluator.evaluate(leftValue, condition, rightValue);
     }
@@ -69,14 +69,14 @@ class SimpleConditionCommand(token: IIslToken, val left: IIslCommand, val condit
  * Once in the condition and once in the result.
  */
 class CoalesceCommand(token: IIslToken, val left: IIslCommand, val right: IIslCommand) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val leftResult = left.executeAsync(executionContext);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val leftResult = left.execute(executionContext);
         val leftValue = leftResult.value;
 
         if (ConditionEvaluator.evaluate(leftValue, ConditionEvaluator.EXISTS, null)) {
             return leftResult;
         } else {
-            val rightValue = right.executeAsync(executionContext);
+            val rightValue = right.execute(executionContext);
             return rightValue;
         }
     }

@@ -8,7 +8,7 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLGenerator
 import com.fasterxml.jackson.module.kotlin.KotlinFeature
 import com.fasterxml.jackson.module.kotlin.KotlinModule
 import com.fasterxml.jackson.module.kotlin.readValue
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.OperationContext
 import com.intuit.isl.runtime.ITransformResult
@@ -89,7 +89,7 @@ abstract class BaseTransformTest(val folderPath: String) {
 
     private suspend fun runTransform(
         map: Map<String, Any?>?,
-        extensions: Map<String, AsyncContextAwareExtensionMethod>?,
+        extensions: Map<String, ContextAwareExtensionMethod>?,
         t: ITransformer
     ): ITransformResult? {
         val context = OperationContext()
@@ -100,7 +100,7 @@ abstract class BaseTransformTest(val folderPath: String) {
 
         // extension functions
         extensions?.forEach {
-            context.registerExtensionMethod(it.key, it.value)
+            context.registerSyncExtensionMethod(it.key, it.value)
         }
 
         onRegisterExtensions(context)
@@ -111,7 +111,7 @@ abstract class BaseTransformTest(val folderPath: String) {
     }
 
     open fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Log.Info", BaseTransformTest::logInfo)
+        context.registerSyncExtensionMethod("Log.Info", BaseTransformTest::logInfo)
     }
 }
 

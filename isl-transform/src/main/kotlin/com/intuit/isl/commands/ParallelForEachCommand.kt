@@ -5,24 +5,20 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.ParallelOperationContext
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.ParallelForEachToken
 import com.intuit.isl.runtime.TransformException
 import com.intuit.isl.runtime.Transformer
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.IIslIterable
 import com.intuit.isl.utils.JsonConvert
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.asCoroutineDispatcher
-import kotlinx.coroutines.async
-import kotlinx.coroutines.joinAll
 import java.util.concurrent.Executors
-import kotlin.coroutines.cancellation.CancellationException
-import kotlin.coroutines.coroutineContext
+import java.util.concurrent.Semaphore
+import java.util.concurrent.ConcurrentHashMap
 
 /**
- * For each that can run in parallel.
+ * For each that can run in parallel using virtual threads.
+ * Uses a semaphore to limit parallelism while maintaining virtual thread benefits.
  */
 class ParallelForEachCommand(
     token: ParallelForEachToken,
@@ -36,23 +32,19 @@ class ParallelForEachCommand(
     override val token: ParallelForEachToken
         get() = super.token as ParallelForEachToken;
 
-    companion object {
-        private val localDispatcher = Executors.newFixedThreadPool(20).asCoroutineDispatcher()
-    }
-
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val sourceCollection = source.executeAsync(executionContext).value;
-        // Options can have for now just `worders: X`
-        val localOptions = options?.executeAsync(executionContext)?.value as? ObjectNode?;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val sourceCollection = source.execute(executionContext).value;
+        // Options can have for now just `workers: X`
+        val localOptions = options?.execute(executionContext)?.value as? ObjectNode?;
 
         val workers = Math.clamp(
             ConvertUtils.tryParseLong(localOptions?.get("workers"), 6) ?: 6,
             1, Transformer.maxParallelWorkers
-        );
+        ).toInt();
 
         // we'll run as a normal foreach
         if(workers == 1) {
-            return super.executeAsync(executionContext);
+            return super.execute(executionContext);
         }
 
         val source = when (sourceCollection) {
@@ -61,42 +53,79 @@ class ParallelForEachCommand(
             else -> null;
         };
 
-        val supervisorJob = SupervisorJob()
-        val limitedDispatcher = localDispatcher.limitedParallelism(workers)
+        val sourceList = source?.toList() ?: emptyList()
+        val results = ConcurrentHashMap<Int, CommandResult>()
+        val errors = ConcurrentHashMap<Int, Exception>()
+        val semaphore = Semaphore(workers)
 
-        val waits = source?.mapIndexed { i, it ->
-            CoroutineScope(limitedDispatcher + coroutineContext + supervisorJob).async {
-                val localOperationContext = ParallelOperationContext(executionContext.operationContext);
-                val localExecutionContext = ExecutionContext(
-                    localOperationContext,
-                    executionContext.localContext,
-                    executionContext.executionHook
-                );
-                localOperationContext.setVariable(token.iterator, JsonConvert.convert(it));
-                localOperationContext.setVariable(token.iterator + "index", JsonConvert.convert(i));
+        // Use virtual thread executor
+        val executor = Executors.newVirtualThreadPerTaskExecutor()
+        
+        try {
+            val futures = sourceList.mapIndexed { i, it ->
+                executor.submit {
+                    semaphore.acquire()
+                    try {
+                        val localOperationContext = ParallelOperationContext(executionContext.operationContext)
+                        val localExecutionContext = ExecutionContext(
+                            localOperationContext,
+                            executionContext.localContext,
+                            executionContext.executionHook,
+                            executionContext.coroutineContext
+                        )
+                        localOperationContext.setVariableCanonical(foreachIteratorKey, JsonConvert.convert(it))
+                        localOperationContext.setVariableCanonical(foreachIteratorIndexKey, JsonConvert.convert(i))
 
-                val itValue = statements.executeAsync(localExecutionContext);
-                return@async itValue;
+                        val itValue = statements.execute(localExecutionContext)
+                        results[i] = itValue
+                    } catch (e: Exception) {
+                        // Collect errors but don't stop other iterations (supervisor behavior)
+                        errors[i] = e
+                    } finally {
+                        semaphore.release()
+                    }
+                }
             }
-        };
-        waits?.joinAll();
+            
+            // Wait for all futures to complete
+            futures.forEach { it.get() }
+        } finally {
+            executor.shutdown()
+        }
 
-        val result = JsonNodeFactory.instance.arrayNode();
-        waits?.forEach {
-            try {
-                val r = it.await();
-                if (r.validResult == false)
-                    return@forEach; // ignore
+        // Build result array from collected results, maintaining order
+        val result = JsonNodeFactory.instance.arrayNode()
+        
+        for (i in sourceList.indices) {
+            val r = results[i]
+            if (r != null) {
+                try {
+                    if (r.validResult == false)
+                        continue // ignore
 
-                result.add(JsonConvert.convert(r.value));
-            } catch (t: TransformException) {
-                throw t;
-            } catch (e: Exception) {
-                throw TransformException(e.message + " at ${token.position}", token.position, e);
+                    result.add(JsonConvert.convert(r.value))
+                } catch (t: TransformException) {
+                    throw t
+                } catch (e: Exception) {
+                    throw TransformException(e.message + " at ${token.position}", token.position, e)
+                }
+            } else {
+                // Check if there was an error for this index
+                val error = errors[i]
+                if (error != null) {
+                    when (error) {
+                        is TransformException -> throw error
+                        else -> throw TransformException(
+                            error.message + " at ${token.position}",
+                            token.position,
+                            error
+                        )
+                    }
+                }
             }
         }
 
-        return CommandResult(result, null, true);
+        return CommandResult(result, null, true)
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

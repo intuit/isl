@@ -7,7 +7,6 @@ import com.intuit.isl.common.OperationContext
 import com.intuit.isl.runtime.TransformCompiler
 import com.intuit.isl.runtime.ITransformer
 import com.intuit.isl.utils.JsonConvert
-import kotlinx.coroutines.runBlocking
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
 import org.mvel2.MVEL
@@ -160,16 +159,16 @@ open class JsonTransformBenchmark {
 
     /**
      * Benchmark: ISL Simple transformation (pre-compiled, matching JOLT capabilities)
-     * 
-     * Measures ISL's performance with a simple script that matches JOLT's capabilities.
-     * Fair comparison: basic field mapping only, no modifiers or complex operations.
+     *
+     * Uses [ITransformer.runTransformSync] so the hot path matches synchronous JOLT/MVEL (no
+     * `runBlocking` + `runTransformAsync` → `withContext(vtDispatcher)` hop, which dominated
+     * sub-millisecond scores and made ISL look several times slower than it is).
      */
     @Benchmark
-    fun islSimpleTransformation(): JsonNode? = runBlocking {
+    fun islSimpleTransformation(): JsonNode? {
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = islSimpleTransformer.runTransformAsync("run", context)
-        result.result;
+        return islSimpleTransformer.runTransformSync("run", context)
     }
 
     /**
@@ -180,11 +179,10 @@ open class JsonTransformBenchmark {
      * Shows ISL's capabilities: functions, modifiers, conditionals, aggregations.
      */
     @Benchmark
-    fun islComplexVerboseTransformation(): JsonNode? = runBlocking {
+    fun islComplexVerboseTransformation(): JsonNode? {
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = islComplexVerboseTransformer.runTransformAsync("run", context)
-        result.result;
+        return islComplexVerboseTransformer.runTransformSync("run", context)
     }
 
     /**
@@ -195,11 +193,10 @@ open class JsonTransformBenchmark {
      * Shows ISL's capabilities: functions, modifiers, conditionals, aggregations.
      */
     @Benchmark
-    fun islComplexCleanTransformation(): JsonNode? = runBlocking {
+    fun islComplexCleanTransformation(): JsonNode? {
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = islComplexCleanTransformer.runTransformAsync("run", context)
-        result.result;
+        return islComplexCleanTransformer.runTransformSync("run", context)
     }
 
     /**
@@ -234,12 +231,11 @@ open class JsonTransformBenchmark {
      * Uses simple script matching JOLT capabilities.
      */
     @Benchmark
-    fun islSimpleFullCycle(): JsonNode? = runBlocking {
+    fun islSimpleFullCycle(): JsonNode? {
         val transformer = TransformCompiler().compileIsl("shopify-simple", islSimpleScript)
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = transformer.runTransformAsync("run", context)
-        result.result;
+        return transformer.runTransformSync("run", context)
     }
 
     /**
@@ -249,12 +245,11 @@ open class JsonTransformBenchmark {
      * Uses complex verbose script with all features and many variables.
      */
     @Benchmark
-    fun islComplexVerboseFullCycle(): JsonNode? = runBlocking {
+    fun islComplexVerboseFullCycle(): JsonNode? {
         val transformer = TransformCompiler().compileIsl("shopify-complex-verbose", islComplexVerboseScript)
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = transformer.runTransformAsync("run", context)
-        result.result;
+        return transformer.runTransformSync("run", context)
     }
 
     /**
@@ -264,12 +259,11 @@ open class JsonTransformBenchmark {
      * Uses complex clean script with all features and inline transformations.
      */
     @Benchmark
-    fun islComplexCleanFullCycle(): JsonNode? = runBlocking {
+    fun islComplexCleanFullCycle(): JsonNode? {
         val transformer = TransformCompiler().compileIsl("shopify-complex-clean", islComplexCleanScript)
         val context = OperationContext()
         context.setVariable("\$input", shopifyOrderNode)
-        val result = transformer.runTransformAsync("run", context)
-        result.result;
+        return transformer.runTransformSync("run", context)
     }
 
     /**
@@ -496,11 +490,11 @@ open class SimpleTransformBenchmark {
     }
 
     @Benchmark
-    fun islSimpleTransform(): String = runBlocking {
+    fun islSimpleTransform(): String {
         val context = OperationContext()
         context.setVariable("\$input", simpleNode)
         val result = islSimpleTransformer.runTransformSync("run", context)
-        JsonConvert.mapper.writeValueAsString(result)
+        return JsonConvert.mapper.writeValueAsString(result)
     }
 }
 

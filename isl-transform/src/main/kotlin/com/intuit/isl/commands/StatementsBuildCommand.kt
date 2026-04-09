@@ -10,7 +10,7 @@ import com.intuit.isl.utils.JsonConvert
  * Similar to Kotlin pretty much
  */
 class StatementsBuildCommand(token: IIslToken, val commands: List<IIslCommand>) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // run the list of statements - collect the results
         var commandResult: CommandResult? = null;
 
@@ -19,7 +19,7 @@ class StatementsBuildCommand(token: IIslToken, val commands: List<IIslCommand>) 
 
         for (c in commands) {
             executionContext.executionHook?.onBeforeExecute(c, executionContext)
-            val cr = c.executeAsync(executionContext);
+            val cr = c.execute(executionContext);
             executionContext.executionHook?.onAfterExecute(c, executionContext, cr)
             // we need to ignore property assignment as they we don't want them captured
             if (cr.propertyName.isNullOrEmpty() && cr.value != null)
@@ -27,7 +27,7 @@ class StatementsBuildCommand(token: IIslToken, val commands: List<IIslCommand>) 
             //executionContext.operationContext.setVariable(tempVariableName, JsonConvert.convert(commandResult?.value))
         }
 
-        return commandResult ?: CommandResult(null, validResult = false);
+        return commandResult ?: CommandResult.NULL_NOT_VALID
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

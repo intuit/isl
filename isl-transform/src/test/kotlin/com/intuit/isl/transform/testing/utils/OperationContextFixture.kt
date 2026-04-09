@@ -15,7 +15,7 @@ class OperationContextFixture : BaseTransformTest() {
     @Test
     fun testLocaOperationContext(){
         val parentContext = OperationContext()
-            .registerExtensionMethod("Test.Extension", ::testExtension);
+            .registerSyncExtensionMethod("Test.Extension", ::testExtension);
 
         val script = "value: @.Test.Extension( 'ABC' )"
 

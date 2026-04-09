@@ -13,8 +13,8 @@ import java.lang.Exception
 @Suppress("MoveVariableDeclarationIntoWhen")
 object JsonModifierExtensions {
     fun registerDefaultExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Modifier.json.*", JsonModifierExtensions::json);
-        context.registerExtensionMethod("Modifier.yaml.*", JsonModifierExtensions::yaml);
+        context.registerSyncExtensionMethod("Modifier.json.*", JsonModifierExtensions::json);
+        context.registerSyncExtensionMethod("Modifier.yaml.*", JsonModifierExtensions::yaml);
     }
 
     private fun json(context: FunctionExecuteContext): Any? {

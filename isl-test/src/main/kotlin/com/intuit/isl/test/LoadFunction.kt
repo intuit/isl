@@ -22,7 +22,7 @@ object LoadFunction {
     private const val functionName = "Load"
 
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("$functionName.From") { ctx ->
+        context.registerSyncExtensionMethod("$functionName.From") { ctx ->
             from(ctx)
         }
     }

@@ -5,19 +5,36 @@ import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.modifiers.IConditionalCommand
 import java.util.HashMap
 
-// Async callback (we'll convert sync ones to async in case anyone wants simple sync callbacks)
+// Async callback for host extensions (remains suspend - hosts can still provide suspend functions)
 typealias AsyncContextAwareExtensionMethod = suspend (context: FunctionExecuteContext)-> Any?;
 
+// Sync-only callback for internal/hardwired functions
+typealias ContextAwareExtensionMethod = (context: FunctionExecuteContext)-> Any?;
+
+// Async callback for annotations (remains suspend)
 typealias AsyncExtensionAnnotation = suspend (context: AnnotationExecuteContext)-> Any?;
 
-// Callback to execute an internal block of code or statements
-typealias StatementExecution = suspend (executionContext: ExecutionContext) -> CommandResult;
-typealias AsyncStatementsExtensionMethod = suspend (context: FunctionExecuteContext, executeStatements: StatementExecution)-> Any?;
+// Statement execution callback is now sync (runs on virtual thread)
+typealias StatementExecution = (executionContext: ExecutionContext) -> CommandResult;
 
-typealias ConditionalExtension = suspend (command: IConditionalCommand, context: ExecutionContext)-> Any?;
+// Statement extensions are now sync-only (nobody uses async anyway)
+typealias StatementsExtensionMethod = (context: FunctionExecuteContext, executeStatements: StatementExecution)-> Any?;
+
+// Conditional extensions are now sync-only for simplicity
+typealias ConditionalExtension = (command: IConditionalCommand, context: ExecutionContext)-> Any?;
 
 interface IOperationContext {
+    /**
+     * Register a host extension that may suspend. It is wrapped with SuspendBridge at registration
+     * so the runtime always invokes sync [ContextAwareExtensionMethod].
+     */
     fun registerExtensionMethod(fullName: String, callback: AsyncContextAwareExtensionMethod): IOperationContext;
+
+    /**
+     * Register a sync-only extension (built-ins, modifiers, internal functions). No SuspendBridge at registration.
+     * Named separately from [registerExtensionMethod] to avoid overload ambiguity with plain lambdas.
+     */
+    fun registerSyncExtensionMethod(fullName: String, callback: ContextAwareExtensionMethod): IOperationContext;
 
     fun registerConditionalExtensionMethod(fullName: String, extension: ConditionalExtension): IOperationContext;
 
@@ -28,22 +45,27 @@ interface IOperationContext {
 
     /**
      * Register a method that can execute internal statements (e.g. @.Paginate.List() { } can create an internal loop of statements)
+     * Now sync-only since nobody uses async statement extensions anyway
      */
-    fun registerStatementMethod(fullName: String, callback: AsyncStatementsExtensionMethod): IOperationContext;
+    fun registerStatementMethod(fullName: String, callback: StatementsExtensionMethod): IOperationContext;
 
     /**
      * Returns an extension method/annotation based on its full name (Case Insensitive)
+     * Extensions are now sync - async host extensions are wrapped during registration
      */
-    fun getExtension(name: String): AsyncContextAwareExtensionMethod?;
+    fun getExtension(name: String): ContextAwareExtensionMethod?;
     fun getConditionalExtension(name: String): ConditionalExtension?;
     fun getAnnotation(annotationName: String): AsyncExtensionAnnotation?;
-    fun getStatementExtension(name: String): AsyncStatementsExtensionMethod?;
+    fun getStatementExtension(name: String): StatementsExtensionMethod?;
 
     /**
-     * Add @param name Variable. Name will be visible as `$$name` in the transform code.
+     * Add @param name Variable. Name will be visible as `$name` in the transform code.
+     * Names are matched case-insensitively (normalized to lowercase for storage).
+     * The engine uses pre-lowercased keys on hot paths; hosts should not rely on that.
      */
     fun setVariable(name: String, node: JsonNode, setIsModified: Boolean? = null): IOperationContext;
     fun setVariable(name: String, variable: TransformVariable): IOperationContext;
+    /** Case-insensitive lookup; external callers may pass any casing. */
     fun getVariable(name: String): JsonNode?;
     fun getTransformVariable(name: String): TransformVariable?;
     fun removeVariable(name: String);

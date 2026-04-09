@@ -6,17 +6,17 @@ import com.intuit.isl.parser.tokens.IIslToken
 
 class SwitchCaseCommand(token: IIslToken, val value: IIslCommand, val cases: Array<SwitchCaseBranchCommand>) :
     BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val leftResult = value.executeAsync(executionContext);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val leftResult = value.execute(executionContext);
 
         cases
             .forEach {
-                val result = it.executeAsync(leftResult.value, executionContext);
+                val result = it.execute(leftResult.value, executionContext);
                 if (result.first)
                     return result.second!!;
             }
 
-        return CommandResult(null);
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {
@@ -31,14 +31,14 @@ class SwitchCaseCommand(token: IIslToken, val value: IIslCommand, val cases: Arr
     ) :
         BaseCommand(token) {
 
-        override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+        override fun execute(executionContext: ExecutionContext): CommandResult {
             throw NotImplementedError();
         }
 
-        suspend fun executeAsync(left: Any?, context: ExecutionContext): Pair<Boolean, CommandResult?> {
-            val rightResult = right.executeAsync(context);
+        fun execute(left: Any?, context: ExecutionContext): Pair<Boolean, CommandResult?> {
+            val rightResult = right.execute(context);
             if (ConditionEvaluator.evaluate(left, condition, rightResult.value))
-                return Pair(true, result.executeAsync(context));
+                return Pair(true, result.execute(context));
             return Pair(false, null);
         }
 

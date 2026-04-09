@@ -19,43 +19,43 @@ object MockFunction {
     private const val annotationRegex = "[A-Za-z0-9_]+(#[0-9]+)?"
 
     fun registerExtensions(context: TestOperationContext) {
-        context.registerExtensionMethod("Mock.Func") {
+        context.registerSyncExtensionMethod("Mock.Func") {
             mockFunction(it, funcRegex) { funcName ->
                 createFunctionContext(context, funcName)
             }
         }
 
-        context.registerExtensionMethod("Mock.Annotation") {
+        context.registerSyncExtensionMethod("Mock.Annotation") {
             mockFunction(it, annotationRegex) { funcName ->
                 createAnnotationContext(context, funcName)
             }
         }
 
-        context.registerExtensionMethod("Mock.StatementFunc") {
+        context.registerSyncExtensionMethod("Mock.StatementFunc") {
             mockFunction(it, funcRegex) { funcName ->
                 createStatementFuncContext(context, funcName)
             }
         }
 
-        context.registerExtensionMethod("Mock.GetFuncCaptures") {
+        context.registerSyncExtensionMethod("Mock.GetFuncCaptures") {
             getCaptures(it, funcRegex) { funcName ->
                 context.mockExtensions.mockExtensions[funcName]
             }
         }
 
-        context.registerExtensionMethod("Mock.GetAnnotationCaptures") {
+        context.registerSyncExtensionMethod("Mock.GetAnnotationCaptures") {
             getCaptures(it, annotationRegex) { funcName ->
                 context.mockExtensions.mockAnnotations[funcName]
             }
         }
 
-        context.registerExtensionMethod("Mock.GetStatementFuncCaptures") {
+        context.registerSyncExtensionMethod("Mock.GetStatementFuncCaptures") {
             getCaptures(it, funcRegex) { funcName ->
                 context.mockExtensions.mockStatementExtensions[funcName]
             }
         }
 
-        context.registerExtensionMethod("Mock.Load") {
+        context.registerSyncExtensionMethod("Mock.Load") {
             loadMocksFromFile(it)
         }
     }
@@ -228,7 +228,7 @@ object MockFunction {
     private fun createStatementFuncContext(
         context: TestOperationContext,
         funcName: String
-    ): MockContext<AsyncStatementsExtensionMethod> {
+    ): MockContext<StatementsExtensionMethod> {
         val key = funcName.lowercase()
         return context.mockExtensions.mockStatementExtensions.getOrPut(key) {
             MockContext { mockObj ->
@@ -274,7 +274,7 @@ object MockFunction {
     private fun createFunctionContext(
         context: TestOperationContext,
         funcName: String
-    ): MockContext<AsyncContextAwareExtensionMethod> {
+    ): MockContext<ContextAwareExtensionMethod> {
         val key = funcName.lowercase()
         return context.mockExtensions.mockExtensions.getOrPut(key) {
             MockContext { mockObj ->

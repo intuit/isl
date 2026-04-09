@@ -24,29 +24,29 @@ object MathModifierExtensions {
     
     fun registerExtensions(context: IOperationContext) {
         // Math modifiers (Modifier.* prefix for pipe usage)
-        context.registerExtensionMethod("Modifier.negate", MathModifierExtensions::negate)
-        context.registerExtensionMethod("Modifier.precision", MathModifierExtensions::precision)
-        context.registerExtensionMethod("Modifier.round.*", MathModifierExtensions::round)
-        context.registerExtensionMethod("Modifier.absolute", MathModifierExtensions::absolute)
+        context.registerSyncExtensionMethod("Modifier.negate", MathModifierExtensions::negate)
+        context.registerSyncExtensionMethod("Modifier.precision", MathModifierExtensions::precision)
+        context.registerSyncExtensionMethod("Modifier.round.*", MathModifierExtensions::round)
+        context.registerSyncExtensionMethod("Modifier.absolute", MathModifierExtensions::absolute)
         
         // Math namespace functions (Math.* prefix for @.Math.function() usage)
-        context.registerExtensionMethod("Math.min", MathModifierExtensions::min)
-        context.registerExtensionMethod("Math.max", MathModifierExtensions::max)
-        context.registerExtensionMethod("Math.mean", MathModifierExtensions::mean)
-        context.registerExtensionMethod("Math.mod", MathModifierExtensions::mod)
-        context.registerExtensionMethod("Math.sqrt", MathModifierExtensions::sqrt)
-        context.registerExtensionMethod("Math.RandInt", MathModifierExtensions::randInt)
-        context.registerExtensionMethod("Math.RandFloat", MathModifierExtensions::randFloat)
-        context.registerExtensionMethod("Math.RandDouble", MathModifierExtensions::randDouble)
-        context.registerExtensionMethod("Math.clamp", MathModifierExtensions::clamp)
-        context.registerExtensionMethod("Math.sum", MathModifierExtensions::sum)
-        context.registerExtensionMethod("Math.log", MathModifierExtensions::log)
-        context.registerExtensionMethod("Math.log10", MathModifierExtensions::log10)
-        context.registerExtensionMethod("Math.ln", MathModifierExtensions::ln)
-        context.registerExtensionMethod("Math.pow", MathModifierExtensions::pow)
+        context.registerSyncExtensionMethod("Math.min", MathModifierExtensions::min)
+        context.registerSyncExtensionMethod("Math.max", MathModifierExtensions::max)
+        context.registerSyncExtensionMethod("Math.mean", MathModifierExtensions::mean)
+        context.registerSyncExtensionMethod("Math.mod", MathModifierExtensions::mod)
+        context.registerSyncExtensionMethod("Math.sqrt", MathModifierExtensions::sqrt)
+        context.registerSyncExtensionMethod("Math.RandInt", MathModifierExtensions::randInt)
+        context.registerSyncExtensionMethod("Math.RandFloat", MathModifierExtensions::randFloat)
+        context.registerSyncExtensionMethod("Math.RandDouble", MathModifierExtensions::randDouble)
+        context.registerSyncExtensionMethod("Math.clamp", MathModifierExtensions::clamp)
+        context.registerSyncExtensionMethod("Math.sum", MathModifierExtensions::sum)
+        context.registerSyncExtensionMethod("Math.log", MathModifierExtensions::log)
+        context.registerSyncExtensionMethod("Math.log10", MathModifierExtensions::log10)
+        context.registerSyncExtensionMethod("Math.ln", MathModifierExtensions::ln)
+        context.registerSyncExtensionMethod("Math.pow", MathModifierExtensions::pow)
         
         // Also register with Modifier.Math.* prefix for pipe usage
-        context.registerExtensionMethod("Modifier.Math.*", MathModifierExtensions::mathPipeDispatcher)
+        context.registerSyncExtensionMethod("Modifier.Math.*", MathModifierExtensions::mathPipeDispatcher)
     }
     
     /**

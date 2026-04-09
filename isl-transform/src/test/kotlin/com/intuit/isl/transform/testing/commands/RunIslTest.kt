@@ -363,11 +363,11 @@ class RunIslTest : BaseTransformTest() {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("String.trim", Companion::trim);
-        context.registerExtensionMethod("String.trimAp", Companion::trimWithApostrophes);
-        context.registerExtensionMethod("Modifier.calculate_tax_amount", Companion::trimWithApostrophes);
-        context.registerExtensionMethod("Kafka.Publish", Companion::trimWithApostrophes);
+        context.registerSyncExtensionMethod("String.trim", Companion::trim);
+        context.registerSyncExtensionMethod("String.trimAp", Companion::trimWithApostrophes);
+        context.registerSyncExtensionMethod("Modifier.calculate_tax_amount", Companion::trimWithApostrophes);
+        context.registerSyncExtensionMethod("Kafka.Publish", Companion::trimWithApostrophes);
 
-        context.registerExtensionMethod("Exception.bang", Companion::exceptionBang);
+        context.registerSyncExtensionMethod("Exception.bang", Companion::exceptionBang);
     }
 }

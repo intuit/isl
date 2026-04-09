@@ -5,6 +5,8 @@ import com.intuit.isl.commands.BaseCommand
 import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.removeVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.MapModifierValueToken
 import com.intuit.isl.utils.JsonConvert
@@ -17,10 +19,10 @@ class MapModifierValueCommand(
 
     internal val mapPreviousValue: IIslCommand get() = previousValue
     internal val mapArgument: IIslCommand get() = argument
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val sourceCollection = previousValue.executeAsync(executionContext).value
+        val sourceCollection = previousValue.execute(executionContext).value
 
         val source = when (sourceCollection) {
             is Iterable<Any?> -> sourceCollection
@@ -31,10 +33,10 @@ class MapModifierValueCommand(
         val array = JsonNodeFactory.instance.arrayNode(defaultSize)
 
         source?.forEach { it ->
-            executionContext.operationContext.setVariable("\$", JsonConvert.convert(it))
-            array.add(JsonConvert.convert(argument.executeAsync(executionContext).value))
+            executionContext.operationContext.setVariableCanonical("\$", JsonConvert.convert(it))
+            array.add(JsonConvert.convert(argument.execute(executionContext).value))
         }
-        executionContext.operationContext.removeVariable("\$")
+        executionContext.operationContext.removeVariableCanonical("\$")
 
         val result = CommandResult(array)
         hook?.onAfterExecute(this, executionContext, result)

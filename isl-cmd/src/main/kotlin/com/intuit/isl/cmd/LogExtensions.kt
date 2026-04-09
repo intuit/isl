@@ -20,10 +20,10 @@ import java.nio.file.Paths
  */
 object LogExtensions {
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Log.Debug", LogExtensions::debug)
-        context.registerExtensionMethod("Log.Info", LogExtensions::info)
-        context.registerExtensionMethod("Log.Warn", LogExtensions::warn)
-        context.registerExtensionMethod("Log.Error", LogExtensions::error)
+        context.registerSyncExtensionMethod("Log.Debug", LogExtensions::debug)
+        context.registerSyncExtensionMethod("Log.Info", LogExtensions::info)
+        context.registerSyncExtensionMethod("Log.Warn", LogExtensions::warn)
+        context.registerSyncExtensionMethod("Log.Error", LogExtensions::error)
     }
 
     @Suppress("UNUSED_PARAMETER")

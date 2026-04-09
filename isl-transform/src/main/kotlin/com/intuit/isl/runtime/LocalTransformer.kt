@@ -2,6 +2,7 @@ package com.intuit.isl.runtime
 
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.LocalOperationContext
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.IIslToken
 import com.intuit.isl.utils.JsonConvert
 
@@ -27,9 +28,9 @@ class LocalTransformer(val module: TransformModule) : ILocalTransformer {
             val context = ExecutionContext(operationContext, localContext);
 
             // Add Default Variables
-            operationContext.setVariable("\$isl", Transformer.getIslInfo());
+            operationContext.setVariableCanonical("\$isl", Transformer.getIslInfo());
 
-            val result = function.executeAsync(context);
+            val result = function.execute(context);
             return TransformResult(JsonConvert.convert(result.value));
         }
 

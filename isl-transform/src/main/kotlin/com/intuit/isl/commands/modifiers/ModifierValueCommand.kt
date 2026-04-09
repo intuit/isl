@@ -7,7 +7,7 @@ import com.intuit.isl.commands.BaseCommand
 import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.FunctionCallCommand
 import com.intuit.isl.commands.IIslCommand
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.parser.tokens.ModifierValueToken
 import com.jayway.jsonpath.JsonPath
 
@@ -27,22 +27,22 @@ open class ModifierValueCommand(
 
     companion object{
         @JvmStatic
-        protected suspend fun internalRunModifier(
+        protected fun internalRunModifier(
             command: ModifierValueCommand,
             executionContext: ExecutionContext,
             prevValue: CommandResult,
             arguments: List<IIslCommand>,
-            modifier: AsyncContextAwareExtensionMethod
+            modifier: ContextAwareExtensionMethod
         ): CommandResult {
             val args = mutableListOf(prevValue.value);
             if (command.modifierSelector != null)
                 args.add(command.modifierSelector);
-            arguments.mapTo(args) { it.executeAsync(executionContext).value };
+            arguments.mapTo(args) { it.execute(executionContext).value };
 
             val functionContext = FunctionExecuteContext(command.token.name, command, executionContext, args.toTypedArray());
 
             val result = FunctionCallCommand.safeRunFunction(command.token.name, command) {
-                modifier(functionContext);
+                modifier(functionContext)
             }
 
             return CommandResult(result);
@@ -61,16 +61,16 @@ open class ModifierValueCommand(
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val prevValue = value.executeAsync(executionContext)
-        val result = internalExecuteAsync(prevValue, executionContext)
+        val prevValue = value.execute(executionContext)
+        val result = internalExecute(prevValue, executionContext)
         hook?.onAfterExecute(this, executionContext, result)
         return result
     }
 
-    protected open suspend fun internalExecuteAsync(
+    protected open fun internalExecute(
         prevValue: CommandResult,
         executionContext: ExecutionContext
     ): CommandResult {
@@ -92,14 +92,14 @@ open class ModifierValueCommand(
 
 class HardwiredModifierValueCommand(
     token: ModifierValueToken, realModifierName: String, value: IIslCommand, arguments: List<IIslCommand>,
-    private val callback: AsyncContextAwareExtensionMethod,
+    private val callback: ContextAwareExtensionMethod,
     /**
      * When the first modifier argument is a static JSON Path (`$.field` or `"$.field"`),
      * [com.intuit.isl.commands.builder.ExecutionBuilder] compiles it once at build time.
      */
     val precompiledModifierJsonPath: JsonPath? = null
 ) : ModifierValueCommand(token, realModifierName, value, arguments) {
-    override suspend fun internalExecuteAsync(
+    override fun internalExecute(
         prevValue: CommandResult,
         executionContext: ExecutionContext
     ): CommandResult {

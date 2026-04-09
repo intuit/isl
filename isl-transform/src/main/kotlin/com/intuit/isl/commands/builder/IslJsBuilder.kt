@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.IEvaluableConditionCommand
 import com.intuit.isl.commands.NoopToken
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.dsl.node
 import com.intuit.isl.parser.tokens.*
 import com.intuit.isl.runtime.ITransformer
@@ -554,7 +554,7 @@ class IslJsBuilder(
         return notSupported(token);
     }
 
-    private fun findMethod(methodName: String, arguments: List<IIslToken>): AsyncContextAwareExtensionMethod? {
+    private fun findMethod(methodName: String, arguments: List<IIslToken>): ContextAwareExtensionMethod? {
 //        // some methods we can hardwire them - especially if they are coming from known imports
 //        val lower = methodName.lowercase();
 //        val fromModule = lower.substringBefore(":");

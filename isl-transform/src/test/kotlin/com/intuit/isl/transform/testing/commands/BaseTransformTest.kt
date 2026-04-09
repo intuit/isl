@@ -6,7 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.intuit.isl.commands.builder.ExecutionBuilder
 import com.intuit.isl.commands.builder.IslJsBuilder
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.OperationContext
 import com.intuit.isl.parser.TransformParser
@@ -82,7 +82,7 @@ abstract class BaseTransformTest {
         script: String,
         expectedResult: String,
         map: Map<String, Any?>? = null,
-        extensions: Map<String, AsyncContextAwareExtensionMethod>? = null,
+        extensions: Map<String, ContextAwareExtensionMethod>? = null,
         runCount: Int = 1,
         assertEqualityType: AssertEqualityType = AssertEqualityType.Json,
         doWarm: Boolean = false
@@ -138,7 +138,7 @@ abstract class BaseTransformTest {
 
     private suspend fun runTransform(
         map: Map<String, Any?>?,
-        extensions: Map<String, AsyncContextAwareExtensionMethod>?,
+        extensions: Map<String, ContextAwareExtensionMethod>?,
         t: ITransformer
     ): ITransformResult? {
         val context = OperationContext()
@@ -149,7 +149,7 @@ abstract class BaseTransformTest {
 
         // extension functions
         extensions?.forEach {
-            context.registerExtensionMethod(it.key, it.value)
+            context.registerSyncExtensionMethod(it.key, it.value)
         }
 
         onRegisterExtensions(context)
@@ -160,7 +160,7 @@ abstract class BaseTransformTest {
     }
 
     open fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Log.Info", BaseTransformTest::logInfo)
+        context.registerSyncExtensionMethod("Log.Info", BaseTransformTest::logInfo)
     }
 
     fun isWindows(): Boolean {

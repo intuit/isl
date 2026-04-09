@@ -14,9 +14,9 @@ class MathExpressionCommand(token: IIslToken, val left: IIslCommand, val right: 
 
     private val operation = buildOperation(this);
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val leftResult = left.executeAsync(executionContext).value;
-        val rightResult = right.executeAsync(executionContext).value;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val leftResult = left.execute(executionContext).value;
+        val rightResult = right.execute(executionContext).value;
 
         val leftValue = ConvertUtils.tryParseDecimal(leftResult);
         val rightValue = ConvertUtils.tryParseDecimal(rightResult);

@@ -1,6 +1,6 @@
 package com.intuit.isl.test.mocks
 
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.FunctionExecuteContext
 
 /**
@@ -9,9 +9,7 @@ import com.intuit.isl.common.FunctionExecuteContext
  * (parameters from the call), and its return value is used as the mock result.
  */
 class IslMockExecutor(
-    private val runner: AsyncContextAwareExtensionMethod
+    private val runner: ContextAwareExtensionMethod
 ) {
-    suspend fun run(context: FunctionExecuteContext): Any? {
-        return runner(context)
-    }
+    fun run(context: FunctionExecuteContext): Any? = runner(context)
 }

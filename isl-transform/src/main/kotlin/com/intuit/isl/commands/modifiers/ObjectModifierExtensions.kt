@@ -9,10 +9,10 @@ import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.TextNode
 import com.fasterxml.jackson.databind.node.ValueNode
 import com.intuit.isl.commands.VariableWithPathSelectorValueCommand
+import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.IOperationContext
 import com.intuit.isl.dynamic.CommandBuilder
-import com.intuit.isl.dynamic.run
 import com.intuit.isl.utils.ConvertUtils
 import com.intuit.isl.utils.JsonConvert
 import java.util.*
@@ -36,26 +36,26 @@ object ObjectModifierExtensions {
     
     fun registerExtensions(context: IOperationContext) {
         // Object modifiers
-        context.registerExtensionMethod("Modifier.length", ObjectModifierExtensions::length)
-        context.registerExtensionMethod("Modifier.keys", ObjectModifierExtensions::keys)
-        context.registerExtensionMethod("Modifier.kv", ObjectModifierExtensions::kv)
-        context.registerExtensionMethod("Modifier.sort", ObjectModifierExtensions::sort)
-        context.registerExtensionMethod("Modifier.delete", ObjectModifierExtensions::delete)
+        context.registerSyncExtensionMethod("Modifier.length", ObjectModifierExtensions::length)
+        context.registerSyncExtensionMethod("Modifier.keys", ObjectModifierExtensions::keys)
+        context.registerSyncExtensionMethod("Modifier.kv", ObjectModifierExtensions::kv)
+        context.registerSyncExtensionMethod("Modifier.sort", ObjectModifierExtensions::sort)
+        context.registerSyncExtensionMethod("Modifier.delete", ObjectModifierExtensions::delete)
         
         // JSON path and property access
-        context.registerExtensionMethod("Modifier.select", ObjectModifierExtensions::selectJson)
-        context.registerExtensionMethod("Modifier.getProperty", ObjectModifierExtensions::getProperty)
-        context.registerExtensionMethod("Modifier.setProperty", ObjectModifierExtensions::setProperty)
+        context.registerSyncExtensionMethod("Modifier.select", ObjectModifierExtensions::selectJson)
+        context.registerSyncExtensionMethod("Modifier.getProperty", ObjectModifierExtensions::getProperty)
+        context.registerSyncExtensionMethod("Modifier.setProperty", ObjectModifierExtensions::setProperty)
         
         // Merge
-        context.registerExtensionMethod("Modifier.merge", ObjectModifierExtensions::merge)
+        context.registerSyncExtensionMethod("Modifier.merge", ObjectModifierExtensions::merge)
         
         // New modifiers
-        context.registerExtensionMethod("Modifier.pick", ObjectModifierExtensions::pick)
-        context.registerExtensionMethod("Modifier.omit", ObjectModifierExtensions::omit)
-        context.registerExtensionMethod("Modifier.rename", ObjectModifierExtensions::rename)
-        context.registerExtensionMethod("Modifier.has", ObjectModifierExtensions::has)
-        context.registerExtensionMethod("Modifier.default", ObjectModifierExtensions::default)
+        context.registerSyncExtensionMethod("Modifier.pick", ObjectModifierExtensions::pick)
+        context.registerSyncExtensionMethod("Modifier.omit", ObjectModifierExtensions::omit)
+        context.registerSyncExtensionMethod("Modifier.rename", ObjectModifierExtensions::rename)
+        context.registerSyncExtensionMethod("Modifier.has", ObjectModifierExtensions::has)
+        context.registerSyncExtensionMethod("Modifier.default", ObjectModifierExtensions::default)
     }
     
     private fun length(context: FunctionExecuteContext): Any {
@@ -269,14 +269,16 @@ object ObjectModifierExtensions {
         return first
     }
     
-    private suspend fun merge(context: FunctionExecuteContext): Any? {
+    private fun merge(context: FunctionExecuteContext): Any? {
         val expression = ConvertUtils.tryToString(context.firstParameter)
         if (expression?.contains("@.") == true) {
             return expression
         }
         val command = expression?.let { CommandBuilder().expression(it) }
-        val result = command?.let { context.executionContext.operationContext.run(it) }
-        return result
+        return command?.let { cmd ->
+            val ec = ExecutionContext(context.executionContext.operationContext, null)
+            cmd.execute(ec).value
+        }
     }
     
     /**

@@ -5,6 +5,9 @@ import com.intuit.isl.commands.CommandResult
 import com.intuit.isl.commands.IEvaluableConditionCommand
 import com.intuit.isl.commands.IIslCommand
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getVariableCanonical
+import com.intuit.isl.common.removeVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.ConditionModifierValueToken
 import com.intuit.isl.utils.JsonConvert
@@ -15,27 +18,27 @@ class ConditionModifierValueCommand(
     val expression: IEvaluableConditionCommand,
     val trueModifier: IIslCommand
 ) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val hook = executionContext.executionHook
         hook?.onBeforeExecute(this, executionContext)
-        val sourceValue = value.executeAsync(executionContext)
+        val sourceValue = value.execute(executionContext)
 
-        val oldValue = executionContext.operationContext.getVariable("\$mval")
+        val oldValue = executionContext.operationContext.getVariableCanonical("\$mval")
         val result = try {
             val converted = JsonConvert.convert(sourceValue.value)
-            executionContext.operationContext.setVariable("\$mval", converted)
-            executionContext.operationContext.setVariable("\$", converted)
-            if (expression.evaluateConditionAsync(executionContext)) {
-                trueModifier.executeAsync(executionContext)
+            executionContext.operationContext.setVariableCanonical("\$mval", converted)
+            executionContext.operationContext.setVariableCanonical("\$", converted)
+            if (expression.evaluateCondition(executionContext)) {
+                trueModifier.execute(executionContext)
             } else {
                 sourceValue
             }
         } finally {
-            executionContext.operationContext.removeVariable("\$")
+            executionContext.operationContext.removeVariableCanonical("\$")
             if (oldValue == null) {
-                executionContext.operationContext.removeVariable("\$mval")
+                executionContext.operationContext.removeVariableCanonical("\$mval")
             } else {
-                executionContext.operationContext.setVariable("\$mval", oldValue)
+                executionContext.operationContext.setVariableCanonical("\$mval", oldValue)
             }
         }
         hook?.onAfterExecute(this, executionContext, result)

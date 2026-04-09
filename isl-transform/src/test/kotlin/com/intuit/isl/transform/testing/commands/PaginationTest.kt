@@ -291,8 +291,8 @@ class PaginationTest : BaseTransformTest() {
 
     override fun onRegisterExtensions(context: OperationContext) {
         super.onRegisterExtensions(context)
-        context.registerExtensionMethod("Log.Debug", this::logDebug);
-        context.registerExtensionMethod("External.Call", this::externalCall);
+        context.registerSyncExtensionMethod("Log.Debug", this::logDebug);
+        context.registerSyncExtensionMethod("External.Call", this::externalCall);
     }
 
     fun logDebug(context: FunctionExecuteContext): Any? {

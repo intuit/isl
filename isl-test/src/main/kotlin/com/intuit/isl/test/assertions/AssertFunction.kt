@@ -249,7 +249,7 @@ object AssertFunction {
     private fun registerExtensionMethod(
         context: TestOperationContext, name: String, method: (FunctionExecuteContext) -> Any?
     ) {
-        context.registerExtensionMethod("$functionName.${name}") {
+        context.registerSyncExtensionMethod("$functionName.${name}") {
             method(it)
         }
     }

@@ -5,6 +5,7 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.databind.node.ValueNode
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getVariableCanonical
 import com.intuit.isl.utils.JsonConvert
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.IIslToken
@@ -15,11 +16,11 @@ class ObjectBuildCommand(
     var commands: MutableList<IIslCommand>,
     val seedVariableName: String? = null
 ) : BaseCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         // When seeded, load the existing variable value directly and mutate it in place,
         // avoiding both the deepCopy and the shallow-copy that a spread would otherwise require.
         val result = if (seedVariableName != null)
-            executionContext.operationContext.getVariable(seedVariableName) as? ObjectNode
+            executionContext.operationContext.getVariableCanonical(seedVariableName) as? ObjectNode
                 ?: TypedJsonNodeFactory.instance.typedObjectNode(token.islType)
         else
             TypedJsonNodeFactory.instance.typedObjectNode(token.islType);
@@ -30,7 +31,7 @@ class ObjectBuildCommand(
 
         for (c in commands) {
             executionContext.executionHook?.onBeforeExecute(c, executionContext)
-            val commandResult = c.executeAsync(executionContext);
+            val commandResult = c.execute(executionContext);
             executionContext.executionHook?.onAfterExecute(c, executionContext, commandResult)
 
             if (!commandResult.propertyName.isNullOrEmpty() && commandResult.append != false) {

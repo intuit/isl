@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.NumericNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.common.StatementExecution
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.FunctionCallToken
 import com.intuit.isl.parser.tokens.VariableSelectorValueToken
 import com.intuit.isl.runtime.TransformException
@@ -21,7 +22,7 @@ import java.time.Instant
  * ./docs/dsl/pagination.md
  */
 object DatePagination {
-    suspend fun executeAsync(
+    fun execute(
         context: FunctionExecuteContext,
         statementsExtensionMethod: StatementExecution
     ): Any? {
@@ -34,6 +35,7 @@ object DatePagination {
                     "Unknown format for variable for ${context.functionName}",
                     context.command.token.position
                 );
+        val variableKey = variableName.lowercase()
 
         val parameters = context.secondParameter as? ObjectNode;
         val startDate = DateExtensions.getDate(parameters?.get("startDate"))
@@ -79,7 +81,7 @@ object DatePagination {
             pageVariable.set<JsonNode>("endDate" , JsonConvert.convert(nextEndDate));
             pageVariable.set<JsonNode>("page", JsonConvert.convert(page));
 
-            context.executionContext.operationContext.setVariable(variableName, pageVariable);
+            context.executionContext.operationContext.setVariableCanonical(variableKey, pageVariable);
 
             statementsExtensionMethod(context.executionContext).value;
 

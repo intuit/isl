@@ -53,7 +53,7 @@ class TestOperationContext : BaseOperationContext {
             LoadFunction.registerExtensions(context)
             MockFunction.registerExtensions(context)
 
-            context.registerExtensionMethod(FALLBACK_METHOD_NAME) { functionContext ->
+            context.registerSyncExtensionMethod(FALLBACK_METHOD_NAME) { functionContext ->
                 throw buildUnmockedCallException(functionContext)
             }
 
@@ -147,10 +147,10 @@ class TestOperationContext : BaseOperationContext {
     }
 
     private constructor(
-        extensions: HashMap<String, AsyncContextAwareExtensionMethod>,
+        extensions: HashMap<String, ContextAwareExtensionMethod>,
         annotations: HashMap<String, AsyncExtensionAnnotation>,
-        statementExtensions: HashMap<String, AsyncStatementsExtensionMethod>,
-        internalExtensions: HashMap<String, AsyncContextAwareExtensionMethod>,
+        statementExtensions: HashMap<String, StatementsExtensionMethod>,
+        internalExtensions: HashMap<String, ContextAwareExtensionMethod>,
         mockExtensions: TestOperationMockExtensions,
         mockFileName: String? = null,
         testFileName: String? = null
@@ -164,7 +164,7 @@ class TestOperationContext : BaseOperationContext {
 
     val mockExtensions : TestOperationMockExtensions
 
-    override fun getExtension(name: String): AsyncContextAwareExtensionMethod? {
+    override fun getExtension(name: String): ContextAwareExtensionMethod? {
         val function = mockExtensions.mockExtensions[name.lowercase()]?.func
         if (function != null) {
             return function
@@ -189,7 +189,7 @@ class TestOperationContext : BaseOperationContext {
         return super.getAnnotation(annotationName)
     }
 
-    override fun getStatementExtension(name: String): AsyncStatementsExtensionMethod? {
+    override fun getStatementExtension(name: String): StatementsExtensionMethod? {
         val function = mockExtensions.mockStatementExtensions[name.lowercase()]?.func
         if (function != null) {
             return function
@@ -197,7 +197,7 @@ class TestOperationContext : BaseOperationContext {
         return super.getStatementExtension(name)
     }
 
-    override fun clone(newInternals: HashMap<String, AsyncContextAwareExtensionMethod>): IOperationContext {
+    override fun clone(newInternals: HashMap<String, ContextAwareExtensionMethod>): IOperationContext {
         return TestOperationContext(
             this.extensions, this.annotations, this.statementExtensions, newInternals, this.mockExtensions, this.mockFileName, this.testFileName
         )

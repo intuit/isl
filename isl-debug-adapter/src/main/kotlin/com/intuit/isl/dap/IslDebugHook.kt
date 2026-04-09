@@ -7,11 +7,9 @@ import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.debug.IExecutionHook
 import com.intuit.isl.parser.tokens.FunctionDeclarationToken
 import com.intuit.isl.utils.Position
-import kotlinx.coroutines.CancellableContinuation
-import kotlinx.coroutines.suspendCancellableCoroutine
 import java.nio.file.Path
 import java.util.concurrent.ConcurrentHashMap
-import kotlin.coroutines.resume
+import java.util.concurrent.CountDownLatch
 
 enum class SteppingMode {
     CONTINUE,
@@ -34,8 +32,8 @@ data class CallFrame(
 )
 
 /**
- * [IExecutionHook] for the DAP debugger: suspends at breakpoints / stepping boundaries
- * and notifies the client via DAP.
+ * [IExecutionHook] for the DAP debugger: blocks at breakpoints / stepping boundaries
+ * (ISL hooks are synchronous) and notifies the client via DAP.
  */
 class IslDebugHook(
     private val adapter: DapAdapter
@@ -58,7 +56,10 @@ class IslDebugHook(
     @Volatile
     var lastResult: CommandResult? = null
 
-    var pausedContinuation: CancellableContinuation<SteppingMode>? = null
+    private var pausedLatch: CountDownLatch? = null
+
+    @Volatile
+    private var resumeSteppingMode: SteppingMode = SteppingMode.CONTINUE
 
     fun setBreakpoints(file: String, lines: Set<Int>) {
         if (lines.isEmpty()) {
@@ -113,7 +114,7 @@ class IslDebugHook(
 
     fun getCurrentDepth(): Int = callStack.size
 
-    override suspend fun onBeforeExecute(command: IIslCommand, context: ExecutionContext) {
+    override fun onBeforeExecute(command: IIslCommand, context: ExecutionContext) {
         currentCommand = command
         currentContext = context
         val pos = command.token.position
@@ -136,13 +137,14 @@ class IslDebugHook(
 
         stepDepth = getCurrentDepth()
 
-        steppingMode = suspendCancellableCoroutine { continuation ->
-            pausedContinuation = continuation
-            adapter.notifyStopped(command, context, reason)
-        }
+        val latch = CountDownLatch(1)
+        pausedLatch = latch
+        adapter.notifyStopped(command, context, reason)
+        latch.await()
+        steppingMode = resumeSteppingMode
     }
 
-    override suspend fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult) {
+    override fun onAfterExecute(command: IIslCommand, context: ExecutionContext, result: CommandResult) {
         lastResult = result
     }
 
@@ -165,8 +167,9 @@ class IslDebugHook(
     }
 
     fun resume(mode: SteppingMode) {
-        val cont = pausedContinuation
-        pausedContinuation = null
-        cont?.resume(mode)
+        resumeSteppingMode = mode
+        val latch = pausedLatch
+        pausedLatch = null
+        latch?.countDown()
     }
 }

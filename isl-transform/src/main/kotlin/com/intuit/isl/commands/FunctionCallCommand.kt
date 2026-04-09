@@ -1,7 +1,7 @@
 package com.intuit.isl.commands
 
 import com.intuit.isl.commands.builder.ICommandVisitor
-import com.intuit.isl.common.AsyncContextAwareExtensionMethod
+import com.intuit.isl.common.ContextAwareExtensionMethod
 import com.intuit.isl.common.ExecutionContext
 import com.intuit.isl.common.FunctionExecuteContext
 import com.intuit.isl.parser.tokens.FunctionCallToken
@@ -20,20 +20,24 @@ open class FunctionCallCommand(token: FunctionCallToken, protected val arguments
     override val token: FunctionCallToken
         get() = super.token as FunctionCallToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         var function = executionContext.operationContext.getExtension(token.name);
 
         if (function == null) { // search for the fallback
             function = executionContext.operationContext.getExtension(Const.FallbackMethodName);
         }
 
-        val args = arguments.map { it.executeAsync(executionContext).value }.toTypedArray();
+        val args = arguments.map { it.execute(executionContext).value }.toTypedArray();
         if (function == null) {
             val error = "Could not Execute '@.${token.name}'. Error='Unknown Function: ${token.name}'";
             throw TransformException(error, token.position);
         } else {
             val functionContext = FunctionExecuteContext(token.name, this, executionContext, args);
-            val result = safeRunFunction(token.name, this) { function(functionContext) };
+            // Direct sync call - no bridge needed!
+            // All extensions are now sync (async ones were wrapped during registration)
+            val result = safeRunFunction(token.name, this) { 
+                function(functionContext) 
+            };
             return CommandResult(result);
         }
     }
@@ -43,10 +47,10 @@ open class FunctionCallCommand(token: FunctionCallToken, protected val arguments
     }
 
     companion object {
-        suspend fun safeRunFunction(
+        fun safeRunFunction(
             name: String,
             command: IIslCommand,
-            func: suspend () -> Any?
+            func: () -> Any?
         ): Any? {
             try {
                 return func();
@@ -71,16 +75,18 @@ open class FunctionCallCommand(token: FunctionCallToken, protected val arguments
 
 /**
  * Hardwired function call (e.g. calls across modules can be hardwired)
+ * Now fully sync - all hardwired functions are internal ISL functions
  */
 class HardwiredFunctionCallCommand(
     token: FunctionCallToken,
     arguments: List<IIslCommand>,
-    private val callback: AsyncContextAwareExtensionMethod
+    private val callback: ContextAwareExtensionMethod
 ) : FunctionCallCommand(token, arguments) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val args = arguments.map { it.executeAsync(executionContext).value }.toTypedArray();
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val args = arguments.map { it.execute(executionContext).value }.toTypedArray();
         val functionContext = FunctionExecuteContext(token.name, this, executionContext, args);
         val result = safeRunFunction(token.name, this) {
+            // Direct sync call - no bridge needed!
             callback(functionContext)
         };
         return CommandResult(result);
@@ -98,20 +104,19 @@ open class StatementFunctionCallCommand(
     override val token: FunctionCallToken
         get() = super.token as FunctionCallToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         val function = executionContext.operationContext.getStatementExtension(token.name);
-        val args = arguments.map { it.executeAsync(executionContext).value }.toTypedArray();
+        val args = arguments.map { it.execute(executionContext).value }.toTypedArray();
 
         if (function == null) {
             val error = "Could not Execute '@.${token.name}'. Error='Unknown Function: ${token.name}'";
             throw TransformException(error, token.position);
         } else {
             val functionExecutionContext = FunctionExecuteContext(token.name, this, executionContext, args);
-            // note - that function calls could have internal statements - than will be executed on demand
-            // e.g. @.Pagination..() { } can execute an internal statement
+            // Statement extensions are now sync-only
             val result = function(functionExecutionContext) { _ ->
                 try {
-                    return@function this.statements.executeAsync(executionContext);
+                    return@function this.statements.execute(executionContext);
                 } catch (e: FunctionReturnCommand.FunctionReturnException) {
                     // function returned
                     CommandResult(e.returnValue);

@@ -49,7 +49,7 @@
 //                // { instruction: 'if' }
 //                val arg = annotation.arguments.first() as ObjectBuildCommand;
 //                // execute it so we get a nice ObjectNode out of it
-//                val params = arg.executeAsync(ExecutionContext(OperationContext(), null)).value as ObjectNode;
+//                val params = arg.execute(ExecutionContext(OperationContext(), null)).value as ObjectNode;
 //
 //                // { instruction: 'if' }
 //                tests.add(
@@ -116,7 +116,7 @@
 //        val issues = mutableListOf<LintIssue>()
 //
 //        init {
-//            context.registerExtensionMethod("Log.Info", builder::logInfo);
+//            context.registerSyncExtensionMethod("Log.Info", builder::logInfo);
 //            context.registerAnnotation("lint", builder::linterAnnotation)
 //        }
 //

@@ -23,8 +23,8 @@ object EncodingModifierExtensions {
     
     fun registerExtensions(context: IOperationContext) {
         // Encoding/Decoding modifiers
-        context.registerExtensionMethod("Modifier.encode.*", EncodingModifierExtensions::encode)
-        context.registerExtensionMethod("Modifier.decode.*", EncodingModifierExtensions::decode)
+        context.registerSyncExtensionMethod("Modifier.encode.*", EncodingModifierExtensions::encode)
+        context.registerSyncExtensionMethod("Modifier.decode.*", EncodingModifierExtensions::decode)
     }
     
     private fun encode(context: FunctionExecuteContext): Any? {

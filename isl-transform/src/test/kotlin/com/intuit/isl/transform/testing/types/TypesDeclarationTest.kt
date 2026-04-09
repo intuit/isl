@@ -40,7 +40,7 @@ class TypesDeclarationTest : YamlTransformTest("types") {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Api.Call", ::mockApiCall);
+        context.registerSyncExtensionMethod("Api.Call", ::mockApiCall);
         super.onRegisterExtensions(context)
     }
 

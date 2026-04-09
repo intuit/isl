@@ -17,19 +17,19 @@ class ConditionCommand(
     internal val branchCondition: IEvaluableConditionCommand get() = expression
     internal val trueBranch: IIslCommand get() = trueResult
     internal val falseBranch: IIslCommand? get() = falseResult
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
+    override fun execute(executionContext: ExecutionContext): CommandResult {
         executionContext.executionHook?.onBeforeExecute(this, executionContext)
-        if (expression.evaluateConditionAsync(executionContext)) {
+        if (expression.evaluateCondition(executionContext)) {
             hookBranchForCoverage(executionContext, trueResult)
-            val result = trueResult.executeAsync(executionContext)
+            val result = trueResult.execute(executionContext)
             return CommandResult(result.value, null, true);
         } else {
             if (falseResult == null) {
                 // there is no else branch! don't attempt to append the property at all!
-                return CommandResult(null, null, false);
+                return CommandResult.NULL_APPEND_FALSE
             } else {
                 hookBranchForCoverage(executionContext, falseResult)
-                val result = falseResult.executeAsync(executionContext)
+                val result = falseResult.execute(executionContext)
                 return CommandResult(result.value, null, true);
             }
         }
@@ -40,7 +40,7 @@ class ConditionCommand(
      * Record coverage for the chosen branch root. Skip modifier/condition commands that already invoke the hook
      * at the start of their own executeAsync so hits are not double-counted.
      */
-    private suspend fun hookBranchForCoverage(executionContext: ExecutionContext, branch: IIslCommand) {
+    private fun hookBranchForCoverage(executionContext: ExecutionContext, branch: IIslCommand) {
         val hook = executionContext.executionHook ?: return
         when (branch) {
             is ModifierValueCommand, is ConditionCommand, is GenericConditionalModifierCommand -> Unit

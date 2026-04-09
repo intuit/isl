@@ -3,6 +3,7 @@ package com.intuit.isl.commands
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.databind.node.ValueNode
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getVariableCanonical
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.parser.tokens.VariableSelectorValueToken
 import com.intuit.isl.utils.IIslReference
@@ -17,9 +18,10 @@ import java.time.Instant
 
 open class VariableSelectorValueCommand(token: VariableSelectorValueToken) : BaseCommand(token) {
     val variableName = token.variableName
+    protected val variableKey = variableName.lowercase()
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val variable = executionContext.operationContext.getVariable(variableName)
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val variable = executionContext.operationContext.getVariableCanonical(variableKey)
 
         return CommandResult(variable)
     }
@@ -50,8 +52,8 @@ class VariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) : 
         }
     }
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val variable = executionContext.operationContext.getVariable(variableName)
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val variable = executionContext.operationContext.getVariableCanonical(variableKey)
 
         if (variable != null) {
             val result = path.read<Any?>(variable, configuration)
@@ -88,8 +90,8 @@ class VariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) : 
  */
 class FastVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken, val pathParts: Array<String>) :
     VariableSelectorValueCommand(token) {
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        var variable = executionContext.operationContext.getVariable(variableName)
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        var variable = executionContext.operationContext.getVariableCanonical(variableKey)
 
         for (pathPart in pathParts) {
             variable = variable?.get(pathPart);
@@ -104,8 +106,8 @@ class FastVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken
 class FastSingleVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) :
     VariableSelectorValueCommand(token) {
     private val path = token.path;
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        var variable = executionContext.operationContext.getVariable(variableName)
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        var variable = executionContext.operationContext.getVariableCanonical(variableKey)
 
         variable = variable?.get(path);
 

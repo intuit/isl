@@ -19,8 +19,8 @@ import com.intuit.isl.test.TestFailException
  */
 object TestExtensions {
     fun registerExtensions(context: IOperationContext) {
-        context.registerExtensionMethod("Test.Exit", TestExtensions::exit)
-        context.registerExtensionMethod("Test.Fail", TestExtensions::fail)
+        context.registerSyncExtensionMethod("Test.Exit", TestExtensions::exit)
+        context.registerSyncExtensionMethod("Test.Fail", TestExtensions::fail)
     }
 
     private fun exit(context: FunctionExecuteContext): Nothing {

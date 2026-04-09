@@ -22,9 +22,9 @@ object CompressionModifierExtensions {
     
     fun registerExtensions(context: IOperationContext) {
         // Compression modifiers
-        context.registerExtensionMethod("Modifier.gzip", CompressionModifierExtensions::gzip)
-        context.registerExtensionMethod("Modifier.gunzip", CompressionModifierExtensions::gunzip)
-        context.registerExtensionMethod("Modifier.gunzipToByte", CompressionModifierExtensions::gunzipToByte)
+        context.registerSyncExtensionMethod("Modifier.gzip", CompressionModifierExtensions::gzip)
+        context.registerSyncExtensionMethod("Modifier.gunzip", CompressionModifierExtensions::gunzip)
+        context.registerSyncExtensionMethod("Modifier.gunzipToByte", CompressionModifierExtensions::gunzipToByte)
     }
     
     private fun gunzip(context: FunctionExecuteContext): Any? {

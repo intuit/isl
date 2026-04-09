@@ -7,6 +7,6 @@ import com.intuit.isl.runtime.Transformer
 
 suspend fun IOperationContext.run(command: IIslCommand, localContext: Any? = null): Any?{
     val context = ExecutionContext(this, localContext);
-    val result = command.executeAsync(context);
+    val result = command.execute(context);
     return result.value;
 }

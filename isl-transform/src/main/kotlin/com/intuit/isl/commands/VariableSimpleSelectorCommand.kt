@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.node.ArrayNode
 import com.fasterxml.jackson.databind.node.ObjectNode
 import com.intuit.isl.commands.builder.ICommandVisitor
 import com.intuit.isl.common.ExecutionContext
+import com.intuit.isl.common.getVariableCanonical
+import com.intuit.isl.common.setVariableCanonical
 import com.intuit.isl.parser.tokens.SimplePropertySelectorValueToken
 import com.intuit.isl.parser.tokens.SimpleVariableSelectorValueToken
 import com.intuit.isl.utils.JsonConvert
@@ -20,11 +22,13 @@ class VariableSimpleSelectorCommand(
 
     internal val indexCondition: IEvaluableConditionCommand? get() = expression
 
+    private val variableKey = token.name.lowercase()
+
     override val token: SimpleVariableSelectorValueToken
         get() = super.token as SimpleVariableSelectorValueToken;
 
     companion object {
-        suspend fun resolvePart(
+        fun resolvePart(
             variable: JsonNode?,
             executionContext: ExecutionContext,
             indexSelector: Int?,
@@ -41,19 +45,19 @@ class VariableSimpleSelectorCommand(
                         }
                     }
                     // out of bounds is null
-                    return CommandResult(null);
+                    return CommandResult.NULL
                 } else
                     if (conditionSelector != null) {
                         if (variable is ArrayNode) {
                             val result = variable.filter {
-                                executionContext.operationContext.setVariable("\$", JsonConvert.convert(it));
-                                return@filter conditionSelector.evaluateConditionAsync(executionContext);
+                                executionContext.operationContext.setVariableCanonical("\$", JsonConvert.convert(it));
+                                return@filter conditionSelector.evaluateCondition(executionContext);
                             }
 
                             return CommandResult(result);
                         }
                         // out of bounds is null
-                        return CommandResult(null);
+                        return CommandResult.NULL
                     }
             }
 
@@ -62,8 +66,8 @@ class VariableSimpleSelectorCommand(
     }
 
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val variable = executionContext.operationContext.getVariable(token.name);
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val variable = executionContext.operationContext.getVariableCanonical(variableKey);
 
         return resolvePart(variable, executionContext, token.indexSelector, expression);
     }
@@ -87,8 +91,8 @@ class VariablePropertySelectorCommand(
     override val token: SimplePropertySelectorValueToken
         get() = super.token as SimplePropertySelectorValueToken;
 
-    override suspend fun executeAsync(executionContext: ExecutionContext): CommandResult {
-        val variable = previousCommand.executeAsync(executionContext).value;
+    override fun execute(executionContext: ExecutionContext): CommandResult {
+        val variable = previousCommand.execute(executionContext).value;
 
         if (variable is ObjectNode) {
             // read the child property
@@ -97,7 +101,7 @@ class VariablePropertySelectorCommand(
             return VariableSimpleSelectorCommand.resolvePart(childProperty, executionContext, token.indexSelector, expression);
         }
 
-        return CommandResult(null);
+        return CommandResult.NULL
     }
 
     override fun <T> visit(visitor: ICommandVisitor<T>): T {

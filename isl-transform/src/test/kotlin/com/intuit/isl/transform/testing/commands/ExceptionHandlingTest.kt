@@ -96,6 +96,6 @@ class ExceptionHandlingTest : BaseTransformTest() {
     }
 
     override fun onRegisterExtensions(context: OperationContext) {
-        context.registerExtensionMethod("Error.Raise", ::errorRaise);
+        context.registerSyncExtensionMethod("Error.Raise", ::errorRaise);
     }
 }
