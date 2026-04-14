@@ -15,6 +15,8 @@ class ConstantObjectBuildCommand(
     private val prototypeTemplate: ObjectNode
 ) : BaseCommand(token) {
 
+    internal val prototypeTemplateForSerialization: ObjectNode get() = prototypeTemplate
+
     override fun execute(executionContext: ExecutionContext): CommandResult {
         return CommandResult(prototypeTemplate.deepCopy())
     }

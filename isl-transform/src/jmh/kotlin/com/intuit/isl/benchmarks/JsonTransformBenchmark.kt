@@ -4,8 +4,10 @@ import com.bazaarvoice.jolt.Chainr
 import com.bazaarvoice.jolt.JsonUtils
 import com.fasterxml.jackson.databind.JsonNode
 import com.intuit.isl.common.OperationContext
+import com.intuit.isl.runtime.FileInfo
 import com.intuit.isl.runtime.TransformCompiler
 import com.intuit.isl.runtime.ITransformer
+import com.intuit.isl.runtime.TransformPackageBuilder
 import com.intuit.isl.utils.JsonConvert
 import org.graalvm.polyglot.Context
 import org.graalvm.polyglot.Value
@@ -32,6 +34,10 @@ import java.util.concurrent.TimeUnit
  * All perform similar transformations on a Shopify order JSON.
  * Note: JOLT is more limited and cannot perform all the operations ISL can,
  * so this is a simplified comparison focusing on basic field mapping.
+ *
+ * **ISL pre-compiled (apples-to-apples):** ISL is also exercised via a **`.islc`** artifact loaded
+ * **once** in `@Setup` (`*FromPrecompiledArtifact` benchmarks). The timed body is **only**
+ * `runTransformSync`—same contract as JOLT/MVEL “pre-compiled” rows (no parse/decode in the hot path).
  * 
  * Memory profiling is enabled via gc.alloc to track memory allocations.
  */
@@ -54,8 +60,15 @@ open class JsonTransformBenchmark {
     private lateinit var pythonScript: String
     private lateinit var joltSpec: List<Any>
     private lateinit var islSimpleTransformer: ITransformer
+    /** Same script/module as [islSimpleTransformer], obtained via [TransformPackageBuilder] pre-compile round-trip in setup. */
+    private lateinit var islSimpleTransformerFromPrecompiledArtifact: ITransformer
     private lateinit var islComplexVerboseTransformer: ITransformer
     private lateinit var islComplexCleanTransformer: ITransformer
+    /** Same as [islComplexCleanTransformer], from `.islc` bytes built in setup. */
+    private lateinit var islComplexCleanTransformerFromPrecompiledArtifact: ITransformer
+    /** Offline `.islc` payloads (built in `@Setup` via [TransformPackageBuilder.preCompileToBytes]; not timed in full-cycle-from-artifact benchmarks). */
+    private lateinit var shopifyPrecompiledSimpleBytes: ByteArray
+    private lateinit var shopifyPrecompiledComplexCleanBytes: ByteArray
     private lateinit var joltChainr: Chainr
     private lateinit var mvelCompiled: Serializable
     private lateinit var pythonContext: Context
@@ -95,6 +108,16 @@ open class JsonTransformBenchmark {
         // Load and compile complex clean ISL script (full features with inline transformations)
         islComplexCleanScript = File(resourcesDir, "shopify-transform-complex.isl").readText()
         islComplexCleanTransformer = TransformCompiler().compileIsl("shopify-complex-clean", islComplexCleanScript)
+
+        shopifyPrecompiledSimpleBytes =
+            TransformPackageBuilder().preCompileToBytes(mutableListOf(FileInfo("shopify-simple", islSimpleScript)))
+        islSimpleTransformerFromPrecompiledArtifact =
+            TransformPackageBuilder.loadCompiled(shopifyPrecompiledSimpleBytes).getModule("shopify-simple")!!
+
+        shopifyPrecompiledComplexCleanBytes =
+            TransformPackageBuilder().preCompileToBytes(mutableListOf(FileInfo("shopify-complex-clean", islComplexCleanScript)))
+        islComplexCleanTransformerFromPrecompiledArtifact =
+            TransformPackageBuilder.loadCompiled(shopifyPrecompiledComplexCleanBytes).getModule("shopify-complex-clean")!!
         
         // Load and compile JOLT spec
         val joltSpecJson = File(resourcesDir, "shopify-transform.jolt").readText()
@@ -200,6 +223,27 @@ open class JsonTransformBenchmark {
     }
 
     /**
+     * Same workload as [islSimpleTransformation], but the `ITransformer` came from **`TransformPackageBuilder`**
+     * (`.islc` round-trip) in `@Setup`. Timed path = **execute only**—parity check vs source compile in setup.
+     */
+    @Benchmark
+    fun islSimpleTransformationFromPrecompiledArtifact(): JsonNode? {
+        val context = OperationContext()
+        context.setVariable("\$input", shopifyOrderNode)
+        return islSimpleTransformerFromPrecompiledArtifact.runTransformSync("run", context)
+    }
+
+    /**
+     * Same as [islComplexCleanTransformation], from a one-time **`.islc`** load in `@Setup`.
+     */
+    @Benchmark
+    fun islComplexCleanTransformationFromPrecompiledArtifact(): JsonNode? {
+        val context = OperationContext()
+        context.setVariable("\$input", shopifyOrderNode)
+        return islComplexCleanTransformerFromPrecompiledArtifact.runTransformSync("run", context)
+    }
+
+    /**
      * Benchmark: MVEL transformation (pre-compiled script)
      * 
      * Measures MVEL's performance with a pre-compiled expression.
@@ -267,6 +311,31 @@ open class JsonTransformBenchmark {
     }
 
     /**
+     * **ISL Simple — runtime “full cycle” from an offline `.islc` artifact:** each op **loads** bytes + **runs** transform.
+     * [TransformPackageBuilder.preCompileToBytes] runs **only in `@Setup`** (offline build / CI); the timed path has **no** source parse/compile.
+     */
+    @Benchmark
+    fun islSimpleFullCycleFromPrecompiledArtifact(): JsonNode? {
+        val pkg = TransformPackageBuilder.loadCompiled(shopifyPrecompiledSimpleBytes)
+        val transformer = pkg.getModule("shopify-simple")!!
+        val context = OperationContext()
+        context.setVariable("\$input", shopifyOrderNode)
+        return transformer.runTransformSync("run", context)
+    }
+
+    /**
+     * Same as [islSimpleFullCycleFromPrecompiledArtifact] for **ISL Complex (Clean)**.
+     */
+    @Benchmark
+    fun islComplexCleanFullCycleFromPrecompiledArtifact(): JsonNode? {
+        val pkg = TransformPackageBuilder.loadCompiled(shopifyPrecompiledComplexCleanBytes)
+        val transformer = pkg.getModule("shopify-complex-clean")!!
+        val context = OperationContext()
+        context.setVariable("\$input", shopifyOrderNode)
+        return transformer.runTransformSync("run", context)
+    }
+
+    /**
      * Benchmark: MVEL full cycle (parse + compile + execute)
      * 
      * Measures MVEL's performance including script parsing and compilation.
@@ -321,7 +390,7 @@ open class JsonTransformBenchmark {
         ctx.close()
         return result
     }
-    
+
     // ===== Simple transformation benchmarks (minimal overhead testing) =====
     
 //     /**

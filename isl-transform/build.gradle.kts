@@ -7,6 +7,7 @@ plugins {
     id("jacoco")
     id("org.gradle.test-retry") version "1.6.0"
     id("me.champeau.jmh") version "0.7.2"
+    id("com.google.protobuf") version "0.9.4"
 }
 
 // Publishing is configured globally for library modules
@@ -18,6 +19,7 @@ val jsonpathVersion: String = "2.9.0"
 val antlrVersion: String = "4.9.1"
 val jacocoVersion: String = "0.8.12"
 val jmhVersion: String = "1.37"
+val protobufVersion: String = "3.25.5"
 
 dependencies {
     // Kotlin
@@ -57,6 +59,8 @@ dependencies {
     
     implementation("org.slf4j:slf4j-api:2.0.17")
 
+    implementation("com.google.protobuf:protobuf-java:$protobufVersion")
+
     // Testing
     testImplementation("org.jetbrains.kotlin:kotlin-test-junit5:$kotlinVersion")
     testImplementation("org.junit.jupiter:junit-jupiter-api:5.12.1")
@@ -82,6 +86,12 @@ dependencies {
     jmh("org.graalvm.python:python-resources:24.1.1")
     jmh("org.graalvm.truffle:truffle-api:24.1.1")
     jmh("org.bouncycastle:bcprov-jdk18on:1.78.1")  // Required by Python
+}
+
+protobuf {
+    protoc {
+        artifact = "com.google.protobuf:protoc:$protobufVersion"
+    }
 }
 
 // Configure ANTLR
@@ -120,6 +130,7 @@ sourceSets {
 // Configure the Kotlin compilation to happen after ANTLR generation
 tasks.compileKotlin {
     dependsOn(tasks.generateGrammarSource)
+    dependsOn(tasks.generateProto)
 }
 
 tasks.compileJava {
@@ -238,10 +249,9 @@ artifacts {
 // }
 
 // Configure JMH
+// Iteration/fork counts come from @Warmup / @Measurement / @Fork on each benchmark class
+// (Gradle globals would override those annotations and e.g. re-run OutputComparisonBenchmark dozens of times.)
 jmh {
-    iterations.set(3)  // Number of measurement iterations
-    warmupIterations.set(2)  // Number of warmup iterations
-    fork.set(1)  // Number of forks
     benchmarkMode.set(listOf("avgt"))  // Average time
     timeUnit.set("ms")  // Milliseconds
     resultFormat.set("JSON")  // Output format

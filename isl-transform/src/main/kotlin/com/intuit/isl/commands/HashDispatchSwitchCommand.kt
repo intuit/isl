@@ -18,6 +18,8 @@ class HashDispatchSwitchCommand(
     val defaultArm: IIslCommand?
 ) : BaseCommand(token) {
 
+    internal val armsByStringKey: Map<String, IIslCommand> get() = armsByKey
+
     internal fun forEachArmCommand(action: (IIslCommand) -> Unit) {
         armsByKey.values.forEach(action)
         defaultArm?.let(action)

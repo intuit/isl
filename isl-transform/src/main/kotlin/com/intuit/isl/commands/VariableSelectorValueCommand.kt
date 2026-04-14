@@ -90,6 +90,8 @@ class VariableWithPathSelectorValueCommand(token: VariableSelectorValueToken) : 
  */
 class FastVariableWithPathSelectorValueCommand(token: VariableSelectorValueToken, val pathParts: Array<String>) :
     VariableSelectorValueCommand(token) {
+
+    internal val pathPartsForSerialization: Array<String> get() = pathParts
     override fun execute(executionContext: ExecutionContext): CommandResult {
         var variable = executionContext.operationContext.getVariableCanonical(variableKey)
 

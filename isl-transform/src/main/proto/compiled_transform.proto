@@ -1,0 +1,317 @@
+syntax = "proto3";
+
+package com.intuit.isl.serialization.proto;
+
+option java_multiple_files = true;
+option java_package = "com.intuit.isl.serialization.proto";
+option java_outer_classname = "CompiledTransformProtos";
+
+// Per-module SHA-256 of UTF-8 `.isl` source at pre-compile time (optional; empty = not recorded).
+message SourceModuleFingerprint {
+  string module_name = 1;
+  bytes sha256 = 2;
+}
+
+// File envelope: write as fixed header then length-delimited payload, or parse this message only.
+message IslCompiledFileEnvelope {
+  fixed32 magic = 1;
+  uint32 format_version = 2;
+  string isl_implementation_version = 3;
+  bytes payload = 4;
+  repeated SourceModuleFingerprint source_fingerprints = 5;
+}
+
+message CompiledTransformPackagePB {
+  repeated CompiledModulePB modules = 1;
+}
+
+message ImportDeclPB {
+  string alias = 1;
+  string source_module = 2;
+}
+
+message CompiledModulePB {
+  string name = 1;
+  repeated ImportDeclPB imports = 2;
+  repeated CompiledFunctionPB functions = 3;
+}
+
+message CompiledFunctionPB {
+  FunctionTypePB func_type = 1;
+  string name = 2;
+  repeated string param_names = 3;
+  CommandGraphPB body = 4;
+}
+
+enum FunctionTypePB {
+  FUNCTION = 0;
+  MODIFIER = 1;
+}
+
+message CommandGraphPB {
+  repeated CommandNodePB nodes = 1;
+  sint32 root_index = 2;
+}
+
+message CommandNodePB {
+  oneof node {
+    LiteralPB literal = 1;
+    FunctionCallPB function_call = 2;
+    HardwiredCallPB hardwired_call = 3;
+    StmtFunctionCallPB stmt_function_call = 4;
+    VariablePathPB variable_path = 5;
+    VariableSimplePB variable_simple = 6;
+    VariablePropertyPB variable_property = 7;
+    FunctionReturnPB function_return = 8;
+    StatementsPB statements = 9;
+    NoopPB noop = 10;
+    AnnotationPB annotation = 11;
+    ReturnHandlerPB return_handler = 12;
+    ObjectBuildPB object_build = 13;
+    AssignPropertyPB assign_property = 14;
+    AssignDynamicPropertyPB assign_dynamic_property = 15;
+    AssignVariablePB assign_variable = 16;
+    ConstantObjectBuildPB constant_object_build = 17;
+    SpreadPB spread = 18;
+    ConditionPB condition = 19;
+    SimpleConditionPB simple_condition = 20;
+    CoalescePB coalesce = 21;
+    InterpolatePB interpolate = 22;
+    MathExprPB math_expr = 23;
+    ArrayPB array_cmd = 24;
+    ForEachPB foreach = 25;
+    ParallelForEachPB parallel_foreach = 26;
+    WhilePB while_cmd = 27;
+    SwitchCasePB switch_case = 28;
+    SwitchBranchPB switch_branch = 29;
+    HashDispatchSwitchPB hash_switch = 30;
+    ConditionExprPB condition_expr = 31;
+    ModifierValuePB modifier_value = 32;
+    FilterModifierPB filter_modifier = 33;
+    MapModifierPB map_modifier = 34;
+    ReduceModifierPB reduce_modifier = 35;
+    FilterMapModifierPB filter_map_modifier = 36;
+    CondModifierPB cond_modifier = 37;
+    GenericCondModifierPB generic_cond_modifier = 38;
+    FunctionDeclStubPB function_decl_stub = 39;
+    FunctionReturnCmdPB function_return_cmd = 40;
+  }
+}
+
+message LiteralPB {
+  string json_value = 1;
+}
+
+message FunctionCallPB {
+  string name = 1;
+  repeated sint32 arg_indices = 2;
+}
+
+message HardwiredCallPB {
+  string target_key = 1;
+  repeated sint32 arg_indices = 2;
+}
+
+message StmtFunctionCallPB {
+  string name = 1;
+  repeated sint32 arg_indices = 2;
+  sint32 statements_index = 3;
+}
+
+message VariablePathPB {
+  string variable_name = 1;
+  string path = 2;
+  VariablePathKind path_kind = 3;
+  repeated string path_parts = 4;
+}
+
+enum VariablePathKind {
+  PATH_STANDARD = 0;
+  PATH_FAST_PARTS = 1;
+  PATH_FAST_SINGLE = 2;
+}
+
+message VariableSimplePB {
+  string name = 1;
+  sint32 index_selector = 2;
+  sint32 condition_index = 3;
+}
+
+message VariablePropertyPB {
+  string variable_name = 1;
+  string property = 2;
+  sint32 previous_index = 3;
+}
+
+message FunctionReturnPB {
+  sint32 value_index = 1;
+}
+
+message StatementsPB {
+  repeated sint32 command_indices = 1;
+}
+
+message NoopPB {}
+
+message AnnotationPB {
+  string annotation_name = 1;
+  repeated sint32 arg_indices = 2;
+  sint32 next_index = 3;
+  string owning_function_name = 4;
+}
+
+message ReturnHandlerPB {
+  sint32 inner_index = 1;
+}
+
+message ObjectBuildPB {
+  repeated sint32 command_indices = 1;
+}
+
+message AssignPropertyPB {
+  string property = 1;
+  bool dynamic = 2;
+  sint32 value_index = 3;
+}
+
+message AssignDynamicPropertyPB {
+  sint32 name_expr_index = 1;
+  sint32 value_index = 2;
+}
+
+message AssignVariablePB {
+  string variable_name = 1;
+  string top_property_name = 2;
+  sint32 value_index = 3;
+}
+
+message ConstantObjectBuildPB {
+  string json_value = 1;
+}
+
+message SpreadPB {
+  sint32 variable_index = 1;
+}
+
+message ConditionPB {
+  sint32 condition_index = 1;
+  sint32 then_index = 2;
+  sint32 else_index = 3;
+}
+
+message SimpleConditionPB {
+  sint32 left_index = 1;
+  string condition = 2;
+  sint32 right_index = 3;
+}
+
+message CoalescePB {
+  sint32 left_index = 1;
+  sint32 right_index = 2;
+}
+
+message InterpolatePB {
+  repeated sint32 part_indices = 1;
+}
+
+message MathExprPB {
+  sint32 left_index = 1;
+  sint32 right_index = 2;
+  string operator = 3;
+}
+
+message ArrayPB {
+  repeated sint32 element_indices = 1;
+  string array_name = 2;
+}
+
+message ForEachPB {
+  string iterator = 1;
+  sint32 source_index = 2;
+  sint32 statements_index = 3;
+}
+
+message ParallelForEachPB {
+  string iterator = 1;
+  sint32 source_index = 2;
+  sint32 options_index = 3;
+  sint32 statements_index = 4;
+}
+
+message WhilePB {
+  sint32 condition_index = 1;
+  sint32 max_loops_index = 2;
+  sint32 statements_index = 3;
+}
+
+message SwitchCasePB {
+  sint32 selector_index = 1;
+  repeated SwitchBranchPB branches = 2;
+}
+
+message SwitchBranchPB {
+  string condition = 1;
+  sint32 right_index = 2;
+  sint32 body_index = 3;
+}
+
+message HashDispatchSwitchPB {
+  sint32 selector_index = 1;
+  map<string, sint32> cases = 2;
+  sint32 default_index = 3;
+}
+
+message ConditionExprPB {
+  sint32 left_index = 1;
+  string condition = 2;
+  sint32 right_index = 3;
+}
+
+message ModifierValuePB {
+  string modifier_name = 1;
+  sint32 value_index = 2;
+  repeated sint32 arg_indices = 3;
+}
+
+message FilterModifierPB {
+  sint32 value_index = 1;
+  sint32 expression_index = 2;
+}
+
+message MapModifierPB {
+  sint32 previous_index = 1;
+  sint32 argument_index = 2;
+}
+
+message ReduceModifierPB {
+  sint32 source_index = 1;
+  sint32 argument_index = 2;
+}
+
+message FilterMapModifierPB {
+  sint32 source_index = 1;
+  sint32 predicate_index = 2;
+  sint32 map_argument_index = 3;
+}
+
+message CondModifierPB {
+  sint32 value_index = 1;
+  sint32 expression_index = 2;
+  sint32 true_modifier_index = 3;
+}
+
+message GenericCondModifierPB {
+  string name = 1;
+  sint32 value_index = 2;
+  sint32 expression_index = 3;
+  repeated sint32 argument_indices = 4;
+}
+
+// Placeholder if a nested function declaration appears in graph (should not for package compile)
+message FunctionDeclStubPB {
+  string name = 1;
+}
+
+message FunctionReturnCmdPB {
+  sint32 value_index = 1;
+}

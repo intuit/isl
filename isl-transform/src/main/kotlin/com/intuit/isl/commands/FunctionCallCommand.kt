@@ -80,9 +80,17 @@ open class FunctionCallCommand(token: FunctionCallToken, protected val arguments
 class HardwiredFunctionCallCommand(
     token: FunctionCallToken,
     arguments: List<IIslCommand>,
-    private val callback: ContextAwareExtensionMethod
+    initialCallback: ContextAwareExtensionMethod?,
 ) : FunctionCallCommand(token, arguments) {
+    /** Resolved after loading a pre-compiled package via [com.intuit.isl.runtime.TransformPackageBuilder.loadCompiled]. */
+    internal var linkedCallback: ContextAwareExtensionMethod? = initialCallback
+
     override fun execute(executionContext: ExecutionContext): CommandResult {
+        val callback = linkedCallback
+            ?: throw TransformException(
+                "Hardwired function '@.${token.name}' is not linked (pre-compiled load/link step missing).",
+                token.position
+            )
         val args = arguments.map { it.execute(executionContext).value }.toTypedArray();
         val functionContext = FunctionExecuteContext(token.name, this, executionContext, args);
         val result = safeRunFunction(token.name, this) {
