@@ -50,7 +50,10 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '18'
+        # vsce -> cheerio -> undici currently requires modern Node with global File.
+        # Node 18 can fail at runtime with:
+        # ReferenceError: File is not defined
+        node-version: '20.18.1'
         cache: 'npm'
         cache-dependency-path: plugin/package-lock.json
         

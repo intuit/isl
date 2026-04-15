@@ -142,3 +142,10 @@ modifier addressType( $type ) {
 - [Functions](./language/functions.md) are called using `@.` prefix with `@.This.` representing the current file.
     - `@.This.transformCustomer( $customer )`
 - [String Interpolation](./types/strings.md) can be used `to build complex strings with ${ $variables } or @.Function.Calls()`.
+
+## Command line and editors
+
+Once you are comfortable with the language basics, you can run ISL from the terminal or from an IDE:
+
+- **[Command Line Interface](./cli.md)** — install the `isl` tool, pipe JSON, use `-i` / `-o`, `-p` parameters, and run [`isl test`](./ext/unit-testing/index.md) in CI.
+- **[VS Code & Cursor Extension](./plugin.md)** — language services, formatter, test explorer, and debug integration for `.isl` and `*.tests.yaml` files.
