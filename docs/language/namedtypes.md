@@ -4,7 +4,7 @@ parent: Language Reference
 nav_order: 9
 ---
 
-Since ISL 2.4.0, Named Types Declaration is supported, in which a specific entity can be declared as having a type that the host understands.
+Since ISL 1.1.0, Named Types Declaration is supported, in which a specific entity can be declared as having a type that the host understands.
 
 For example for hosts can declare a variable as having a known types.
 Type declaration follows the format of `$variable: Type = value`
@@ -19,7 +19,7 @@ $account: mycompany.account = {
 }
 ```
 
-ISL will not directly validate the type however the host (e.g. ACE) can request the type to be validated before it's used in operations like Publishing to the EventBus.
+ISL will not directly validate the type however the host can request the type to be validated before it's used in operations like Publishing to the EventBus.
 
 The JSON object received back in the Kotlin on any operation will be of type `TypedObjectNode` that will carry the extra type information of `mycompany.account` to allow the host to validate the schema of the object.
 
