@@ -258,19 +258,41 @@ function buildDiffViewerHtml(testName: string, rawExpected: string, rawActual: s
   --line-h:        1.55;
 }
 
+html, body { height: 100%; margin: 0; overflow: hidden; }
 body {
   font-family: var(--vscode-font-family,-apple-system,'Segoe UI',sans-serif);
   background: var(--vscode-editor-background, #1e1e1e);
   color: var(--vscode-editor-foreground, #d4d4d4);
-  padding: 20px;
   font-size: 13px;
   line-height: 1.6;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Root: header + search + legend fixed; only comparison scrolls */
+.diff-root {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.diff-top {
+  flex-shrink: 0;
+  padding: 16px 20px 0;
+  border-bottom: 1px solid var(--c-border);
+  background: var(--vscode-editor-background, #1e1e1e);
+}
+.diff-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px 20px 20px;
 }
 
 /* ── page header ─────────────────────────────────────────────────────────── */
 .hdr {
-  margin-bottom: 14px;
-  padding-bottom: 14px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid var(--c-border);
   display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap;
 }
@@ -289,7 +311,7 @@ body {
 /* ── search bar ──────────────────────────────────────────────────────────── */
 .sbar {
   display: flex; align-items: center; gap: 6px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
   background: var(--vscode-input-background, #3c3c3c);
   border: 1px solid var(--vscode-input-border, #555);
   border-radius: 4px; padding: 4px 8px;
@@ -370,7 +392,7 @@ mark.sm-cur {
 
 /* ── legend ──────────────────────────────────────────────────────────────── */
 .legend {
-  display: flex; gap: 16px; margin-bottom: 14px;
+  display: flex; gap: 16px; margin-bottom: 12px;
   font-size: 11px; color: var(--vscode-descriptionForeground, #9d9d9d); flex-wrap: wrap;
 }
 .legend-item { display: flex; align-items: center; gap: 5px; }
@@ -380,43 +402,44 @@ mark.sm-cur {
 </style>
 </head>
 <body>
-
-<div class="hdr">
-  <span class="hdr-title">Result Comparison</span>
-  <span class="hdr-test">${escapeHtml(testName)}</span>
-  <span class="badge${changedRows === 0 ? ' ok' : ''}">${escapeHtml(badge)}</span>
-</div>
-
-<!-- search bar -->
-<div class="sbar" id="sbar">
-  <svg class="s-ico" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
-  <input id="si" type="text" autocomplete="off" spellcheck="false" placeholder="Search in diff…  (Ctrl+F)">
-  <span id="sc"></span>
-  <button id="sp" class="sbtn" title="Previous match (Shift+Enter)" disabled>↑</button>
-  <button id="sn" class="sbtn" title="Next match (Enter)" disabled>↓</button>
-  <button id="sx" class="sbtn" title="Clear search (Esc)">✕</button>
-</div>
-
-<div class="legend">
-  <span class="legend-item"><span class="legend-swatch swatch-exp"></span>Expected (differs)</span>
-  <span class="legend-item"><span class="legend-swatch swatch-act"></span>Actual (differs)</span>
-</div>
-
-<div class="card">
-  <div class="card-cols">
-    <div class="pane pane-exp">
-      <div class="pane-hdr hdr-exp">
-        <span class="pane-label">Expected</span>
-        <span class="pane-count">${expLines.length} line${expLines.length !== 1 ? 's' : ''}</span>
-      </div>
-      <pre class="lines" id="pane-left">${leftHtml}</pre>
+<div class="diff-root">
+  <div class="diff-top">
+    <div class="hdr">
+      <span class="hdr-title">Result Comparison</span>
+      <span class="hdr-test">${escapeHtml(testName)}</span>
+      <span class="badge${changedRows === 0 ? ' ok' : ''}">${escapeHtml(badge)}</span>
     </div>
-    <div class="pane pane-act">
-      <div class="pane-hdr hdr-act">
-        <span class="pane-label">Actual</span>
-        <span class="pane-count">${actLines.length} line${actLines.length !== 1 ? 's' : ''}</span>
+    <div class="sbar" id="sbar">
+      <svg class="s-ico" viewBox="0 0 16 16"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
+      <input id="si" type="text" autocomplete="off" spellcheck="false" placeholder="Search in diff…  (Ctrl+F, F3 / Shift+F3)">
+      <span id="sc"></span>
+      <button id="sp" class="sbtn" title="Previous match (Shift+F3)" disabled>↑</button>
+      <button id="sn" class="sbtn" title="Next match (F3)" disabled>↓</button>
+      <button id="sx" class="sbtn" title="Clear search (Esc)">✕</button>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-swatch swatch-exp"></span>Expected (differs)</span>
+      <span class="legend-item"><span class="legend-swatch swatch-act"></span>Actual (differs)</span>
+    </div>
+  </div>
+  <div class="diff-scroll" id="diff-scroll">
+    <div class="card">
+      <div class="card-cols">
+        <div class="pane pane-exp">
+          <div class="pane-hdr hdr-exp">
+            <span class="pane-label">Expected</span>
+            <span class="pane-count">${expLines.length} line${expLines.length !== 1 ? 's' : ''}</span>
+          </div>
+          <pre class="lines" id="pane-left">${leftHtml}</pre>
+        </div>
+        <div class="pane pane-act">
+          <div class="pane-hdr hdr-act">
+            <span class="pane-label">Actual</span>
+            <span class="pane-count">${actLines.length} line${actLines.length !== 1 ? 's' : ''}</span>
+          </div>
+          <pre class="lines" id="pane-right">${rightHtml}</pre>
+        </div>
       </div>
-      <pre class="lines" id="pane-right">${rightHtml}</pre>
     </div>
   </div>
 </div>
@@ -496,11 +519,15 @@ mark.sm-cur {
     });
   }
 
-  /** Scroll the active mark into view (works inside the scrollable <pre>). */
+  /** Scroll the active mark into view inside .diff-scroll. */
   function scrollToMark(mk) {
     if (!mk) return;
-    // The <pre class="lines"> parent has overflow-x: auto; page scrolls vertically.
-    mk.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    var scrollEl = document.getElementById('diff-scroll');
+    if (scrollEl) {
+      mk.scrollIntoView({ block: 'nearest', behavior: 'smooth', inline: 'nearest' });
+    } else {
+      mk.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
   }
 
   function setActive(idx) {
@@ -565,12 +592,18 @@ mark.sm-cur {
   btnN.addEventListener('click', function () { if (marks.length > 0) setActive(curIdx + 1); });
   btnX.addEventListener('click', function () { inp.value = ''; clearMarks(); updateUI(); inp.focus(); });
 
-  // Ctrl+F / Cmd+F focuses the search bar
+  // Global shortcuts: F3 (Find Next), Shift+F3 (Find Previous), Ctrl/Cmd+F (focus search)
   document.addEventListener('keydown', function (e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
       e.preventDefault();
       inp.focus();
       inp.select();
+      return;
+    }
+    if (e.key === 'F3') {
+      e.preventDefault();
+      if (marks.length === 0 && inp.value) runSearch(inp.value);
+      if (marks.length > 0) setActive(e.shiftKey ? curIdx - 1 : curIdx + 1);
     }
   });
 
