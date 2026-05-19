@@ -1,0 +1,12 @@
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.GeneratedMSBuildEditorConfig.editorconfig
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.AssemblyInfoInputs.cache
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.AssemblyInfo.cs
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.csproj.CoreCompileInputs.cache
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.sourcelink.json
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\bin\Debug\net8.0\Isl.deps.json
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\bin\Debug\net8.0\Isl.dll
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\bin\Debug\net8.0\Isl.pdb
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.dll
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\refint\Isl.dll
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\Isl.pdb
+C:\Projects\ISL\gh\isl\.claude\worktrees\agent-af30097914cf8955a\isl-csharp\Isl\obj\Debug\net8.0\ref\Isl.dll
