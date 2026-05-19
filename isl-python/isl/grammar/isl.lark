@@ -1,0 +1,209 @@
+// ISL Grammar for Lark
+// Uses Earley parser for flexibility
+
+start: spec
+
+spec: import_decl* type_decl* function_decl+
+    | statements
+
+import_decl: "import" ID "from" QUOTEDSTRING ";"
+
+type_decl: "type" ID ("as" type_definition | "from" QUOTEDSTRING) ";"
+
+annotation_param: declare_object | literal | array
+annotation_args: "(" (annotation_param ("," annotation_param)*)? ")"
+annotation: "@" ID annotation_args?
+
+function_decl: (annotation* "fun" | "modifier" "fun" | "cache"? "fun") ID function_args (":" type_definition)?
+    "{" function_statements "}"
+
+function_args: "(" (var_with_type ("," var_with_type)*)? ")"
+var_with_type: var_decl (":" type_definition)?
+
+return_call: "return" assignment_value
+
+function_statements: function_statement+
+function_statement: assign_var_prop ";"?
+    | assign_prop ";"?
+    | if_statement
+    | switch_statement
+    | for_each
+    | while_loop
+    | function_call ";"?
+    | return_call ";"?
+
+statements: statement+
+statement: assign_var_prop ";"?
+    | assign_prop ";"?
+    | if_statement
+    | switch_statement
+    | for_each
+    | while_loop
+    | function_call ";"?
+    | return_call ";"?
+
+// Relational operators
+relop: "==" -> eq
+    | "!=" -> neq
+    | "<=" -> lte
+    | ">=" -> gte
+    | ">" -> gt
+    | "<" -> lt
+    | "contains" -> contains
+    | "!contains" -> not_contains
+    | "startsWith" -> starts_with
+    | "!startsWith" -> not_starts_with
+    | "endsWith" -> ends_with
+    | "!endsWith" -> not_ends_with
+    | "in" -> in_op
+    | "!in" -> not_in
+    | "is" -> is_op
+    | "!is" -> not_is
+
+// Conditions
+if_statement: "if" condition statements ("else" statements)? "endif"
+inline_if: "if" condition assignment_value_item inline_else? "endif"?
+inline_else: "else" (assignment_value_item | declare_object)
+
+switch_statement: "switch" "(" rhs_val ")" switch_case* switch_else? "endswitch"
+switch_case: (relop? (var_selector | array | literal) | regex_string) "->" (function_call | statements | rhs_val | declare_object) ";"
+switch_else: "else" "->" (function_call | statements | rhs_val | declare_object) ";"
+
+condition: "(" condition_expr ")"
+simple_condition: "!" single=rhs_val -> negated_condition
+    | left=rhs_val relop right=rhs_val -> compare_condition
+    | left=rhs_val regex_relop regex_string -> regex_condition
+    | single=rhs_val -> single_condition
+
+regex_relop: "matches" -> matches | "!matches" -> not_matches
+
+condition_expr: condition_expr "and" condition_expr -> and_expr
+    | condition_expr "or" condition_expr -> or_expr
+    | "(" condition_expr ")" -> paren_expr
+    | simple_condition
+
+// Assignment
+assignment_value: assignment_value "??" assignment_value -> coalesce
+    | assignment_value_item
+
+assignment_value_item: (math | declare_object | inline_if | for_each | while_loop | literal | array | interpolate | function_call | switch_statement | var_selector) modifier*
+
+// Selectors
+var_cond_part: "[(" condition_expr ")]"
+var_index_part: "[" NUM "]"
+var_text_prop: "[" QUOTEDSTRING "]"
+
+assign_selector: short_id var_index_part?
+    (DOT (var_text_prop | short_id) var_index_part?)*
+
+assign_prop: (assign_selector | interpolate) (":" (type_name_decl "=")? | "=") assignment_value
+assign_var_prop: "$" assign_selector (":" (type_name_decl "=")? | "=") assignment_value
+
+var_selector_start: short_id? (var_index_part | var_cond_part)?
+var_selector_part: (var_text_prop | short_id) (var_index_part | var_cond_part)?
+var_selector: "$" var_selector_start (DOT var_selector_part)*
+
+assign_text_prop: QUOTEDSTRING ":" (type_name_decl "=")? assignment_value
+spread_selector: "..." (var_selector | function_call)
+
+declare_object_stmt: spread_selector
+    | assign_text_prop
+    | assign_prop
+    | assign_var_prop
+
+declare_object: "{" (declare_object_stmt (("," | ";") declare_object_stmt)* ","?)? "}"
+
+var_or_object: var_selector | declare_object
+
+for_each: ("parallel" var_or_object?)? "foreach" var_decl "in" rhs_val
+    statements? (declare_object | var_selector)?
+    "endfor"
+
+while_loop: "while" "(" condition_expr ("," options=declare_object)? ")"
+    (statements | declare_object | var_decl)
+    "endwhile"
+
+function_call: "@" DOT service=ID (DOT name=multi_ident)? arguments
+    ("{" function_statements "}")?
+
+rhs_val: rhs_id
+    | rhs_id ";"
+    | ";"
+rhs_id: right_side_value modifier*
+
+// Keywords allowed as identifiers
+keyword: "in" | "import" | "type" | "as" | "from" | "and" | "or" | "filter" | "return" | "map" | "matches"
+short_id: ID | keyword
+multi_ident: short_id (DOT short_id)?
+
+var_decl: "$" short_id
+
+// Type system
+type_definition: type_name_decl | object_type_def | array_type_def | enum_type_def
+object_type_def: "{" (obj_type_prop ("," obj_type_prop)* ","?)? "}"
+obj_type_prop: short_id ":" type_definition
+array_type_def: (ID | object_type_def)? "[" "]"
+enum_type_def: "[" literal ("," literal)* "]"
+type_name_decl: short_id (DOT short_id)* ("[" "]")?
+
+// Modifiers
+filter_mod: "filter" condition
+cond_mod: "if" condition multi_ident arguments?
+map_mod: "map" "(" arg_value ")"
+generic_cond_mod: multi_ident "(" (condition_expr ("," arg_value)*) ")"
+modifier: "|" (cond_mod | filter_mod | map_mod | generic_cond_mod | (multi_ident arguments?))
+
+var_with_mod: var_selector modifier*
+
+arg_value: arg_value "??" arg_value -> coalesce_arg
+    | arg_item
+arg_item: (math | declare_object | literal | array | interpolate | function_call | var_selector) modifier*
+
+arguments: "(" (arg_value ("," arg_value)*)? ")"
+
+right_side_value: literal | array | interpolate | function_call | var_selector
+
+array_arg: arg_value | spread_selector
+array: "[" (array_arg ("," array_arg)*)? "]"
+
+// Interpolated strings (backtick strings)
+expr_interp: "${" (var_with_mod | function_call | math) "}"
+math_interp: "{{" math_expr "}}"
+func_interp: "@." multi_ident arguments
+simple_interp_var: INTERP_VAR
+interp_text: INTERP_TEXT
+interpolate: BACKTICK (interp_text | simple_interp_var | expr_interp | math_interp | func_interp)* END_BACKTICK
+
+// Math
+math: "{{" math_expr "}}"
+math_expr: math_expr ("*" | "/") math_expr -> math_muldiv
+    | math_expr ("+" | "-") math_expr -> math_addsub
+    | "(" math_expr ")" -> math_paren
+    | math_val
+math_val: NUM -> math_num
+    | var_selector -> math_var
+    | function_call -> math_func
+
+// Literals
+literal: QUOTEDSTRING -> str_lit
+    | NUM -> num_lit
+    | BOOL -> bool_lit
+
+regex_string: "/" /[^\/]*/ "/"
+
+// Terminals
+BOOL: "false" | "true" | "null"
+NUM: /-?[0-9]+(\.[0-9]+)?/
+ID: /[a-zA-Z_][a-zA-Z0-9_]*/
+QUOTEDSTRING: /\"[^\"]*\"|\'[^\']*\'/
+DOT: "."
+COMMENT: /#[^\n]*/ | /\/\/[^\n]*/
+
+// Backtick string terminals — handled by special terminal rules
+BACKTICK: "`"
+END_BACKTICK: "`"
+INTERP_VAR: /\$[A-Za-z_][A-Za-z0-9_]*/
+INTERP_TEXT: /(?:[^`${}@]|\\.|\$(?![{A-Za-z_])|\$\.)+/
+
+%ignore /[ \t\r\n]+/
+%ignore COMMENT
