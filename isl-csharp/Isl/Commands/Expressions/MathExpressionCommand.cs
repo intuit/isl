@@ -59,7 +59,7 @@ public sealed class MathFuncCallCommand : MathExpressionCommand
 {
     private readonly IIslCommand _call;
     public MathFuncCallCommand(MathFuncCall source, IIslCommand call) : base(source) => _call = call;
-    public override double EvalDouble(IOperationContext ctx) => RuntimeHelpers.ToDouble(_call.Execute(ctx).Value);
+    public override double EvalDouble(IOperationContext ctx) => RuntimeHelpers.ToDouble(_call.EvaluateValue(ctx));
 }
 
 public sealed class MathParenCommand : MathExpressionCommand

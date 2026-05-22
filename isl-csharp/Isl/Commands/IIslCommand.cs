@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Isl.Ast;
 using Isl.Runtime;
 
@@ -16,6 +17,14 @@ public interface IIslCommand
     IIslCommand? Parent { get; set; }
 
     CommandResult Execute(IOperationContext ctx);
+
+    /// <summary>
+    /// Fast-path evaluation that skips the <see cref="CommandResult"/> envelope. Statements
+    /// that don't carry property-path / return semantics override this to return the
+    /// JsonNode directly, avoiding the 5-field struct copy on every hot Execute call.
+    /// Default implementation calls <see cref="Execute"/> and unwraps <c>.Value</c>.
+    /// </summary>
+    JsonNode? EvaluateValue(IOperationContext ctx);
 
     T Visit<T>(ICommandVisitor<T> visitor);
 }

@@ -34,11 +34,11 @@ public sealed class SimpleConditionCommand : ConditionCommand
     public override bool Evaluate(IOperationContext ctx)
     {
         if (_op == "truthy")
-            return RuntimeHelpers.IsTruthy(_left.Execute(ctx).Value);
+            return RuntimeHelpers.IsTruthy(_left.EvaluateValue(ctx));
 
-        var left = _left.Execute(ctx).Value;
+        var left = _left.EvaluateValue(ctx);
         if (_right == null) return RuntimeHelpers.IsTruthy(left);
-        var right = _right.Execute(ctx).Value;
+        var right = _right.EvaluateValue(ctx);
         return RuntimeHelpers.CompareValues(left, _op, right);
     }
 }
@@ -84,5 +84,5 @@ public sealed class NegatedConditionCommand : ConditionCommand
     }
 
     public override bool Evaluate(IOperationContext ctx) =>
-        !RuntimeHelpers.IsTruthy(_operand.Execute(ctx).Value);
+        !RuntimeHelpers.IsTruthy(_operand.EvaluateValue(ctx));
 }

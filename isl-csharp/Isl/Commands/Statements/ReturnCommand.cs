@@ -15,9 +15,6 @@ public sealed class ReturnCommand : BaseCommand
         _value = value;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
-    {
-        var val = _value.Execute(ctx).Value;
-        return CommandResult.Return(val);
-    }
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.Return(_value.EvaluateValue(ctx));
 }

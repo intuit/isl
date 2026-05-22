@@ -41,31 +41,26 @@ public sealed class FunctionCallCommand : BaseCommand
         _isDateNow = _service == "Date" && _method == "Now";
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
         if (_resolvedFnName != null && _functions.TryGetValue(_resolvedFnName, out var fn))
-        {
-            return CommandResult.FromValue(fn.InvokeWithCommands(ctx, _argCommands));
-        }
+            return fn.InvokeWithCommands(ctx, _argCommands);
 
         var ext = ctx.GetExtension(_extensionKey)
                   ?? (_extensionFallbackKey != null ? ctx.GetExtension(_extensionFallbackKey) : null);
         if (ext != null)
-        {
-            var args = EvalArgs(ctx);
-            return CommandResult.FromValue(ext(args));
-        }
+            return ext(EvalArgs(ctx));
 
         if (_isDateNow)
-            return CommandResult.FromValue(JsonValue.Create(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss")));
+            return JsonValue.Create(DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
 
         if (_isMathBuiltin)
-        {
-            var args = EvalArgs(ctx);
-            return CommandResult.FromValue(ApplyMathExtension(_method ?? "", args));
-        }
+            return ApplyMathExtension(_method ?? "", EvalArgs(ctx));
 
-        return CommandResult.Null;
+        return null;
     }
 
     private JsonNode?[] EvalArgs(IOperationContext ctx)
@@ -73,7 +68,7 @@ public sealed class FunctionCallCommand : BaseCommand
         if (_argCommands.Count == 0) return Array.Empty<JsonNode?>();
         var args = new JsonNode?[_argCommands.Count];
         for (int i = 0; i < _argCommands.Count; i++)
-            args[i] = _argCommands[i].Execute(ctx).Value;
+            args[i] = _argCommands[i].EvaluateValue(ctx);
         return args;
     }
 

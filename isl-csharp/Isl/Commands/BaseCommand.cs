@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Isl.Ast;
 using Isl.Runtime;
 
@@ -15,6 +16,9 @@ public abstract class BaseCommand : IIslCommand
     public IIslCommand? Parent { get; set; }
 
     public abstract CommandResult Execute(IOperationContext ctx);
+
+    /// <inheritdoc />
+    public virtual JsonNode? EvaluateValue(IOperationContext ctx) => Execute(ctx).Value;
 
     public virtual T Visit<T>(ICommandVisitor<T> visitor) => visitor.VisitDefault(this);
 }

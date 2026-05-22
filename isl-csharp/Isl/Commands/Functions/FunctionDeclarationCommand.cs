@@ -45,9 +45,8 @@ public sealed class FunctionDeclarationCommand : BaseCommand
         var childCtx = callerCtx.CreateChildScope();
         var paramCount = Parameters.Count;
         for (int i = 0; i < paramCount && i < argCommands.Count; i++)
-            childCtx.SetVariable(Parameters[i], argCommands[i].Execute(callerCtx).Value);
-        var result = _body.Execute(childCtx);
-        return result.Value;
+            childCtx.SetVariable(Parameters[i], argCommands[i].EvaluateValue(callerCtx));
+        return _body.EvaluateValue(childCtx);
     }
 
     public Func<FunctionExecuteContext, JsonNode?> GetRunner() =>

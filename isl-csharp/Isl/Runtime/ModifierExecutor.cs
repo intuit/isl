@@ -204,7 +204,7 @@ public static class ModifierExecutor
             var cloned = item?.DeepClone();
             scope.SetVariable("$", cloned);
             scope.SetVariable("it", cloned);
-            var mapped = projection.Execute(scope).Value;
+            var mapped = projection.EvaluateValue(scope);
             result.Add(mapped?.DeepClone());
         }
         return result;
@@ -253,7 +253,7 @@ public static class ModifierExecutor
             {
                 var itemScope = ctx.CreateChildScope();
                 itemScope.SetVariable("$", item?.DeepClone());
-                var keyVal = perItemKeyExpr.Execute(itemScope).Value;
+                var keyVal = perItemKeyExpr.EvaluateValue(itemScope);
                 if (keyVal == null || keyVal.ToJsonString() == "null") rawKey = "null";
                 else rawKey = RuntimeHelpers.JsonToString(keyVal);
             }

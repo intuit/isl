@@ -54,12 +54,11 @@ public class ModifierCommand : BaseCommand
 
     public IIslCommand Inner => _inner;
 
-    public override CommandResult Execute(IOperationContext ctx)
-    {
-        var val = _inner.Execute(ctx).Value;
-        var result = ApplyTo(val, ctx);
-        return CommandResult.FromValue(result);
-    }
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx) =>
+        ApplyTo(_inner.EvaluateValue(ctx), ctx);
 
     /// <summary>
     /// Runs the modifier transform against an externally-supplied value (used by
@@ -78,7 +77,7 @@ public class ModifierCommand : BaseCommand
         if (_argCommands.Count == 0) return Array.Empty<JsonNode?>();
         var args = new JsonNode?[_argCommands.Count];
         for (int i = 0; i < _argCommands.Count; i++)
-            args[i] = _argCommands[i].Execute(ctx).Value;
+            args[i] = _argCommands[i].EvaluateValue(ctx);
         return args;
     }
 }

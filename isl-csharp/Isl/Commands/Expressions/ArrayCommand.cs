@@ -16,11 +16,14 @@ public sealed class ArrayCommand : BaseCommand
         _elements = elements;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
         var arr = new JsonArray();
         for (int i = 0; i < _elements.Count; i++)
-            arr.Add(_elements[i].Execute(ctx).Value?.DeepClone());
-        return CommandResult.FromValue(arr);
+            arr.Add(_elements[i].EvaluateValue(ctx)?.DeepClone());
+        return arr;
     }
 }

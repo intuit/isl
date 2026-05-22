@@ -29,9 +29,12 @@ public sealed class ModifiedExpressionCommand : BaseCommand
         _sourceVarName = sourceVarName;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
-        var val = _value.Execute(ctx).Value;
+        var val = _value.EvaluateValue(ctx);
         string? sourceVarName = _sourceVarName;
 
         for (int i = 0; i < _modifiers.Count; i++)
@@ -60,6 +63,6 @@ public sealed class ModifiedExpressionCommand : BaseCommand
             }
             sourceVarName = null;
         }
-        return CommandResult.FromValue(val);
+        return val;
     }
 }

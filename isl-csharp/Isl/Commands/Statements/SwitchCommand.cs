@@ -39,12 +39,12 @@ public sealed class SwitchCommand : BaseCommand
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var subject = _subject.Execute(ctx).Value;
+        var subject = _subject.EvaluateValue(ctx);
 
         foreach (var c in _cases)
         {
             if (c.Pattern == null) continue;
-            var pattern = c.Pattern.Execute(ctx).Value;
+            var pattern = c.Pattern.EvaluateValue(ctx);
             var op = c.Operator;
 
             bool matches;
@@ -67,13 +67,13 @@ public sealed class SwitchCommand : BaseCommand
 
             if (matches)
             {
-                if (c.ResultExpr != null) return CommandResult.FromValue(c.ResultExpr.Execute(ctx).Value);
+                if (c.ResultExpr != null) return CommandResult.FromValue(c.ResultExpr.EvaluateValue(ctx));
                 if (c.Body != null) return c.Body.Execute(ctx);
                 return CommandResult.Null;
             }
         }
 
-        if (_elseResultExpr != null) return CommandResult.FromValue(_elseResultExpr.Execute(ctx).Value);
+        if (_elseResultExpr != null) return CommandResult.FromValue(_elseResultExpr.EvaluateValue(ctx));
         if (_elseBody != null) return _elseBody.Execute(ctx);
         return CommandResult.Null;
     }

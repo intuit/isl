@@ -32,7 +32,7 @@ public sealed class ForEachCommand : BaseCommand
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var sourceVal = _source.Execute(ctx).Value;
+        var sourceVal = _source.EvaluateValue(ctx);
         var arr = RuntimeHelpers.ToArrayList(sourceVal);
         var results = new JsonArray();
 
@@ -49,9 +49,9 @@ public sealed class ForEachCommand : BaseCommand
 
             JsonNode? produced;
             if (_bodyObject != null)
-                produced = _bodyObject.Execute(scope).Value;
+                produced = _bodyObject.EvaluateValue(scope);
             else if (_body != null)
-                produced = _body.Execute(scope).Value;
+                produced = _body.EvaluateValue(scope);
             else
                 produced = null;
 

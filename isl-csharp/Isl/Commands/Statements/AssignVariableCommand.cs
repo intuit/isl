@@ -32,7 +32,7 @@ public sealed class AssignVariableCommand : BaseCommand
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var val = _value.Execute(ctx).Value;
+        var val = _value.EvaluateValue(ctx);
         ctx.SetVariable(_name, val);
 
         if (_explicitTypeName != null)

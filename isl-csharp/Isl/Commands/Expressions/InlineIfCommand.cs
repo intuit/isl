@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using Isl.Ast;
 using Isl.Runtime;
 
@@ -21,12 +22,13 @@ public sealed class InlineIfCommand : BaseCommand
         _else = @else;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
         if (_condition.Evaluate(ctx))
-            return CommandResult.FromValue(_then.Execute(ctx).Value);
-        if (_else != null)
-            return CommandResult.FromValue(_else.Execute(ctx).Value);
-        return CommandResult.Null;
+            return _then.EvaluateValue(ctx);
+        return _else?.EvaluateValue(ctx);
     }
 }

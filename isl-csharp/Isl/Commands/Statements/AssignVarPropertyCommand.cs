@@ -23,7 +23,7 @@ public sealed class AssignVarPropertyCommand : BaseCommand
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var val = _value.Execute(ctx).Value;
+        var val = _value.EvaluateValue(ctx);
         var target = ctx.GetVariable(_varName);
         if (target is not JsonObject obj)
         {

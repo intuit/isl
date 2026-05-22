@@ -37,8 +37,9 @@ public sealed class HardwiredModifierCommand : ModifierCommand
         if (_ifCondition != null)
         {
             var condScope = ctx.CreateChildScope();
-            condScope.SetVariable("mval", val?.DeepClone());
-            condScope.SetVariable("$", val?.DeepClone());
+            var clonedVal = val?.DeepClone();
+            condScope.SetVariable("mval", clonedVal);
+            condScope.SetVariable("$", clonedVal);
             if (!_ifCondition.Evaluate(condScope))
                 return val;
         }
@@ -52,7 +53,7 @@ public sealed class HardwiredModifierCommand : ModifierCommand
         {
             args = new JsonNode?[_argCommandsArr.Length];
             for (int i = 0; i < _argCommandsArr.Length; i++)
-                args[i] = _argCommandsArr[i].Execute(ctx).Value;
+                args[i] = _argCommandsArr[i].EvaluateValue(ctx);
         }
 
         return _runner(val, args, ctx);

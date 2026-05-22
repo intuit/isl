@@ -11,7 +11,12 @@ namespace Isl.Commands.Statements;
 /// </summary>
 public sealed class StatementsBuildCommand : BaseCommand
 {
-    private readonly IReadOnlyList<IIslCommand> _statements;
+    private readonly IIslCommand[] _statements;
+    // Compile-time guarantee: this scope can never produce an output object — every statement
+    // is a return / variable-assign / function-call statement. Skip the JsonObject scaffolding
+    // entirely. This is the common shape of user-defined function bodies that just
+    // <c>return { ... }</c>.
+    private readonly bool _returnOrSideEffectOnly;
 
     /// <summary>
     /// True when the original statement list contains an <c>AssignProperty</c>.
@@ -26,24 +31,58 @@ public sealed class StatementsBuildCommand : BaseCommand
         bool hasAssignProperty)
         : base(source)
     {
-        _statements = statements;
+        _statements = statements is IIslCommand[] arr ? arr : statements.ToArray();
         HasAssignProperty = hasAssignProperty;
+        _returnOrSideEffectOnly = !hasAssignProperty && AllSimpleSideEffects(_statements);
+    }
+
+    /// <summary>
+    /// True when every statement is a plain <c>return</c>, variable assign, or
+    /// statement-form function call — none of which can contribute to an output object.
+    /// </summary>
+    private static bool AllSimpleSideEffects(IIslCommand[] stmts)
+    {
+        for (int i = 0; i < stmts.Length; i++)
+        {
+            var s = stmts[i];
+            if (s is not ReturnCommand
+                && s is not AssignVariableCommand
+                && s is not AssignVarPropertyCommand
+                && s is not FunctionCallStatementCommand)
+            {
+                return false;
+            }
+        }
+        return true;
     }
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var outputObject = new JsonObject();
+        var stmts = _statements;
+
+        if (_returnOrSideEffectOnly)
+        {
+            for (int i = 0; i < stmts.Length; i++)
+            {
+                var result = stmts[i].Execute(ctx);
+                if (result.IsReturn) return result;
+            }
+            return CommandResult.Null;
+        }
+
+        JsonObject? outputObject = null;
         bool hasOutput = false;
 
-        for (int i = 0; i < _statements.Count; i++)
+        for (int i = 0; i < stmts.Length; i++)
         {
-            var result = _statements[i].Execute(ctx);
+            var result = stmts[i].Execute(ctx);
 
             if (result.IsReturn)
                 return result;
 
             if (result.PropertyPath != null && result.Append)
             {
+                outputObject ??= new JsonObject();
                 RuntimeHelpers.SetNestedProperty(outputObject, result.PropertyPath, result.Value);
                 hasOutput = true;
                 continue;
@@ -51,6 +90,7 @@ public sealed class StatementsBuildCommand : BaseCommand
 
             if (result.Append && result.Value is JsonObject mergeObj)
             {
+                outputObject ??= new JsonObject();
                 RuntimeHelpers.MergeObjects(outputObject, mergeObj);
                 hasOutput = true;
             }

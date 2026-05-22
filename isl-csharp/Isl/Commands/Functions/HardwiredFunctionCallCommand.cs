@@ -27,9 +27,9 @@ public sealed class HardwiredFunctionCallCommand : BaseCommand
         _targetSlot = targetSlot;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
-    {
-        var target = _targetSlot[0];
-        return CommandResult.FromValue(target.InvokeWithCommands(ctx, _argCommands));
-    }
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx) =>
+        _targetSlot[0].InvokeWithCommands(ctx, _argCommands);
 }

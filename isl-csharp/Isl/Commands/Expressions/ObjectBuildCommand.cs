@@ -24,14 +24,19 @@ public sealed class ObjectBuildCommand : BaseCommand
 
         public override void Apply(JsonObject obj, IOperationContext ctx)
         {
-            var v = Value.Execute(ctx).Value;
+            var v = Value.EvaluateValue(ctx);
             if (v == null && HasOptionalElseInlineIf) return;
-            RuntimeHelpers.SetNestedProperty(obj, Path, v);
-            if (TypeName != null && Path.Count == 1 &&
-                obj.TryGetPropertyValue(Path[0], out var stored) && stored != null)
+
+            if (Path.Count == 1)
             {
-                ctx.SetNodeType(stored, TypeName);
+                var key = Path[0];
+                obj[key] = v?.DeepClone();
+                if (TypeName != null && obj.TryGetPropertyValue(key, out var stored) && stored != null)
+                    ctx.SetNodeType(stored, TypeName);
+                return;
             }
+
+            RuntimeHelpers.SetNestedProperty(obj, Path, v);
         }
     }
 
@@ -44,7 +49,7 @@ public sealed class ObjectBuildCommand : BaseCommand
 
         public override void Apply(JsonObject obj, IOperationContext ctx)
         {
-            var v = Value.Execute(ctx).Value;
+            var v = Value.EvaluateValue(ctx);
             if (v == null && HasOptionalElseInlineIf) return;
             obj[Key] = v?.DeepClone();
             if (TypeName != null && obj.TryGetPropertyValue(Key, out var stored) && stored != null)
@@ -57,7 +62,7 @@ public sealed class ObjectBuildCommand : BaseCommand
         public IIslCommand Source { get; init; } = default!;
         public override void Apply(JsonObject obj, IOperationContext ctx)
         {
-            var v = Source.Execute(ctx).Value;
+            var v = Source.EvaluateValue(ctx);
             if (v is JsonObject src)
                 foreach (var kv in src) obj[kv.Key] = kv.Value?.DeepClone();
         }
@@ -69,23 +74,27 @@ public sealed class ObjectBuildCommand : BaseCommand
         public IIslCommand Value { get; init; } = default!;
         public override void Apply(JsonObject obj, IOperationContext ctx)
         {
-            var v = Value.Execute(ctx).Value;
+            var v = Value.EvaluateValue(ctx);
             ctx.SetVariable(Name, v);
         }
     }
 
-    private readonly IReadOnlyList<Entry> _entries;
+    private readonly Entry[] _entries;
 
     public ObjectBuildCommand(ObjectExpr source, IReadOnlyList<Entry> entries) : base(source)
     {
-        _entries = entries;
+        _entries = entries is Entry[] arr ? arr : entries.ToArray();
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
         var obj = new JsonObject();
-        for (int i = 0; i < _entries.Count; i++)
-            _entries[i].Apply(obj, ctx);
-        return CommandResult.FromValue(obj);
+        var entries = _entries;
+        for (int i = 0; i < entries.Length; i++)
+            entries[i].Apply(obj, ctx);
+        return obj;
     }
 }

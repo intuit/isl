@@ -9,7 +9,9 @@ public sealed class NegatedExpressionCommand : BaseCommand
     private readonly IIslCommand _operand;
     public NegatedExpressionCommand(NegatedExpr source, IIslCommand operand) : base(source) => _operand = operand;
     public override CommandResult Execute(IOperationContext ctx) =>
-        CommandResult.FromValue(JsonValue.Create(!RuntimeHelpers.IsTruthy(_operand.Execute(ctx).Value)));
+        CommandResult.FromValue(EvaluateValue(ctx));
+    public override JsonNode? EvaluateValue(IOperationContext ctx) =>
+        JsonValue.Create(!RuntimeHelpers.IsTruthy(_operand.EvaluateValue(ctx)));
 }
 
 public sealed class RelationalExpressionCommand : BaseCommand
@@ -25,12 +27,11 @@ public sealed class RelationalExpressionCommand : BaseCommand
         _right = right;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
-    {
-        var l = _left.Execute(ctx).Value;
-        var r = _right.Execute(ctx).Value;
-        return CommandResult.FromValue(JsonValue.Create(RuntimeHelpers.CompareValues(l, _op, r)));
-    }
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx) =>
+        JsonValue.Create(RuntimeHelpers.CompareValues(_left.EvaluateValue(ctx), _op, _right.EvaluateValue(ctx)));
 }
 
 public sealed class MathExprWrapperCommand : BaseCommand
@@ -39,4 +40,6 @@ public sealed class MathExprWrapperCommand : BaseCommand
     public MathExprWrapperCommand(MathExprWrapper source, MathExpressionCommand inner) : base(source) => _inner = inner;
     public override CommandResult Execute(IOperationContext ctx) =>
         CommandResult.FromValue(JsonValue.Create(_inner.EvalDouble(ctx)));
+    public override JsonNode? EvaluateValue(IOperationContext ctx) =>
+        JsonValue.Create(_inner.EvalDouble(ctx));
 }

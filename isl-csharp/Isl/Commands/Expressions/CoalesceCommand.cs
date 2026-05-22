@@ -18,11 +18,14 @@ public sealed class CoalesceCommand : BaseCommand
         _right = right;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(EvaluateValue(ctx));
+
+    public override JsonNode? EvaluateValue(IOperationContext ctx)
     {
-        var left = _left.Execute(ctx).Value;
+        var left = _left.EvaluateValue(ctx);
         if (left != null && !(left is JsonValue lv && lv.TryGetValue<string>(out var s) && s == ""))
-            return CommandResult.FromValue(left);
-        return CommandResult.FromValue(_right.Execute(ctx).Value);
+            return left;
+        return _right.EvaluateValue(ctx);
     }
 }

@@ -24,7 +24,7 @@ public sealed class AssignPropertyCommand : BaseCommand
 
     public override CommandResult Execute(IOperationContext ctx)
     {
-        var val = _value.Execute(ctx).Value;
+        var val = _value.EvaluateValue(ctx);
         if (val == null && _hasOptionalElseInlineIf)
             return CommandResult.NullAppendFalse;
         return CommandResult.Property(_path, val);

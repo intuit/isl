@@ -34,6 +34,9 @@ public abstract class VariableSelectorCommand : BaseCommand
     public override CommandResult Execute(IOperationContext ctx) =>
         CommandResult.FromValue(ResolveValue(ctx));
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override JsonNode? EvaluateValue(IOperationContext ctx) => ResolveValue(ctx);
+
     /// <summary>
     /// Factory: pick the cheapest selector tier the part list allows.
     /// </summary>
@@ -45,12 +48,23 @@ public abstract class VariableSelectorCommand : BaseCommand
             return new VarOnlySelectorCommand(source);
 
         bool hasFilter = false;
+        bool allProperty = true;
         for (int i = 0; i < source.Parts.Count; i++)
         {
-            if (source.Parts[i] is ConditionFilterPart) { hasFilter = true; break; }
+            var p = source.Parts[i];
+            if (p is ConditionFilterPart) { hasFilter = true; break; }
+            if (p is not PropertyPart) allProperty = false;
         }
         if (!hasFilter)
+        {
+            // Fast path: $var.prop — single property hop, no array indexing
+            if (allProperty && source.Parts.Count == 1)
+                return new SinglePropertySelectorCommand(source);
+            // Fast path: $var.prop1.prop2 — two property hops, very common
+            if (allProperty && source.Parts.Count == 2)
+                return new TwoPropertySelectorCommand(source);
             return new SimplePathSelectorCommand(source);
+        }
 
         return new FilterPathSelectorCommand(source, filterCommands);
     }
@@ -70,7 +84,57 @@ public sealed class VarOnlySelectorCommand : VariableSelectorCommand
 }
 
 /// <summary>
-/// Tier 2: <c>$var.foo[3].bar</c> — only Property and Index parts. Pre-flattened into a
+/// Tier 2a: <c>$var.prop</c> — exactly one property hop. Avoids the parts-array loop.
+/// </summary>
+public sealed class SinglePropertySelectorCommand : VariableSelectorCommand
+{
+    private readonly string _key;
+
+    public override bool HasNoPath => false;
+
+    public SinglePropertySelectorCommand(VariableExpr source) : base(source)
+    {
+        _key = ((PropertyPart)source.Parts[0]).Name;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override JsonNode? ResolveValue(IOperationContext ctx)
+    {
+        var current = ctx.GetVariable(_name);
+        if (current is JsonObject jo && jo.TryGetPropertyValue(_key, out var v))
+            return v;
+        return null;
+    }
+}
+
+/// <summary>
+/// Tier 2b: <c>$var.prop1.prop2</c> — exactly two property hops.
+/// </summary>
+public sealed class TwoPropertySelectorCommand : VariableSelectorCommand
+{
+    private readonly string _key1;
+    private readonly string _key2;
+
+    public override bool HasNoPath => false;
+
+    public TwoPropertySelectorCommand(VariableExpr source) : base(source)
+    {
+        _key1 = ((PropertyPart)source.Parts[0]).Name;
+        _key2 = ((PropertyPart)source.Parts[1]).Name;
+    }
+
+    public override JsonNode? ResolveValue(IOperationContext ctx)
+    {
+        var current = ctx.GetVariable(_name);
+        if (current is JsonObject jo && jo.TryGetPropertyValue(_key1, out var v1)
+            && v1 is JsonObject jo2 && jo2.TryGetPropertyValue(_key2, out var v2))
+            return v2;
+        return null;
+    }
+}
+
+/// <summary>
+/// Tier 2c: <c>$var.foo[3].bar</c> — only Property and Index parts. Pre-flattened into a
 /// (kind, name, index) tuple array so the runtime loop has no part-type dispatch.
 /// </summary>
 public sealed class SimplePathSelectorCommand : VariableSelectorCommand
