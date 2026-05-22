@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "defaultMode": "dontAsk",
+    "allow": [
+      "PowerShell(Get-ChildItem *)",
+      "PowerShell(Select-String *)",
+      "PowerShell(Get-Content *)",
+      "PowerShell(Test-Path *)",
+      "PowerShell(Get-Date *)",
+      "PowerShell(dotnet *)",
+      "PowerShell(python *)",
+      "PowerShell(python3 *)",
+      "PowerShell(Set-Content *)",
+      "PowerShell(Out-File *)",
+      "PowerShell(New-Item *)",
+      "PowerShell(Remove-Item *)",
+      "PowerShell(Copy-Item *)",
+      "PowerShell(Move-Item *)",
+      "PowerShell(Invoke-Expression *)",
+      "PowerShell(Write-Output *)",
+      "PowerShell(*)",
+      "Bash(git worktree list)",
+      "Bash(git remote get-url *)",
+      "Bash(dotnet *)",
+      "Bash(python *)",
+      "Bash(python3 *)"
+    ]
+  }
+}

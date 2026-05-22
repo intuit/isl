@@ -10,8 +10,9 @@ namespace Isl.Tests;
 
 public class YamlFixtureTests
 {
-    private const string FixturesRoot =
-        @"C:\Projects\ISL\gh\isl\.claude\worktrees\sharp-clarke-bed444\isl-transform\src\test\resources\tests";
+    private static readonly string FixturesRoot = Path.GetFullPath(Path.Combine(
+        AppContext.BaseDirectory, "..", "..", "..", "..", "..",
+        "isl-transform", "src", "test", "resources", "tests"));
 
     public static IEnumerable<object[]> GetAllTestCases()
     {

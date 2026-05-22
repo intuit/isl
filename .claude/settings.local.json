@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\ctusnea\\\\.claude\\\\projects\\\\\" -Recurse -Filter \"*.jsonl\" | Sort-Object LastWriteTime -Descending | Select-Object -First 50 | Select-Object -ExpandProperty FullName)"
+    ]
+  }
+}
