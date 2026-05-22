@@ -124,3 +124,49 @@ test-extensions.isl
 
 # Plugin
 # *.vsix
+
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+.venv/
+venv/
+env/
+.env/
+.pytest_cache/
+*.egg-info/
+.eggs/
+*.egg
+# keep pyproject.toml, pytest.ini, conftest.py — those are source
+
+# ── .NET / C# ─────────────────────────────────────────────────────────────────
+[Bb]in/
+[Oo]bj/
+*.user
+*.suo
+.vs/
+*.nupkg
+*.snupkg
+[Tt]est[Rr]esults/
+[Pp]ublish/
+# Generated build artifacts
+*.dll
+*.pdb
+*.cache
+*.FileListAbsolute.txt
+*.AssemblyInfo.cs
+*.AssemblyInfoInputs.cache
+*.GeneratedMSBuildEditorConfig.editorconfig
+*.GlobalUsings.g.cs
+*.assets.cache
+*.AssemblyReference.cache
+*.CoreCompileInputs.cache
+*.genruntimeconfig.cache
+*.sourcelink.json
+project.assets.json
+project.nuget.cache
+*.nuget.dgspec.json
+*.nuget.g.props
+*.nuget.g.targets
