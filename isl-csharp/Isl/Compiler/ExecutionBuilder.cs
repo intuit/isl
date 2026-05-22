@@ -4,6 +4,7 @@ using Isl.Commands.Expressions;
 using Isl.Commands.Functions;
 using Isl.Commands.Modifiers;
 using Isl.Commands.Statements;
+using Isl.Modifiers;
 using Isl.Runtime;
 
 namespace Isl.Compiler;
@@ -14,15 +15,22 @@ namespace Isl.Compiler;
 /// </summary>
 public sealed class ExecutionBuilder
 {
+    private static readonly ModifierRegistry _defaultRegistry = ModifierRegistry.Default();
+
     private readonly string _moduleName;
     private readonly Ast.Module _module;
     private readonly Dictionary<string, FunctionDeclarationCommand> _compiledFunctions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FunctionDecl> _functionDecls = new(StringComparer.Ordinal);
+    private readonly ModifierRegistry _modifierRegistry;
 
     public ExecutionBuilder(string moduleName, Ast.Module module)
+        : this(moduleName, module, _defaultRegistry) { }
+
+    public ExecutionBuilder(string moduleName, Ast.Module module, ModifierRegistry modifierRegistry)
     {
         _moduleName = moduleName;
         _module = module;
+        _modifierRegistry = modifierRegistry;
         // Build the AST-level lookup eagerly so compile-time queries (return type, callee
         // existence) can answer regardless of compile order — including recursive references.
         foreach (var fn in module.Functions)
@@ -346,23 +354,50 @@ public sealed class ExecutionBuilder
 
         ConditionCommand? ifCondition = mod.Condition != null ? CompileCondition(mod.Condition) : null;
 
-        ConditionCommand? filterCondition = null;
-        if (mod.Name.Equals("filter", StringComparison.OrdinalIgnoreCase) && mod.Condition != null)
-            filterCondition = ifCondition;
+        var modName = mod.Name.ToLowerInvariant();
+        var modSub = mod.SubName?.ToLowerInvariant();
 
-        IIslCommand? mapProjection = null;
-        if (mod.Name.Equals("map", StringComparison.OrdinalIgnoreCase) && mod.Arguments.Count > 0)
-            mapProjection = args[0];
+        // filter / map / group.by need per-item evaluation: keep the dynamic ModifierCommand
+        // (with precompiled per-item commands) for these, since they don't fit the simple
+        // "(val, args, ctx) -> JsonNode?" signature the registry exposes.
+        if (modName == "filter" && mod.Condition != null)
+            return new ModifierCommand(mod, inner, args, ifCondition,
+                filterCondition: ifCondition, mapProjection: null, groupByKeyExpr: null);
 
-        IIslCommand? groupByKeyExpr = null;
-        if (mod.Name.Equals("group", StringComparison.OrdinalIgnoreCase)
-            && (mod.SubName?.Equals("by", StringComparison.OrdinalIgnoreCase) ?? false)
-            && mod.Arguments.Count > 0
-            && mod.Arguments[0] is VariableExpr)
+        if (modName == "map" && mod.Arguments.Count > 0)
+            return new ModifierCommand(mod, inner, args, ifCondition,
+                filterCondition: null, mapProjection: args[0], groupByKeyExpr: null);
+
+        if (modName == "group" && modSub == "by"
+            && mod.Arguments.Count > 0 && mod.Arguments[0] is VariableExpr)
         {
-            groupByKeyExpr = args[0];
+            return new ModifierCommand(mod, inner, args, ifCondition,
+                filterCondition: null, mapProjection: null, groupByKeyExpr: args[0]);
         }
 
-        return new ModifierCommand(mod, inner, args, ifCondition, filterCondition, mapProjection, groupByKeyExpr);
+        // typeof handled specially in ModifiedExpressionCommand for type-annotation lookup —
+        // route plain `typeof` through the dynamic command so that branch keeps owning it.
+        if (modName == "typeof" && modSub == null)
+            return new ModifierCommand(mod, inner, args, ifCondition,
+                filterCondition: null, mapProjection: null, groupByKeyExpr: null);
+
+        // Try compile-time hardwiring against the registry. Built-in conditional descriptors
+        // (test / do.*), wildcard extensions, and user `modifier.*` extensions still need the
+        // dynamic path so we only hardwire built-ins.
+        var fullName = modSub != null ? modName + "." + modSub : modName;
+        var runner = _modifierRegistry.Get(fullName);
+        if (runner != null && !IsConditionSelectorArg(mod))
+        {
+            return new HardwiredModifierCommand(mod, inner, args, ifCondition, runner);
+        }
+
+        return new ModifierCommand(mod, inner, args, ifCondition,
+            filterCondition: null, mapProjection: null, groupByKeyExpr: null);
+    }
+
+    private static bool IsConditionSelectorArg(ModifierNode mod)
+    {
+        if (mod.Arguments.Count == 0) return false;
+        return mod.Arguments[0] is NegatedExpr || mod.Arguments[0] is RelationalExpr;
     }
 }

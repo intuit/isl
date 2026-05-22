@@ -66,7 +66,7 @@ public class ModifierCommand : BaseCommand
     /// <see cref="ModifiedExpressionCommand"/> so the chain head can apply typeof
     /// type-annotation lookup before delegating).
     /// </summary>
-    public JsonNode? ApplyTo(JsonNode? val, IOperationContext ctx)
+    public virtual JsonNode? ApplyTo(JsonNode? val, IOperationContext ctx)
     {
         var args = EvalArgs(ctx);
         return ModifierExecutor.Apply(val, _modifier, args, ctx,
