@@ -21,6 +21,9 @@ public sealed class ExecutionBuilder
     private readonly Ast.Module _module;
     private readonly Dictionary<string, FunctionDeclarationCommand> _compiledFunctions = new(StringComparer.Ordinal);
     private readonly Dictionary<string, FunctionDecl> _functionDecls = new(StringComparer.Ordinal);
+    // Per-function-name slot holding the resolved FunctionDeclarationCommand. Populated after
+    // all function bodies compile, then read directly by HardwiredFunctionCallCommand.
+    private readonly Dictionary<string, FunctionDeclarationCommand[]> _functionSlots = new(StringComparer.Ordinal);
     private readonly ModifierRegistry _modifierRegistry;
 
     public ExecutionBuilder(string moduleName, Ast.Module module)
@@ -33,8 +36,13 @@ public sealed class ExecutionBuilder
         _modifierRegistry = modifierRegistry;
         // Build the AST-level lookup eagerly so compile-time queries (return type, callee
         // existence) can answer regardless of compile order — including recursive references.
+        // Pre-allocate one slot per function so HardwiredFunctionCallCommand can capture a
+        // stable reference at compile time and have it filled in later.
         foreach (var fn in module.Functions)
+        {
             _functionDecls[fn.Name] = fn;
+            _functionSlots[fn.Name] = new FunctionDeclarationCommand[1];
+        }
     }
 
     public TransformModule Build()
@@ -42,7 +50,11 @@ public sealed class ExecutionBuilder
         // Compile each function body. Calls inside reference the compiled-functions dict via
         // FunctionCallCommand and resolve at runtime, so forward / recursive references work.
         foreach (var fn in _module.Functions)
-            _compiledFunctions[fn.Name] = CompileFunction(fn);
+        {
+            var compiled = CompileFunction(fn);
+            _compiledFunctions[fn.Name] = compiled;
+            _functionSlots[fn.Name][0] = compiled;
+        }
 
         var flatStatements = _module.Statements.Count > 0
             ? CompileStatements(_module.Statements)
@@ -191,7 +203,7 @@ public sealed class ExecutionBuilder
                     if (ve.Parts[i] is ConditionFilterPart cfp)
                         filterCmds[i] = CompileCondition(cfp.Cond);
                 }
-                return new VariableSelectorCommand(ve, filterCmds);
+                return VariableSelectorCommand.Create(ve, filterCmds);
             }
             case ArrayExpr ae:
             {
@@ -310,7 +322,7 @@ public sealed class ExecutionBuilder
         _ => throw new InvalidOperationException($"Unhandled condition expr: {cond.GetType().Name}")
     };
 
-    private FunctionCallCommand CompileFunctionCall(FunctionCallExpr fc)
+    private IIslCommand CompileFunctionCall(FunctionCallExpr fc)
     {
         var args = new IIslCommand[fc.Arguments.Count];
         for (int i = 0; i < fc.Arguments.Count; i++) args[i] = CompileExpr(fc.Arguments[i]);
@@ -321,6 +333,16 @@ public sealed class ExecutionBuilder
             var funcName = fc.Method.Contains('.') ? fc.Method.Split('.')[0] : fc.Method;
             if (_functionDecls.ContainsKey(funcName)) resolvedFnName = funcName;
         }
+
+        // Hardwire when callee is a known user function and the call has no nested method
+        // notation (e.g. @.This.foo.bar(...) is currently flattened into method = "foo.bar"
+        // — keep the dynamic path for that to stay safe).
+        if (resolvedFnName != null && fc.Method == resolvedFnName)
+        {
+            var slot = _functionSlots[resolvedFnName];
+            return new HardwiredFunctionCallCommand(fc, args, slot);
+        }
+
         return new FunctionCallCommand(fc, args, resolvedFnName, _compiledFunctions);
     }
 

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using System.Text.Json.Nodes;
 using Isl.Ast;
 using Isl.Runtime;
@@ -6,39 +7,162 @@ namespace Isl.Commands.Expressions;
 
 /// <summary>
 /// Variable + path selector ($var, $var.prop, $var[0], $var.path[(cond)]).
-/// Mirrors the original <c>EvalVariable</c> behavior; Milestone 3 will split this into
-/// fast-path tiers (no path / simple dot path / complex path with filters).
+///
+/// Milestone 3 splits this into three specialized subclasses chosen at compile time:
+/// <list type="bullet">
+///   <item><see cref="VarOnlySelectorCommand"/> — bare $var, no path.</item>
+///   <item><see cref="SimplePathSelectorCommand"/> — only PropertyPart / IndexPart, no filters.</item>
+///   <item><see cref="FilterPathSelectorCommand"/> — has at least one ConditionFilterPart.</item>
+/// </list>
+/// All three expose <see cref="ResolveValue"/> for callers that want a JsonNode? without
+/// the <see cref="CommandResult"/> wrapping.
 /// </summary>
-public sealed class VariableSelectorCommand : BaseCommand
+public abstract class VariableSelectorCommand : BaseCommand
 {
-    private readonly string _name;
+    protected readonly string _name;
+
+    public string VariableName => _name;
+    public abstract bool HasNoPath { get; }
+
+    protected VariableSelectorCommand(VariableExpr source) : base(source)
+    {
+        _name = source.Name == "" ? "$" : source.Name;
+    }
+
+    public abstract JsonNode? ResolveValue(IOperationContext ctx);
+
+    public override CommandResult Execute(IOperationContext ctx) =>
+        CommandResult.FromValue(ResolveValue(ctx));
+
+    /// <summary>
+    /// Factory: pick the cheapest selector tier the part list allows.
+    /// </summary>
+    public static VariableSelectorCommand Create(
+        VariableExpr source,
+        IReadOnlyList<ConditionCommand?> filterCommands)
+    {
+        if (source.Parts.Count == 0)
+            return new VarOnlySelectorCommand(source);
+
+        bool hasFilter = false;
+        for (int i = 0; i < source.Parts.Count; i++)
+        {
+            if (source.Parts[i] is ConditionFilterPart) { hasFilter = true; break; }
+        }
+        if (!hasFilter)
+            return new SimplePathSelectorCommand(source);
+
+        return new FilterPathSelectorCommand(source, filterCommands);
+    }
+}
+
+/// <summary>
+/// Tier 1: <c>$var</c> with no path. Just a single dictionary lookup.
+/// </summary>
+public sealed class VarOnlySelectorCommand : VariableSelectorCommand
+{
+    public override bool HasNoPath => true;
+
+    public VarOnlySelectorCommand(VariableExpr source) : base(source) { }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public override JsonNode? ResolveValue(IOperationContext ctx) => ctx.GetVariable(_name);
+}
+
+/// <summary>
+/// Tier 2: <c>$var.foo[3].bar</c> — only Property and Index parts. Pre-flattened into a
+/// (kind, name, index) tuple array so the runtime loop has no part-type dispatch.
+/// </summary>
+public sealed class SimplePathSelectorCommand : VariableSelectorCommand
+{
+    private const byte KIND_PROP = 0;
+    private const byte KIND_INDEX = 1;
+
+    private readonly byte[] _kinds;
+    private readonly string?[] _names;
+    private readonly int[] _indexes;
+
+    public override bool HasNoPath => false;
+
+    public SimplePathSelectorCommand(VariableExpr source) : base(source)
+    {
+        var parts = source.Parts;
+        _kinds = new byte[parts.Count];
+        _names = new string?[parts.Count];
+        _indexes = new int[parts.Count];
+        for (int i = 0; i < parts.Count; i++)
+        {
+            switch (parts[i])
+            {
+                case PropertyPart pp:
+                    _kinds[i] = KIND_PROP;
+                    _names[i] = pp.Name;
+                    break;
+                case IndexPart ip:
+                    _kinds[i] = KIND_INDEX;
+                    _indexes[i] = ip.Index;
+                    break;
+                default:
+                    throw new InvalidOperationException("SimplePathSelectorCommand only supports PropertyPart/IndexPart");
+            }
+        }
+    }
+
+    public override JsonNode? ResolveValue(IOperationContext ctx)
+    {
+        var current = ctx.GetVariable(_name);
+        if (current == null) return null;
+
+        var kinds = _kinds;
+        var names = _names;
+        var indexes = _indexes;
+        for (int i = 0; i < kinds.Length; i++)
+        {
+            if (current == null) return null;
+            if (kinds[i] == KIND_PROP)
+            {
+                if (current is JsonObject jo)
+                {
+                    if (!jo.TryGetPropertyValue(names[i]!, out current)) return null;
+                }
+                else return null;
+            }
+            else
+            {
+                if (current is JsonArray ja)
+                {
+                    int idx = indexes[i];
+                    if ((uint)idx < (uint)ja.Count) current = ja[idx];
+                    else return null;
+                }
+                else return null;
+            }
+        }
+        return current;
+    }
+}
+
+/// <summary>
+/// Tier 3: full path selector with at least one <c>[(cond)]</c> filter. Runs the original
+/// general algorithm with per-item child-scope condition evaluation.
+/// </summary>
+public sealed class FilterPathSelectorCommand : VariableSelectorCommand
+{
     private readonly IReadOnlyList<VariablePart> _parts;
     private readonly IReadOnlyList<ConditionCommand?> _filterCommands;
 
-    public string VariableName => _name;
-    public bool HasNoPath => _parts.Count == 0;
+    public override bool HasNoPath => false;
 
-    public VariableSelectorCommand(
+    public FilterPathSelectorCommand(
         VariableExpr source,
-        IReadOnlyList<ConditionCommand?> filterCommands)
-        : base(source)
+        IReadOnlyList<ConditionCommand?> filterCommands) : base(source)
     {
-        _name = source.Name == "" ? "$" : source.Name;
         _parts = source.Parts;
         _filterCommands = filterCommands;
     }
 
-    public override CommandResult Execute(IOperationContext ctx)
+    public override JsonNode? ResolveValue(IOperationContext ctx)
     {
-        var value = ResolveValue(ctx);
-        return CommandResult.FromValue(value);
-    }
-
-    public JsonNode? ResolveValue(IOperationContext ctx)
-    {
-        if (_name == "$" && _parts.Count == 0)
-            return ctx.GetVariable("$");
-
         JsonNode? current = ctx.GetVariable(_name);
         if (current == null && _parts.Count == 0) return null;
 
