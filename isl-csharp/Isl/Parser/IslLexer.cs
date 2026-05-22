@@ -214,6 +214,8 @@ public class IslLexer
         if (Match("!="))   { Consume(2); return MakeToken(TokenType.NotEqual, "!=", sl, sc); }
         if (Match("<="))   { Consume(2); return MakeToken(TokenType.LessOrEqual, "<=", sl, sc); }
         if (Match(">="))   { Consume(2); return MakeToken(TokenType.GreaterOrEqual, ">=", sl, sc); }
+        if (Cur == '<')    { Advance(); return MakeToken(TokenType.Less, "<", sl, sc); }
+        if (Cur == '>')    { Advance(); return MakeToken(TokenType.Greater, ">", sl, sc); }
         if (Match("->"))   { Consume(2); return MakeToken(TokenType.Arrow, "->", sl, sc); }
         if (Match("[("))   { Consume(2); return MakeToken(TokenType.ArrayCondOpen, "[(", sl, sc); }
         if (Match(")]"))   { Consume(2); return MakeToken(TokenType.ArrayCondClose, ")]", sl, sc); }
@@ -387,7 +389,26 @@ public class IslLexer
         var sb = new System.Text.StringBuilder();
         while (_pos < _src.Length && Cur != delim)
         {
-            if (Cur == '\\') { Advance(); if (_pos < _src.Length) sb.Append(Advance()); }
+            if (Cur == '\\' && _pos + 1 < _src.Length)
+            {
+                char next = Peek();
+                // Standard escape sequences - convert to actual character
+                switch (next)
+                {
+                    case 'n': Advance(); Advance(); sb.Append('\n'); break;
+                    case 'r': Advance(); Advance(); sb.Append('\r'); break;
+                    case 't': Advance(); Advance(); sb.Append('\t'); break;
+                    case '\\': Advance(); Advance(); sb.Append('\\'); break;
+                    case '"': Advance(); Advance(); sb.Append('"'); break;
+                    case '\'': Advance(); Advance(); sb.Append('\''); break;
+                    case '0': Advance(); Advance(); sb.Append('\0'); break;
+                    default:
+                        // Unknown escape: preserve the backslash (e.g. \s, \d for regex patterns)
+                        sb.Append(Advance()); // '\'
+                        sb.Append(Advance()); // next char
+                        break;
+                }
+            }
             else sb.Append(Advance());
         }
         if (_pos < _src.Length) Advance(); // closing delimiter

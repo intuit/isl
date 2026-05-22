@@ -147,17 +147,18 @@ public class IslParser
         Expect(TokenType.CloseParen);
 
         // return type annotation
+        string? returnTypeName = null;
         if (Check(TokenType.Colon))
         {
             Advance();
-            SkipTypeDefinition();
+            returnTypeName = ReadTypeDefinition();
         }
 
         Expect(TokenType.CurlyOpen);
         var body = ParseStatements(endToken: TokenType.CurlyClose);
         Expect(TokenType.CurlyClose);
 
-        return new FunctionDecl(name, parameters, body);
+        return new FunctionDecl(name, parameters, body, returnTypeName);
     }
 
     private void SkipTypeDefinition()
@@ -194,6 +195,33 @@ public class IslParser
                 Advance(); Advance();
             }
         }
+    }
+
+    // Like SkipTypeDefinition but returns the type name string (for simple ID.ID types)
+    private string? ReadTypeDefinition()
+    {
+        if (Check(TokenType.CurlyOpen) || Check(TokenType.SquareOpen))
+        {
+            SkipTypeDefinition();
+            return null;
+        }
+        // ID (DOT ID)* ([])?
+        var sb = new System.Text.StringBuilder();
+        while ((Check(TokenType.Id) || IsKeywordId()) && !Check(TokenType.Eof))
+        {
+            sb.Append(Advance().Value);
+            if (Check(TokenType.Dot)) { sb.Append('.'); Advance(); } else break;
+        }
+        bool isArrayType = false;
+        if (Check(TokenType.SquareOpen) && Peek().Type == TokenType.SquareClose)
+        {
+            Advance(); Advance(); // []
+            isArrayType = true;
+        }
+        var typeName = sb.ToString().TrimEnd('.');
+        // Array types (e.g. string[], MyType[]) return null - let typeof use default "array"
+        if (isArrayType) return null;
+        return typeName.Length > 0 ? typeName : null;
     }
 
     private List<Statement> ParseStatements(TokenType endToken = TokenType.Eof)
@@ -336,6 +364,21 @@ public class IslParser
         Cur.Type is TokenType.In or TokenType.Import or TokenType.TypeDecl or TokenType.As
         or TokenType.From or TokenType.Filter or TokenType.Return or TokenType.Map or TokenType.Matches;
 
+    // Detect $var = value or $var.prop = value (side-effect assignment, not expression)
+    private bool IsDollarAssignment()
+    {
+        if (Cur.Type != TokenType.Dollar) return false;
+        // Scan forward past $name(.name)* to see if next is = or :
+        int i = _pos + 1;
+        if (i < _tokens.Count && (_tokens[i].Type == TokenType.Id || IsKeywordAt(i))) i++;
+        while (i < _tokens.Count && _tokens[i].Type == TokenType.Dot)
+        {
+            i++;
+            if (i < _tokens.Count && (_tokens[i].Type == TokenType.Id || IsKeywordAt(i))) i++;
+        }
+        return i < _tokens.Count && (_tokens[i].Type == TokenType.Equal || _tokens[i].Type == TokenType.Colon);
+    }
+
     private bool IsKeywordAt(int i)
     {
         if (i >= _tokens.Count) return false;
@@ -347,13 +390,14 @@ public class IslParser
     {
         Expect(TokenType.Dollar);
         var path = ParseAssignSelector();
+        string? typeName = null;
         // : type? = or just = or :
         if (Check(TokenType.Colon))
         {
             Advance();
             // might have type annotation before =
             if (!Check(TokenType.Equal) && !Check(TokenType.Dollar) && !IsValueStart())
-                SkipTypeDefinition();
+                typeName = ReadTypeDefinition();
             if (Check(TokenType.Equal)) Advance(); // = after type
         }
         else if (Check(TokenType.Equal))
@@ -368,8 +412,11 @@ public class IslParser
         var val = ParseAssignmentValue();
         Match(TokenType.Semicolon);
 
-        // Always assign to the first name in the path
-        return new AssignVariable(path[0], val);
+        // If path has multiple segments, it's a nested property assignment on a variable
+        if (path.Count > 1)
+            return new AssignVarProperty(path[0], path.Skip(1).ToList(), val);
+
+        return new AssignVariable(path[0], val, typeName);
     }
 
     private List<string> ParseAssignSelector()
@@ -457,7 +504,20 @@ public class IslParser
             or TokenType.Dollar or TokenType.SquareOpen or TokenType.CurlyOpen
             or TokenType.OpenBacktick or TokenType.CurlyOpenOpen or TokenType.At
             or TokenType.If or TokenType.Foreach or TokenType.While or TokenType.Switch
-            or TokenType.Parallel or TokenType.MathMinus;
+            or TokenType.Parallel or TokenType.MathMinus
+            || IsRegexLiteralStart();
+    }
+
+    // Detect /pattern/ regex literal: MathDiv Id|keyword MathDiv
+    private bool IsRegexLiteralStart()
+    {
+        if (Cur.Type != TokenType.MathDiv) return false;
+        // Peek to see if it looks like /pattern/
+        int i = _pos + 1;
+        // Scan forward for the closing /
+        while (i < _tokens.Count && _tokens[i].Type != TokenType.MathDiv && _tokens[i].Type != TokenType.Eof)
+            i++;
+        return i < _tokens.Count && _tokens[i].Type == TokenType.MathDiv && i > _pos + 1;
     }
 
     // assignmentValue: can chain with ??
@@ -531,7 +591,23 @@ public class IslParser
             return ParseFunctionCall();
         if (Check(TokenType.Dollar))
             return ParseVariableExpr();
+        // Regex literal: /pattern/
+        if (IsRegexLiteralStart())
+            return ParseRegexLiteral();
         throw new IslParseException($"Expected value at {Cur.Line}:{Cur.Col}, got {Cur.Type} '{Cur.Value}'");
+    }
+
+    private LiteralExpr ParseRegexLiteral()
+    {
+        Expect(TokenType.MathDiv); // consume opening /
+        var sb = new System.Text.StringBuilder();
+        while (!Check(TokenType.MathDiv) && !Check(TokenType.Eof))
+        {
+            sb.Append(Cur.Value);
+            Advance();
+        }
+        Expect(TokenType.MathDiv); // consume closing /
+        return new LiteralExpr("/" + sb.ToString() + "/");
     }
 
     private LiteralExpr ParseLiteral()
@@ -670,11 +746,12 @@ public class IslParser
                 // "text": value
                 var key = Advance().Value;
                 Expect(TokenType.Colon);
-                // skip type annotation
-                if (!IsValueStart()) SkipTypeDefinition();
+                // capture type annotation
+                string? textPropTypeName = null;
+                if (!IsValueStart()) textPropTypeName = ReadTypeDefinition();
                 if (Check(TokenType.Equal)) Advance();
                 var v = ParseAssignmentValue();
-                props.Add(new TextPropAssign(key, v));
+                props.Add(new TextPropAssign(key, v, textPropTypeName));
             }
             else if (Check(TokenType.Dollar))
             {
@@ -706,11 +783,12 @@ public class IslParser
                 {
                     if (Check(TokenType.Colon)) Advance();
                     else Advance();
-                    // skip type annotation
-                    if (!IsValueStart() && !Check(TokenType.Equal)) SkipTypeDefinition();
+                    // capture type annotation
+                    string? propTypeName = null;
+                    if (!IsValueStart() && !Check(TokenType.Equal)) propTypeName = ReadTypeDefinition();
                     if (Check(TokenType.Equal)) Advance();
                     var v = ParseAssignmentValue();
-                    props.Add(new PropAssign(path, v));
+                    props.Add(new PropAssign(path, v, propTypeName));
                 }
                 else
                 {
@@ -754,17 +832,8 @@ public class IslParser
             else if (Check(TokenType.EnterExprInterp))
             {
                 Advance(); // ${
-                Expr inner;
-                if (Check(TokenType.Dollar))
-                    inner = ParseVariableExpr();
-                else if (Check(TokenType.At))
-                    inner = ParseFunctionCall();
-                else if (Check(TokenType.CurlyOpenOpen))
-                    inner = ParseMathExprWrapper();
-                else
-                    inner = ParseVariableExpr();
-                // modifiers
-                inner = ParseModifiers(inner);
+                // Parse full assignment value (coalesce, if, function call, variable, etc.)
+                var inner = ParseAssignmentValue();
                 Expect(TokenType.CurlyClose);
                 parts.Add(new ExprPart(inner));
             }
@@ -772,8 +841,19 @@ public class IslParser
             {
                 Advance(); // {{
                 var math = ParseMathExpression();
-                Expect(TokenType.CurlyCloseClose);
-                parts.Add(new MathPart(math));
+                // Allow optional modifiers on math result: {{ expr | modifier }}
+                if (Check(TokenType.Pipe))
+                {
+                    var mathExprNode = new MathExprWrapper(math);
+                    var withMods = ParseModifiers(mathExprNode);
+                    Expect(TokenType.CurlyCloseClose);
+                    parts.Add(new ExprPart(withMods));
+                }
+                else
+                {
+                    Expect(TokenType.CurlyCloseClose);
+                    parts.Add(new MathPart(math));
+                }
             }
             else if (Check(TokenType.EnterFuncInterp))
             {
@@ -995,6 +1075,7 @@ public class IslParser
 
         var cases = new List<SwitchCase>();
         List<Statement>? elseBody = null;
+        Expr? elseResultExpr = null;
 
         while (!Check(TokenType.EndSwitch) && !Check(TokenType.Eof))
         {
@@ -1002,7 +1083,18 @@ public class IslParser
             {
                 Advance();
                 Expect(TokenType.Arrow);
-                elseBody = ParseStatements(TokenType.Semicolon);
+                if (Check(TokenType.CurlyOpen))
+                {
+                    elseResultExpr = ParseObjectExpr();
+                }
+                else if (IsValueStart() && !IsPropertyAssignment() && !IsDollarAssignment())
+                {
+                    elseResultExpr = ParseRhsExpr();
+                }
+                else
+                {
+                    elseBody = ParseStatements(TokenType.Semicolon);
+                }
                 while (Check(TokenType.Semicolon)) Advance();
                 break;
             }
@@ -1026,7 +1118,7 @@ public class IslParser
                 resultExpr = obj;
                 body = new List<Statement>();
             }
-            else if (IsValueStart() && !IsPropertyAssignment())
+            else if (IsValueStart() && !IsPropertyAssignment() && !IsDollarAssignment())
             {
                 resultExpr = ParseRhsExpr();
                 body = new List<Statement>();
@@ -1040,17 +1132,13 @@ public class IslParser
             cases.Add(new SwitchCase(pattern, op ?? "==", body, resultExpr));
         }
         Expect(TokenType.EndSwitch);
-        return new SwitchStatement(subject, cases, elseBody);
+        return new SwitchStatement(subject, cases, elseBody, elseResultExpr);
     }
 
     private Expr ParseSwitchExpr()
     {
         var stmt = ParseSwitchStatement();
-        return new InlineIfExpr(
-            new SimpleCondition(new LiteralExpr(true), "truthy", null),
-            new LiteralExpr(null),
-            null
-        ); // placeholder - switch as expr not commonly used in tests
+        return new SwitchExpr(stmt);
     }
 
     private ForEachExpr ParseForEachExpr()
@@ -1195,6 +1283,17 @@ public class IslParser
     private Expr ParseArgumentItem()
     {
         Expr val;
+        // Handle !expr (negation) — signals condition-selector in modifier args
+        if (Check(TokenType.Bang))
+        {
+            Advance();
+            Expr operand;
+            if (Check(TokenType.Dollar))
+                operand = ParseVariableExpr();
+            else
+                operand = ParseRightSideValue();
+            return new NegatedExpr(operand);
+        }
         if (Check(TokenType.CurlyOpenOpen))
             val = ParseMathExprWrapper();
         else if (Check(TokenType.CurlyOpen))
@@ -1211,6 +1310,16 @@ public class IslParser
             val = ParseVariableExpr();
         else
             val = ParseRightSideValue();
+
+        // Handle relational ops after value: $result > 10, $result == "x", etc.
+        var relop = GetRelop();
+        if (relop != null)
+        {
+            Advance();
+            var right = ParseRightSideValue();
+            return new RelationalExpr(val, relop, right);
+        }
+
         return ParseModifiers(val);
     }
 

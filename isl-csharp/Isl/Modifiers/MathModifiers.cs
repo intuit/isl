@@ -5,6 +5,15 @@ namespace Isl.Modifiers;
 
 public static class MathModifiers
 {
+    private static readonly HashSet<string> _knownNames = new(StringComparer.OrdinalIgnoreCase) { "precision" };
+
+    public static bool TryApply(JsonNode? val, string name, JsonNode?[] args, out JsonNode? result)
+    {
+        if (!_knownNames.Contains(name)) { result = null; return false; }
+        result = Apply(val, name, args);
+        return true;
+    }
+
     public static JsonNode? Apply(JsonNode? val, string name, JsonNode?[] args)
     {
         switch (name.ToLower())
