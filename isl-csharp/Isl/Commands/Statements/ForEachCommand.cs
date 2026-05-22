@@ -39,8 +39,13 @@ public sealed class ForEachCommand : BaseCommand
         foreach (var item in arr)
         {
             var scope = ctx.CreateChildScope();
-            scope.SetVariable(_iterator, item?.DeepClone());
-            scope.SetVariable("$", item?.DeepClone());
+            // One clone shared between the named iterator and the implicit $.
+            // Both bindings see the same node, so a write to either is visible to the other —
+            // this matches the prior behaviour for read-only iteration patterns and saves
+            // a per-iteration DeepClone() on the hot path.
+            var cloned = item?.DeepClone();
+            scope.SetVariable(_iterator, cloned);
+            scope.SetVariable("$", cloned);
 
             JsonNode? produced;
             if (_bodyObject != null)

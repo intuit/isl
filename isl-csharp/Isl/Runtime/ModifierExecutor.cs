@@ -40,8 +40,9 @@ public static class ModifierExecutor
         if (mod.Condition != null && ifCondition != null)
         {
             var condScope = ctx.CreateChildScope();
-            condScope.SetVariable("mval", val?.DeepClone());
-            condScope.SetVariable("$", val?.DeepClone());
+            var clonedVal = val?.DeepClone();
+            condScope.SetVariable("mval", clonedVal);
+            condScope.SetVariable("$", clonedVal);
             if (!ifCondition.Evaluate(condScope))
                 return val;
         }
@@ -183,8 +184,9 @@ public static class ModifierExecutor
         {
             var item = arr[i];
             var scope = ctx.CreateChildScope();
-            scope.SetVariable("$", item?.DeepClone());
-            scope.SetVariable("it", item?.DeepClone());
+            var cloned = item?.DeepClone();
+            scope.SetVariable("$", cloned);
+            scope.SetVariable("it", cloned);
             if (predicate.Evaluate(scope))
                 result.Add(item?.DeepClone());
         }
@@ -199,8 +201,9 @@ public static class ModifierExecutor
         {
             var item = arr[i];
             var scope = ctx.CreateChildScope();
-            scope.SetVariable("$", item?.DeepClone());
-            scope.SetVariable("it", item?.DeepClone());
+            var cloned = item?.DeepClone();
+            scope.SetVariable("$", cloned);
+            scope.SetVariable("it", cloned);
             var mapped = projection.Execute(scope).Value;
             result.Add(mapped?.DeepClone());
         }

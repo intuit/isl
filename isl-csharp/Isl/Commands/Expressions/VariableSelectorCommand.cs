@@ -191,8 +191,9 @@ public sealed class FilterPathSelectorCommand : VariableSelectorCommand
                         foreach (var item in jarr)
                         {
                             var sc = ctx.CreateChildScope();
-                            sc.SetVariable("$", item?.DeepClone());
-                            sc.SetVariable("it", item?.DeepClone());
+                            var cloned = item?.DeepClone();
+                            sc.SetVariable("$", cloned);
+                            sc.SetVariable("it", cloned);
                             if (filterCmd.Evaluate(sc))
                                 filtered.Add(item?.DeepClone());
                         }
