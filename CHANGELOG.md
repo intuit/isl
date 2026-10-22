@@ -1,3 +1,20 @@
+## [1.1.1-SNAPSHOT] - 2026-10-22
+
+- Merge branch 'main' of https://github.com/intuit/isl (56ffd79)
+- chore: update .gitignore for Python and C# and remove tracked build artifacts (a94b831)
+- perf: run Java/C#/Python benchmarks and update benchmark reports (f1ec5f7)
+- docs: add Python port feasibility analysis, architecture guide, and benchmark report (d4838ce)
+- feat(csharp): complete C# ISL port - 341/341 fixture tests passing (1783ae3)
+- feat: add Python port of ISL interpreter (d2532cc)
+- docs: add Python port feasibility analysis and architecture guide (1f2437f)
+- docs: add three-runtime ISL benchmark report (Java / Python / C#) (46d822b)
+- feat(csharp): complete C# ISL port - 341/341 fixture tests passing (77110dd)
+- feat: add Python port of ISL interpreter (af5b2d8)
+- feat: add C# port of ISL interpreter (ab6b5a9)
+- chore: update CHANGELOG for v1.1.1-SNAPSHOT (f063ee0)
+- improved plugin docs (3622e38)
+- chore: update CHANGELOG for v1.2.0 (2985cd2)
+
 ## [1.1.1-SNAPSHOT] - 2026-04-15
 
 - improved plugin docs (3622e38)
