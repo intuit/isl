@@ -1,6 +1,6 @@
 ---
 title: ISL Guide for AI
-nav_order: 5
+nav_order: 6
 ---
 
 This is a condensed guide to help AI tools learn ISL.

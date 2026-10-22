@@ -1,3 +1,8 @@
+## [1.1.1-SNAPSHOT] - 2026-04-15
+
+- improved plugin docs (3622e38)
+- chore: update CHANGELOG for v1.2.0 (2985cd2)
+
 ## [1.2.0] - 2026-04-09
 
 - chore: update CHANGELOG for v1.1.1-SNAPSHOT (931e620)

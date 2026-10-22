@@ -26,6 +26,18 @@ ISL is a [WYSIWYG](https://en.wikipedia.org/wiki/WYSIWYG) scripting language des
 
 ⏩ Checkout the [QuickStart Guide](quickstart.md) for how to use ISL in 2 minutes.
 
+## Command line
+
+The **`isl`** CLI runs transformations, validates scripts, executes tests, and prints version information without embedding the runtime in your own JVM yet. Repository wrapper scripts (`isl.sh`, `isl.bat`) build or invoke the shadow JAR for you.
+
+See the [Command Line Interface](./cli.md) guide for installation, `transform` / `validate` / `test` / `info`, parameters, stdin/stdout pipelines, and CI examples.
+
+## VS Code and Cursor
+
+The **ISL Language Support** extension adds syntax highlighting, IntelliSense, validation, formatting, test discovery, run/debug CodeLens, and YAML test support. It bundles the same CLI and a debug adapter used by the command line.
+
+See [VS Code & Cursor Extension](./plugin.md) for features, configuration, screenshots, and links to the `plugin/` package in this repository.
+
 ▶️ Try ISL [In the Playground](https://isl-playground.up.railway.app/).
 
 ‼️ Checkout the [Best Practices](best-practices.md) to understand how to run ISL efficiently.

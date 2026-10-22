@@ -23,6 +23,8 @@ docs:
         url: /java.start
       - title: "Command Line Interface"
         url: /cli
+      - title: "VS Code & Cursor Extension"
+        url: /plugin
       - title: "Teach your AI Tool ISL"
         url: /ai
         

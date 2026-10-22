@@ -199,6 +199,8 @@ Now that you've got the basics, explore more features:
 5. **[Math Operations](./language/math.md)** - Math expressions and functions
 6. **[Best Practices](./dev/best-practices.md)** - Performance optimization and patterns
 7. **[Examples](./examples/index.md)** - Real-world transformation examples
+8. **[Command Line Interface](./cli.md)** - Run and test scripts from the terminal (`isl transform`, `isl test`, …)
+9. **[VS Code & Cursor Extension](./plugin.md)** - Editor tooling, tests, and debugging for `.isl` and YAML suites
 
 ## 🚀 What Can ISL Do?
 

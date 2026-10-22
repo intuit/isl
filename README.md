@@ -13,6 +13,10 @@ Operating within a JVM-based runtime container, ISL provides a ready-to-deploy e
 
 ⏩ **[Checkout the Overview](https://intuit.github.io/isl/overview/) for examples and the basics of the ISL**
 
+**[Command Line Interface](https://intuit.github.io/isl/cli/)** — run `isl transform`, `isl validate`, `isl test`, and `isl info` with JSON/YAML I/O and parameters.
+
+**[VS Code & Cursor extension](https://intuit.github.io/isl/plugin/)** — syntax highlighting, IntelliSense, validation, formatting, tests, debugging; see the site for features and screenshots.
+
 ✅ ISL has a permissive [![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://opensource.org/licenses/Apache-2.0)
 
 
@@ -130,10 +134,24 @@ registering a modifier with `Modifier.Trim` will override the default `|trim` mo
 **Note:** Parameters to modifiers are supported. The first parameter you receive in the list of parameters
 is always the left-hand-side of the modifier, then all the other passed in parameters.
 
-## Command Line
-ISL-CMD is the command line version of ISL that can validate or transform scripts from the command line.
+## Command line
 
-[Read complete documentation](https://intuit.github.io/isl/cli).
+**ISL CLI** (`isl-cmd`) is the standalone command-line runner for the same language and runtime used inside JVM services. Typical workflows:
+
+| Command | Purpose |
+|---------|---------|
+| `isl transform` | Run a script (default entry `run`); optional `-i` / `-o`, `-v` variables file, `-p` key=value parameters, `-f` output format |
+| `isl validate` | Check compile-time syntax and imports |
+| `isl test` | Discover and run `.isl` tests and `*.tests.yaml` suites |
+| `isl info` | Print ISL and JVM environment details |
+
+From a clone of this repo, use **`isl.sh`** (Linux/macOS) or **`isl.bat`** (Windows) in the repository root to build or invoke the shadow JAR. For Gradle tasks, fat JAR output path, stdin pipelines, and CI snippets, read the full **[CLI documentation](https://intuit.github.io/isl/cli/)** and [`isl-cmd/README.md`](./isl-cmd/README.md).
+
+## VS Code and Cursor
+
+The **ISL Language Support** extension (sources under [`plugin/`](./plugin/)) provides editor integration: completion, hovers, diagnostics, format-on-save, CodeLens run/test/debug, Test Explorer for ISL and YAML suites, and an embedded CLI plus debug adapter. Install from the marketplace or a `.vsix`, configure `isl.execution.*` if needed, and open any `.isl` file.
+
+**[Extension guide on the docs site](https://intuit.github.io/isl/plugin/)** — features, settings table, screenshots, and contributor notes for adding more figures.
 
 
 ## How to use the ISL in your own project:
